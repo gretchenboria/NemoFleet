@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.pdf
+!docs/NemoFleet-Architecture.pdf
 
 # Python
 __pycache__/

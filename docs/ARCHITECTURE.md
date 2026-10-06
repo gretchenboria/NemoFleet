@@ -1,5 +1,7 @@
 # NemoFleet Architecture
 
+📄 **Print-ready version:** [NemoFleet-Architecture.pdf](NemoFleet-Architecture.pdf)
+
 NemoFleet splits robot-fleet cognition into two speeds, the way people do:
 
 - **System 1 (reflex):** a small, fast model on each robot handles routine events in under a second.
