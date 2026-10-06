@@ -8,6 +8,8 @@ System 1 / System 2 cognition for robot fleets, built for the Nebius x NVIDIA Gl
 - **Perception:** Cosmos Reason interprets camera frames.
 - **Red-team at scale:** Nebius Serverless Jobs run thousands of adversarial scenarios to map the cost / latency / success frontier of escalation thresholds.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the system map, escalation sequence, and module layout.
+
 ## Setup
 
 ```bash
