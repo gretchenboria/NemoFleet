@@ -26,6 +26,16 @@ cd docs/video && npm install && cd ../..
 node tests/qa.cjs && npx wrangler pages deploy site/dist --project-name nemofleet
 ```
 
+## Memory on Cloudflare
+
+| Store | Product | Holds |
+|---|---|---|
+| `nemofleet-memory` | D1 | Precedents with provenance, hops and expiry; runs; call index; perception results; Night Shift stages ([schema](cloudflare/migrations/0001_init.sql)) |
+| `nemofleet-runs` | R2 | Call bodies (`calls.jsonl`), run summaries, raw Cosmos output, Night Shift artifacts |
+| `NEMOFLEET_TAGS` | KV | Fading hazard tags, using KV expiry as the TTL |
+
+Bindings are in [`cloudflare/wrangler.jsonc`](cloudflare/wrangler.jsonc). Apply schema changes with `npx wrangler d1 migrations apply nemofleet-memory --remote -c cloudflare/wrangler.jsonc`.
+
 ## Setup
 
 ```bash
