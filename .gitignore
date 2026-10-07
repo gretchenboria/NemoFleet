@@ -23,5 +23,5 @@ venv/
 .DS_Store
 
 # Video build artifacts
-node_modules/
+node_modules
 docs/video/build/

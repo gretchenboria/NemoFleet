@@ -115,7 +115,7 @@ const scenes = {
     out += txt(1640, 480, 'Ultra calls', { size: 28, fill: C.mute, anchor: 'middle' });
     out += txt(1640, 556, String(calls), { size: 64, weight: 800, fill: C.purple, anchor: 'middle' });
     out += rect(80, 420, 400, 170, { fill: C.soft });
-    out += txt(280, 480, 'GPU spend', { size: 28, fill: C.mute, anchor: 'middle' });
+    out += txt(280, 480, 'Ultra time on repeats', { size: 28, fill: C.mute, anchor: 'middle' });
     out += rect(120, 515, 320, 36, { rx: 10, fill: '#fff' });
     out += rect(120, 515, Math.min(320, calls * 4.5), 36, { rx: 10, fill: C.hot, stroke: C.hot });
     return out;
@@ -357,6 +357,93 @@ const scenes = {
     out += txt(400, 800, 'always escalates to Ultra, whatever the peers say', { size: 32, fill: '#7f1d1d', op: s });
     out += arrow(1280, 760, 1480, 760, { color: C.hot, sw: 7, head: 22, op: s });
     out += box(1500, 690, 240, 140, 'Ultra', 'always', { stroke: C.purple, fill: '#f5f3ff', op: s, size: 34 });
+    return out;
+  },
+
+  warmcore(u, D, S) {
+    let out = header('The warm core', 'Where Nebius compute goes');
+    const cx = 960, cy = 560, rx = 570, ry = 270;
+    out += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${C.line}" stroke-width="5"/>`;
+    for (let k = 0; k < 4; k++) {
+      const a = (k * 90 + 45) * Math.PI / 180, x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a);
+      const tx = -rx * Math.sin(a), ty = ry * Math.cos(a), n = Math.hypot(tx, ty);
+      out += arrow(x - tx / n * 20, y - ty / n * 20, x + tx / n * 20, y + ty / n * 20, { color: '#94a3b8', sw: 5, head: 20 });
+    }
+    for (let k = 0; k < 3; k++) {
+      const a = (u * 40 + k * 120) * Math.PI / 180 - Math.PI / 2;
+      out += `<circle cx="${cx + rx * Math.cos(a)}" cy="${cy + ry * Math.sin(a)}" r="13" fill="${C.purple}" opacity=".9"/>`;
+    }
+    const w = fade(u, sentStart(S, 1));
+    out += `<ellipse cx="${cx}" cy="${cy}" rx="260" ry="120" fill="#fef2f2" stroke="#fca5a5" stroke-width="3" opacity="${w}"/>`;
+    const fin = fade(u, sentStart(S, 5) - 0.2);
+    out += txt(cx, cy - 6, 'WARM CORE', { size: 34, weight: 800, fill: '#b91c1c', anchor: 'middle', ls: 4, op: w * (1 - fin) });
+    out += txt(cx, cy + 40, 'Nebius compute', { size: 30, fill: '#334155', anchor: 'middle', op: w * (1 - fin) });
+    out += txt(cx, cy - 6, 'We don’t cut compute.', { size: 40, weight: 800, anchor: 'middle', op: fin });
+    out += txt(cx, cy + 46, 'We move it.', { size: 40, weight: 800, fill: '#b91c1c', anchor: 'middle', op: fin });
+    const on = t0 => 0.3 + 0.7 * fade(u, t0);
+    out += box(760, 230, 400, 120, 'Ultra decides', 'new problems · Token Factory', { stroke: C.purple, fill: '#f5f3ff', op: on(sentStart(S, 2)) });
+    out += box(1340, 500, 380, 120, 'Precedent library', 'every decision, kept', { stroke: C.blue, fill: '#eff6ff', op: on(sentStart(S, 2) + 2.5) });
+    out += box(760, 770, 400, 120, 'Distill into Nano', 'fine-tune · Nebius GPUs', { stroke: C.purple, fill: '#f5f3ff', op: on(sentStart(S, 4)) });
+    out += box(200, 500, 380, 120, 'Fleet', 'starts warmer', { stroke: '#3f6212', fill: '#f1f9e4', op: on(sentStart(S, 4) + 3) });
+    const sj = fade(u, sentStart(S, 3));
+    out += box(1420, 190, 400, 110, 'Serverless Jobs', 'red-team at scale', { stroke: '#b45309', fill: '#fff7ed', op: sj, size: 32 });
+    return out;
+  },
+
+  nightshift(u, D, S) {
+    const morning = fade(u, sentStart(S, 6) + 2.5, 2.5);
+    const bgc = `rgb(${Math.round(lerp(11, 255, morning * 0.92))},${Math.round(lerp(18, 247, morning * 0.92))},${Math.round(lerp(32, 237, morning * 0.92))})`;
+    let out = `<rect width="${W}" height="${H}" fill="${bgc}"/>`;
+    for (let i = 0; i < 40; i++) out += `<circle cx="${(i * 389) % W}" cy="${40 + (i * 157) % 200}" r="${1.5 + (i % 3)}" fill="#e2e8f0" opacity="${0.7 * (1 - morning)}"/>`;
+    out += `<circle cx="1760" cy="110" r="44" fill="#fde68a" opacity="${1 - morning}"/><circle cx="1782" cy="96" r="40" fill="${bgc}" opacity="${1 - morning}"/>`;
+    out += `<circle cx="1760" cy="130" r="${50 * morning}" fill="#f59e0b" opacity="${morning}"/>`;
+    const ink = morning > 0.5 ? C.ink : '#f8fafc', mute = morning > 0.5 ? C.mute : '#94a3b8';
+    out += txt(120, 92, 'THE CHERRY ON TOP', { size: 22, weight: 700, fill: mute, ls: 3 });
+    out += txt(120, 150, 'Night Shift: the fleet dreams on Nebius', { size: 56, weight: 800, fill: ink });
+    const stages = [['1 Replay', 'Token Factory batch', sentStart(S, 2), 3.5], ['2 Dream', 'Serverless Jobs', sentStart(S, 3), 4.5],
+                    ['3 Thymus', 'Serverless Jobs', sentStart(S, 4), 4.5], ['4 Consolidate', 'Serverless GPU', sentStart(S, 6), 3]];
+    stages.forEach(([title, svc, t0, d], k) => {
+      const x = 110 + k * 440, y = 270, w = 400, h = 380, p = clamp((u - t0) / d), on = fade(u, t0 - 0.3);
+      out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="22" fill="#111a2e" stroke="${on > 0.5 ? '#a78bfa' : '#334155'}" stroke-width="3" opacity="${0.55 + 0.45 * on}"/>`;
+      out += txt(x + 28, y + 56, title, { size: 36, weight: 800, fill: '#f8fafc', op: 0.5 + 0.5 * on });
+      out += txt(x + 28, y + 92, svc, { size: 22, weight: 700, fill: '#c4b5fd', ls: 1, op: 0.5 + 0.5 * on });
+      if (k < 3) out += arrow(x + w + 4, y + h / 2, x + w + 36, y + h / 2, { color: '#64748b', sw: 4, head: 14 });
+      const cx0 = x + 34, cy0 = y + 130;
+      if (k === 0) {
+        for (let i = 0; i < 84; i++) {
+          const lit = i / 84 < p, bad = lit && i % 17 === 5;
+          out += `<circle cx="${cx0 + (i % 14) * 24}" cy="${cy0 + Math.floor(i / 14) * 26}" r="8" fill="${bad ? C.hot : lit ? '#a78bfa' : '#1e293b'}"/>`;
+        }
+        out += txt(x + 28, y + 330, `${Math.round(p * 2140).toLocaleString('en-US')} decisions re-judged`, { size: 26, weight: 700, fill: '#fde68a', op: on });
+        out += txt(x + 28, y + 362, `${Math.round(p * 5)} confidently wrong`, { size: 24, fill: '#fca5a5', op: on });
+      } else if (k === 1) {
+        for (let i = 0; i < 40; i++) {
+          const lit = i / 40 < p;
+          out += `<rect x="${cx0 + (i % 10) * 33}" y="${cy0 + Math.floor(i / 10) * 36}" width="27" height="28" rx="5" fill="${lit ? heat((i * 37 % 100) / 100) : '#1e293b'}"/>`;
+        }
+        out += txt(x + 28, y + 330, `${Math.round(p * 312)} dreams simulated`, { size: 26, weight: 700, fill: '#fde68a', op: on });
+      } else if (k === 2) {
+        const keep = new Set([3, 11, 19, 27, 38, 45, 52]);
+        let alive = 0;
+        for (let i = 0; i < 60; i++) {
+          const dead = !keep.has(i) && i / 60 < p;
+          if (!dead) alive++;
+          out += `<circle cx="${cx0 + (i % 12) * 28}" cy="${cy0 + Math.floor(i / 12) * 30}" r="10" fill="${keep.has(i) && p >= 1 ? '#4ade80' : dead ? '#334155' : '#a78bfa'}"/>`;
+        }
+        out += txt(x + 28, y + 330, `${p >= 1 ? 7 : alive} of 60 lessons survive`, { size: 26, weight: 700, fill: '#fde68a', op: on });
+        out += txt(x + 28, y + 362, 'fix it · without paranoia', { size: 24, fill: '#cbd5e1', op: on });
+      } else {
+        out += txt(x + 28, cy0 + 20, 'LoRA fine-tune · Nano', { size: 24, fill: '#cbd5e1', op: on });
+        out += `<rect x="${x + 28}" y="${cy0 + 40}" width="340" height="26" rx="13" fill="#1e293b"/>`;
+        out += `<rect x="${x + 28}" y="${cy0 + 40}" width="${340 * p}" height="26" rx="13" fill="#a78bfa"/>`;
+        const g = fade(u, t0 + d);
+        out += txt(x + 28, cy0 + 120, '✓ beats today’s Nano', { size: 26, weight: 700, fill: '#4ade80', op: g });
+        out += txt(x + 28, cy0 + 160, '✓ promoted', { size: 26, weight: 700, fill: '#4ade80', op: fade(u, t0 + d + 0.6) });
+      }
+    });
+    out += txt(W / 2, 730, 'Morning: the fleet wakes up warmer', { size: 40, weight: 800, fill: '#92400e', anchor: 'middle', op: morning });
+    out += txt(W / 2, 830, 'The edge lived it once. Nebius lived it hundreds of times.', { size: 44, weight: 800, fill: morning > 0.5 ? '#b91c1c' : '#fde68a', anchor: 'middle', op: fade(u, sentStart(S, 7) - 0.2) });
+    out += txt(W - 120, 1000 - 60, 'illustrative numbers', { size: 20, fill: mute, anchor: 'end', op: 0.8 });
     return out;
   },
 

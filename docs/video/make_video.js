@@ -1,23 +1,71 @@
 // Build the NemoFleet peer-learning explainer video.
 //   node make_video.js out.mp4                  full render
 //   node make_video.js --preview 3,20,60 dir/   stills at given seconds
-// Needs: macOS `say`, ffmpeg/ffprobe, Google Chrome, puppeteer-core.
+// Needs: ffmpeg/ffprobe, Google Chrome, puppeteer-core, and GEMINI_API_KEY (env or repo .env)
+// for Gemini TTS; falls back to macOS `say` without a key.
 const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const VOICE = 'Samantha', RATE = '172', FPS = 30, LEAD = 0.4, TAIL = 1.0;
+const TTS_MODEL = 'gemini-3.8-flash-tts', TTS_VOICE = 'Achird', TTS_TAGS = '[warm] [friendly] ';
+const SAY_VOICE = 'Samantha', SAY_RATE = '172', FPS = 30, LEAD = 0.4, TAIL = 1.0;
+const crypto = require('crypto');
 const here = __dirname, work = path.join(here, 'build');
 fs.mkdirSync(work, { recursive: true });
 
-function buildTimeline() {
+function geminiKey() {
+  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+  const env = path.join(here, '..', '..', '.env');
+  if (!fs.existsSync(env)) return null;
+  const m = fs.readFileSync(env, 'utf8').match(/^GEMINI_API_KEY=(.+)$/m);
+  return m ? m[1].trim() : null;
+}
+
+// Gemini TTS: style comes from inline audio tags (the model reads plain-text instructions aloud).
+async function geminiTTS(key, text, out) {
+  const body = { contents: [{ parts: [{ text: TTS_TAGS + text }] }],
+    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } } } };
+  for (let attempt = 1; ; attempt++) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
+      { method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    const part = j.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (part) {
+      const buf = Buffer.from(part.data, 'base64');
+      if (part.mimeType.includes('wav')) fs.writeFileSync(out, buf);
+      else {
+        const rate = (part.mimeType.match(/rate=(\d+)/) || [, '24000'])[1], pcm = out + '.pcm';
+        fs.writeFileSync(pcm, buf);
+        execFileSync('ffmpeg', ['-y', '-v', 'error', '-f', 's16le', '-ar', rate, '-ac', '1', '-i', pcm, out]);
+        fs.unlinkSync(pcm);
+      }
+      return;
+    }
+    if (attempt >= 4) throw new Error('Gemini TTS failed: ' + JSON.stringify(j).slice(0, 300));
+    await new Promise(res => setTimeout(res, 2000 * attempt));
+  }
+}
+
+async function narrate(text, key) {
+  const id = crypto.createHash('sha1').update([key ? TTS_MODEL + TTS_VOICE + TTS_TAGS : SAY_VOICE + SAY_RATE, text].join('|')).digest('hex').slice(0, 16);
+  const out = path.join(work, `${id}.${key ? 'wav' : 'aiff'}`);
+  if (!fs.existsSync(out)) {
+    if (key) await geminiTTS(key, text, out);
+    else execFileSync('say', ['-v', SAY_VOICE, '-r', SAY_RATE, '-o', out, text]);
+  }
+  return out;
+}
+
+async function buildTimeline() {
   const scenes = JSON.parse(fs.readFileSync(path.join(here, 'scenes.json'), 'utf8'));
+  const key = geminiKey();
+  console.log(key ? `voice: ${TTS_MODEL} / ${TTS_VOICE}` : `voice: macOS say / ${SAY_VOICE} (no GEMINI_API_KEY)`);
   let start = 0;
-  return scenes.map((s, i) => {
-    const aiff = path.join(work, `s${i}.aiff`);
-    execFileSync('say', ['-v', VOICE, '-r', RATE, '-o', aiff, s.text]);
+  const out = [];
+  for (const s of scenes) {
+    const aiff = await narrate(s.text, key);
     const audio = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', aiff]).toString());
     const dur = Math.max(s.min, LEAD + audio + TAIL);
     const parts = s.text.split(/(?<=[.!?])\s+/);
@@ -28,10 +76,10 @@ function buildTimeline() {
       acc += p.length;
       return { text: p, t0, t1: k === parts.length - 1 ? dur - 0.2 : LEAD + audio * acc / total };
     });
-    const sc = { id: s.id, start, dur, audio, aiff, sentences };
+    out.push({ id: s.id, start, dur, audio, aiff, sentences });
     start += dur;
-    return sc;
-  });
+  }
+  return out;
 }
 
 function buildAudio(tl, out) {
@@ -45,7 +93,7 @@ function buildAudio(tl, out) {
 
 async function main() {
   const preview = process.argv[2] === '--preview';
-  const tl = buildTimeline();
+  const tl = await buildTimeline();
   const total = tl.reduce((a, s) => a + s.dur, 0);
   console.log(tl.map(s => `${s.id}: ${s.start.toFixed(1)}s +${s.dur.toFixed(1)}s`).join('\n'), `\ntotal ${total.toFixed(1)}s`);
 
@@ -85,4 +133,5 @@ async function main() {
   console.log('wrote', out);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
+module.exports = { buildTimeline };

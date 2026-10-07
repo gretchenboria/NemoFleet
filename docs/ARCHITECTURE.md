@@ -2,6 +2,7 @@
 
 📄 **Print-ready version:** [NemoFleet-Architecture.pdf](NemoFleet-Architecture.pdf)
 🦆 **Fleet-learning options:** [NemoFleet-Countercurrent-Options.pdf](NemoFleet-Countercurrent-Options.pdf)
+✅ **Agreed implementation plan:** [NEBIUS_PLAN.md](NEBIUS_PLAN.md). Where it differs from this doc (Cosmos and countercurrent pairing are stretch goals; the thymus is folded into the promotion gate), the plan wins.
 
 NemoFleet splits robot-fleet cognition into speeds, the way people do, and lets robots learn from each other in between:
 

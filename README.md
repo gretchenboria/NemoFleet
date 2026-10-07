@@ -14,6 +14,8 @@ Fleet-learning design options inspired by countercurrent heat exchange and ant t
 
 🎬 Explainer video (2.5 min): [docs/NemoFleet-Peer-Learning-Explainer.mp4](docs/NemoFleet-Peer-Learning-Explainer.mp4). Regenerate with `cd docs/video && npm install && npm run build` (macOS, Chrome, ffmpeg).
 
+**Implementation plan:** [docs/NEBIUS_PLAN.md](docs/NEBIUS_PLAN.md), agreed by three review agents. Platform feedback is tracked in [docs/FEEDBACK.md](docs/FEEDBACK.md).
+
 ## Setup
 
 ```bash
