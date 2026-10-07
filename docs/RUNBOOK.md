@@ -29,7 +29,7 @@ printf 'NEBIUS_API_KEY=%s\n' 'YOUR_TOKEN_FACTORY_KEY' >> .env   # .env is gitign
 2. Run preflight:
 
 ```bash
-node tools/preflight.cjs            # checks key, lists Nemotron/Cosmos models, pings Cosmos
+node tools/preflight.cjs            # checks key and catalog, makes one real call to Ultra, Nano, Super and Cosmos; exit 0 only if all answer
 node tools/preflight.cjs --write    # writes the chosen Ultra / Nano / Super ids into config/models.yaml
 ```
 
