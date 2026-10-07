@@ -1,4 +1,4 @@
-# Runbook: the aisle 4 spill, for real on Nebius
+# Runbook: the hall B coolant leak, for real on Nebius
 
 This runs Day 1 of the [demo use case](DEMO.md) with real model calls:
 - **Cosmos3 Super Reasoner** looks at four robot camera frames.
@@ -12,7 +12,7 @@ Every call is logged so tonight's Night Shift can replay it.
 | | |
 |---|---|
 | Real | Every model call, its latency, tokens and output; the safety gate; schema validation; the call log |
-| Simulated | The robots and floor; the camera frames are rendered images (`site/assets/frames/`) |
+| Simulated | The robots and the data center hall; the camera frames are rendered images (`site/assets/frames/`) |
 
 ## 1. One-time setup
 
@@ -38,20 +38,20 @@ Preflight picks the newest Nemotron Ultra, Nano and Super it finds in your catal
 ## 3. Rehearse offline, then run
 
 ```bash
-node tools/run_scenario.cjs scenarios/aisle4-spill.json --dry-run   # no network, no cost
-node tools/run_scenario.cjs scenarios/aisle4-spill.json             # real calls
+node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json --dry-run   # no network, no cost
+node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json      # real calls
 ```
 
 ### What happens, event by event
 
 | t | Robot | Event | Route |
 |---|---|---|---|
-| 0 s | R07 | Clear aisle | Cosmos, then Nano |
-| 5 s | R14 | First sighting at the blind corner | Cosmos, then Nano; escalates to Ultra if confidence < τ (0.62) |
+| 0 s | R07 | Clear cold aisle | Cosmos, then Nano |
+| 5 s | R14 | First sighting of the coolant leak at the row end | Cosmos, then Nano; escalates to Ultra if confidence < τ (0.62) |
 | 12 s | R09 | Handshake from R14 | No model call |
 | 14 s | R05 | Handshake from R09 (hop 2) | No model call |
-| 20 s | R03 | Person in the lane | Cosmos, then **always Ultra** |
-| 30 s | R12 | Spill plus forklift (Day 2 preview) | Cosmos, then Nano with the peer precedent |
+| 20 s | R03 | Technician in the aisle | Cosmos, then **always Ultra** |
+| 30 s | R12 | Leak plus a lift cart crossing (Day 2 preview) | Cosmos, then Nano with the peer precedent |
 
 ### The safety gate
 
@@ -62,8 +62,8 @@ node tools/run_scenario.cjs scenarios/aisle4-spill.json             # real calls
 
 | Output | Path |
 |---|---|
-| Every call (Night Shift replay input) | `runs/aisle4-spill-<timestamp>/calls.jsonl` |
-| Decisions and totals | `runs/aisle4-spill-<timestamp>/summary.json` |
+| Every call (Night Shift replay input) | `runs/hall-b-coolant-leak-<timestamp>/calls.jsonl` |
+| Decisions and totals | `runs/hall-b-coolant-leak-<timestamp>/summary.json` |
 | Cosmos results (shown on the console's camera tiles) | `site/assets/perception/*.json` |
 
 ## 5. Publish and stop

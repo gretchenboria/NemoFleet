@@ -1,6 +1,6 @@
 // Send robot camera frames to Cosmos3 Super Reasoner on Nebius Token Factory and store real results.
 //   node tools/cosmos_perceive.cjs            (all frames in site/assets/frames)
-//   node tools/cosmos_perceive.cjs cam-r14-spill
+//   node tools/cosmos_perceive.cjs cam-r14-leak
 // Needs NEBIUS_API_KEY in the environment or the repo .env, and the dedicated endpoint in the Ready state.
 // Writes site/assets/perception/<frame>.json and index.json. Nothing is written for a failed call.
 const fs = require('fs');
@@ -19,13 +19,13 @@ const yaml = fs.readFileSync(path.join(ROOT, 'config', 'models.yaml'), 'utf8');
 const BASE = yaml.match(/base_url:\s*(\S+)/)[1];
 const MODEL = yaml.match(/perception:\s*\n\s*id:\s*(\S+)/)[1];
 
-const ROBOTS = { 'cam-r14-spill': ['R14', 'aisle 4 · blind corner'], 'cam-r03-person': ['R03', 'aisle 4 · zone A4'],
-  'cam-r12-forklift': ['R12', 'aisle 4 · blind corner (Day 2)'], 'cam-r07-clear': ['R07', 'aisle 2'] };
+const ROBOTS = { 'cam-r14-leak': ['R14', 'cold aisle 2 · row end'], 'cam-r03-person': ['R03', 'cold aisle 2 · zone C2'],
+  'cam-r12-cart': ['R12', 'cold aisle 2 · row end (Day 2)'], 'cam-r07-clear': ['R07', 'cold aisle 1'] };
 
-const SYSTEM = 'You are the perception module of an autonomous mobile robot in a fulfillment warehouse. ' +
+const SYSTEM = 'You are the perception module of an autonomous rack-service robot in a hyperscale data center hall. ' +
   'You see one frame from the robot\'s forward camera. Report only what is visible. Answer with a single JSON object and nothing else.';
 const USER = 'Analyze this frame for the robot\'s planner. Return JSON with exactly these keys: ' +
-  '"scene" (one short sentence), "hazards" (array of {"type": "spill"|"person"|"vehicle"|"obstruction"|"other", "description": string, "severity": "low"|"medium"|"high"|"critical"}), ' +
+  '"scene" (one short sentence), "hazards" (array of {"type": "liquid_leak"|"person"|"cart"|"obstruction"|"open_rack_door"|"other", "description": string, "severity": "low"|"medium"|"high"|"critical"}), ' +
   '"person_present" (boolean), "path_clear" (boolean), "recommended_action" ("proceed"|"slow"|"reroute"|"halt"|"escalate"), "confidence" (number 0-1). ' +
   'A person in the robot\'s lane always means "escalate".';
 

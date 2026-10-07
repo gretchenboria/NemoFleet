@@ -1,0 +1,57 @@
+{
+  "id": "hall-b-coolant-leak",
+  "title": "The hall B coolant leak (Day 1)",
+  "site": "DC-04 hall B",
+  "tau": 0.62,
+  "notes": "Day 1 of the demo in a data center hall. Frames are simulation renders; every model call is real.",
+  "events": [
+    {
+      "t": 0,
+      "robot": "R07",
+      "kind": "routine",
+      "where": "cold aisle 1",
+      "text": "Clear cold aisle, task: inspect rack B1-14 status LEDs. Lidar shows no obstacles.",
+      "frame": "cam-r07-clear"
+    },
+    {
+      "t": 5,
+      "robot": "R14",
+      "kind": "first_sighting",
+      "where": "cold aisle 2, row end at C2",
+      "text": "Forward camera shows something on the floor tiles near the end of the row. Lidar shows no solid obstacle.",
+      "frame": "cam-r14-leak"
+    },
+    {
+      "t": 12,
+      "robot": "R09",
+      "kind": "peer_handshake",
+      "from": "R14",
+      "where": "cold aisle 2",
+      "text": "Passed R14; received hazard precedent for row C2 end."
+    },
+    {
+      "t": 14,
+      "robot": "R05",
+      "kind": "peer_handshake",
+      "from": "R09",
+      "where": "cold aisle 2 west",
+      "text": "Passed R09; received hazard precedent for row C2 end (hop 2)."
+    },
+    {
+      "t": 20,
+      "robot": "R03",
+      "kind": "safety",
+      "where": "cold aisle 2, zone C2",
+      "text": "Forward camera shows activity in the aisle ahead near the leak.",
+      "frame": "cam-r03-person"
+    },
+    {
+      "t": 30,
+      "robot": "R12",
+      "kind": "variant",
+      "where": "cold aisle 2, row end at C2",
+      "text": "Approaching the row end. Peer precedent for row C2 end says: liquid leak, avoid. Camera frame attached.",
+      "frame": "cam-r12-cart"
+    }
+  ]
+}

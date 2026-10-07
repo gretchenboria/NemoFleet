@@ -67,7 +67,7 @@
       gridTex(ctx, W, H, C);
       ctx.fillStyle = C.line;
       ctx.fillRect(30, 120, 660, 28); ctx.fillRect(30, 270, 440, 28); ctx.fillRect(540, 270, 150, 28);
-      ctx.fillStyle = C.ink3; ctx.font = `500 11px ${MONO}`; ctx.fillText('AISLE 4 · ZONE B', 34, 112);
+      ctx.fillStyle = C.ink3; ctx.font = `500 11px ${MONO}`; ctx.fillText('COLD AISLE 2 · HALL B', 34, 112);
       ctx.fillText('CROSS-AISLE', 476, 330);
       // hazard cell + ttl decay
       const ttl = 1 - t / LOOP * 0.85;

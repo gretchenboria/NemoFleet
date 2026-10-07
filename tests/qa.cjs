@@ -49,13 +49,13 @@ for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pd
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
-const frames = ['cam-r14-spill', 'cam-r03-person', 'cam-r12-forklift', 'cam-r07-clear'].filter(f => !fs.existsSync(path.join(ROOT, 'site', 'assets', 'frames', f + '.jpg')));
+const frames = ['cam-r14-leak', 'cam-r03-person', 'cam-r12-cart', 'cam-r07-clear'].filter(f => !fs.existsSync(path.join(ROOT, 'site', 'assets', 'frames', f + '.jpg')));
 check('robot camera frames and overhead floor present', frames.length === 0 && fs.existsSync(path.join(ROOT, 'site', 'assets', 'img', 'floor-overhead.jpg')), frames.join(', '));
 const perc = JSON.parse(fs.readFileSync(path.join(ROOT, 'site', 'assets', 'perception', 'index.json'), 'utf8'));
 const fakes = Object.entries(perc.results || {}).filter(([n]) => { const f = path.join(ROOT, 'site', 'assets', 'perception', n + '.json'); return !fs.existsSync(f) || !JSON.parse(fs.readFileSync(f, 'utf8')).raw; });
 check('every Cosmos result shown has a stored raw response from a real call', fakes.length === 0, fakes.map(x => x[0]).join(', '));
 try {
-  const outDry = execFileSync('node', [path.join(ROOT, 'tools', 'run_scenario.cjs'), path.join(ROOT, 'scenarios', 'aisle4-spill.json'), '--dry-run'], { cwd: ROOT }).toString();
+  const outDry = execFileSync('node', [path.join(ROOT, 'tools', 'run_scenario.cjs'), path.join(ROOT, 'scenarios', 'hall-b-coolant-leak.json'), '--dry-run'], { cwd: ROOT }).toString();
   const runDir = outDry.match(/→ (\S+)\/summary\.json/)[1];
   const sum = JSON.parse(fs.readFileSync(path.join(ROOT, runDir, 'summary.json'), 'utf8'));
   fs.rmSync(path.join(ROOT, runDir), { recursive: true, force: true });

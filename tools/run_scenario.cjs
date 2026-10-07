@@ -1,6 +1,6 @@
 // Run a NemoFleet scenario against real Nebius endpoints.
-//   node tools/run_scenario.cjs scenarios/aisle4-spill.json --dry-run   (no network: validates scenario, gate and schema)
-//   node tools/run_scenario.cjs scenarios/aisle4-spill.json             (real calls: Cosmos, Nano, Ultra)
+//   node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json --dry-run   (no network: validates scenario, gate and schema)
+//   node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json      (real calls: Cosmos, Nano, Ultra)
 // Writes runs/<scenario>-<timestamp>/calls.jsonl (every model call, for Night Shift replay) and summary.json.
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +21,7 @@ function validate(d) {
   return errs;
 }
 
-const SYSTEM = 'You are the decision module of NemoFleet, a warehouse robot fleet. Decide what the robot or fleet should do next. ' +
+const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet servicing a hyperscale data center hall. Decide what the robot or fleet should do next. ' +
   'Never output coordinates or paths: a deterministic planner owns motion. Reply with only one JSON object: ' +
   '{"actions": [ {"type": "proceed", "robot": "R07"} | {"type": "reroute", "robot": "R14", "via": "aisle 3"} | {"type": "halt", "robot": "R03"} | ' +
   '{"type": "quarantine_zone", "cells": ["41,7"], "ttl_s": 600} | {"type": "goto", "robot": "R05", "target": "dock 2"} | ' +
