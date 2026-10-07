@@ -1,0 +1,27 @@
+# Single source of truth for model IDs (NEBIUS_PLAN.md, decision 2).
+# Every API call and MLflow run reads from here. Mark each entry verified only
+# after a real call succeeds; record where it was verified.
+
+token_factory:
+  base_url: https://api.tokenfactory.us-central1.nebius.com/v1
+  api_key_env: NEBIUS_API_KEY   # set in .env (gitignored) or MysteryBox
+
+models:
+  perception:
+    id: dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm
+    kind: dedicated endpoint      # 4x H200, us-central1, $0.37/min while running
+    modalities: [text, image]
+    status: listed in console     # smoke test pending: first real call not yet made
+    cost_control: stop or scale to 0 replicas outside test/recording sessions
+
+  deliberator:      # Nemotron Ultra: choose on day 1 from GET /v1/models + latency test
+    id: null
+    status: to verify
+
+  reflex:           # Nemotron Nano: decided by the day-1-3 LoRA + vLLM smoke test
+    id: null
+    status: to verify
+
+  scenario_generator:   # Nemotron Super
+    id: null
+    status: to verify

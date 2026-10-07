@@ -23,7 +23,7 @@ This document is the result, with every accepted amendment folded in. Where it d
 | 3 Thymus | Serverless Jobs | One gate job, two suites: variants must improve, normal operations must not regress. Shown on screen as the thymus funnel. |
 | 4 Consolidate | Serverless Jobs (GPU, H200) + Managed MLflow | LoRA on Nano; MLflow lineage; promote only if it beats today's Nano. |
 | Serving | Serverless Endpoint (vLLM) | One endpoint serves production and candidate Nano on the same base. |
-| Perception | Token Factory dedicated endpoint (`nvidia/Cosmos3-Super-Reasoner`) | Cosmos describes a hazard on first sighting; peers spread it with no further calls. |
+| Perception | Token Factory dedicated endpoint (`dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm`, see [`config/models.yaml`](../config/models.yaml)) | Cosmos describes a hazard on first sighting; peers spread it with no further calls. |
 | Plumbing | MysteryBox, Container Registry, one bucket | Secrets, one image for every job, all artifacts. |
 
 ## Decisions
