@@ -21,6 +21,9 @@ check('.env is not tracked or about to be committed', !tracked.includes('.env'))
 let envIgnored = true; try { execFileSync('git', ['check-ignore', '-q', '.env'], { cwd: ROOT }); } catch { envIgnored = false; }
 check('.env is gitignored', envIgnored);
 
+const siteAssets = walk(path.join(ROOT, 'site', 'assets')).map(f => path.relative(ROOT, f));
+const untrackedAssets = siteAssets.filter(f => !tracked.includes(f));
+check('every site asset is committed or staged (none blocked by .gitignore)', untrackedAssets.length === 0, untrackedAssets.join(', '));
 const secrets = fs.existsSync(path.join(ROOT, '.env'))
   ? fs.readFileSync(path.join(ROOT, '.env'), 'utf8').split('\n').map(l => l.split('=').slice(1).join('=').trim()).filter(v => v.length >= 16 && !/^https?:/.test(v))
   : [];

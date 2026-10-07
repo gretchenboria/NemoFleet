@@ -12,6 +12,7 @@
 # Third-party reference images
 *.jpeg
 *.jpg
+!site/assets/img/*.jpg
 
 # Python
 __pycache__/
