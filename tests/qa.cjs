@@ -41,7 +41,7 @@ function scanForSecrets(files, label) {
 scanForSecrets(tracked.map(f => path.join(ROOT, f)), 'git-tracked files');
 
 // ---------- 2. code checks ----------
-for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tests/qa.cjs']) {
+for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tests/qa.cjs']) {
   try { new vm.Script(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^#!.*/, ''), { filename: f }); check(`JS parses: ${f}`, true); }
   catch (e) { check(`JS parses: ${f}`, false, e.message); }
 }
@@ -49,6 +49,11 @@ for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pd
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
+const frames = ['cam-r14-spill', 'cam-r03-person', 'cam-r12-forklift', 'cam-r07-clear'].filter(f => !fs.existsSync(path.join(ROOT, 'site', 'assets', 'frames', f + '.jpg')));
+check('robot camera frames and overhead floor present', frames.length === 0 && fs.existsSync(path.join(ROOT, 'site', 'assets', 'img', 'floor-overhead.jpg')), frames.join(', '));
+const perc = JSON.parse(fs.readFileSync(path.join(ROOT, 'site', 'assets', 'perception', 'index.json'), 'utf8'));
+const fakes = Object.entries(perc.results || {}).filter(([n]) => { const f = path.join(ROOT, 'site', 'assets', 'perception', n + '.json'); return !fs.existsSync(f) || !JSON.parse(fs.readFileSync(f, 'utf8')).raw; });
+check('every Cosmos result shown has a stored raw response from a real call', fakes.length === 0, fakes.map(x => x[0]).join(', '));
 const models = fs.readFileSync(path.join(ROOT, 'config', 'models.yaml'), 'utf8');
 check('models.yaml names the Token Factory base URL and Cosmos endpoint', /base_url: https:\/\/api\.tokenfactory\./.test(models) && /Cosmos3-Super-Reasoner/.test(models));
 
@@ -73,7 +78,7 @@ const broken = [];
 for (const p of pages) {
   const html = fs.readFileSync(path.join(DIST, p), 'utf8');
   for (const [, url] of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
-    if (/^(https?:|data:|mailto:|#)/.test(url)) continue;
+    if (/^(https?:|data:|mailto:|#)/.test(url) || url.includes('${')) continue;
     const rel = url.split('#')[0].split('?')[0];
     if (rel && !fs.existsSync(path.join(DIST, rel))) broken.push(`${p} → ${url}`);
   }

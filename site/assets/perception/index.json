@@ -1,0 +1,6 @@
+{
+  "model": "dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm",
+  "updated_at": null,
+  "note": "No Cosmos calls made yet. Results are written only by tools/cosmos_perceive.cjs from real calls.",
+  "results": {}
+}

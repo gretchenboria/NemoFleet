@@ -163,7 +163,7 @@ body { font-size: 14px; }
 .panel { padding: 9px 12px; gap: 8px; border-radius: 8px; }
 .ph h2 { font-size: 16px; }
 .ph .sub { font-size: 12px; }
-canvas#floor { aspect-ratio: 16 / 7; }
+canvas#floor { aspect-ratio: 1584 / 672; }
 .legend { font-size: 12px; gap: 4px 12px; }
 .funnel { gap: 5px; }
 .frow { grid-template-columns: 112px minmax(0, 1fr) 50px; font-size: 13px; gap: 8px; }
@@ -202,6 +202,22 @@ details.rules summary { font-size: 15px; }
 table.rt { font-size: 12.5px; }
 table.rt td, table.rt th { padding: 5px 6px; }
 
+.cams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cam { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); display: grid; }
+.cam .shot { position: relative; }
+.cam img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.cam .tagl { position: absolute; left: 6px; top: 6px; font-family: var(--f-mono); font-size: 11px; color: #fff; background: rgba(10,14,12,.72); padding: 2px 6px; border-radius: 4px; }
+.cam .rec { position: absolute; right: 6px; top: 6px; font-family: var(--f-mono); font-size: 10.5px; color: #fff; background: rgba(204,52,52,.85); padding: 2px 6px; border-radius: 4px; }
+.cam figcaption { padding: 7px 9px; display: grid; gap: 4px; font-size: 12.5px; }
+.cam .await { color: var(--muted); }
+.cam .act { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; justify-self: start; }
+.act.escalate, .act.halt { color: var(--crit); background: var(--crit-bg); } .act.reroute, .act.slow { color: var(--warn); background: var(--warn-bg); } .act.proceed { color: var(--ok); background: var(--ok-bg); }
+.cam .hz { display: flex; flex-wrap: wrap; gap: 4px; }
+.cam .hz span { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.cam .meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
+@media (max-width: 1180px) { .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cams { grid-template-columns: minmax(0, 1fr); } }
+
 @media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid .col:first-child { grid-column: 1 / -1; } .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 @media (max-width: 760px) { .wrap { padding-inline: 16px; } .grid, .charts { grid-template-columns: minmax(0, 1fr); } .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frow { grid-template-columns: 110px minmax(0, 1fr) 54px; } }
 @media (prefers-reduced-motion: reduce) { table.log tr.new td { animation: none; } }
@@ -233,14 +249,14 @@ table.rt td, table.rt th { padding: 5px 6px; }
   <div class="grid">
     <div class="col">
       <section class="panel" aria-labelledby="h-floor">
-        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub">Zone B · aisles 1–6 · peer handshakes shown as rings</span></div>
-        <div class="map-wrap"><canvas id="floor" width="1120" height="588" aria-label="Animated warehouse floor map with robots, a spill, hazard tags and a halted robot near a person"></canvas></div>
+        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub">Zone B · overhead · peer handshakes shown as rings</span></div>
+        <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Overhead view of warehouse zone B with animated robot markers, a spill and a quarantined zone at the aisle 4 blind corner, and a halted robot near a person"></canvas></div>
         <div class="legend">
           <span><i style="background:var(--s1)"></i>Moving</span>
           <span><i style="background:var(--warn)"></i>Knows a hazard (peer)</span>
           <span><i style="background:var(--crit)"></i>Halted by Ultra</span>
           <span><i style="background:var(--s15)"></i>Handshake</span>
-          <span><i style="background:var(--warn);border-radius:2px"></i>Hazard tag (fades)</span>
+          <span><i style="background:var(--warn);border-radius:2px"></i>Hazard tag (fades)</span><span><i style="background:#f5d90a"></i>Person</span>
         </div>
       </section>
       <section class="panel" aria-labelledby="h-tier">
@@ -286,6 +302,11 @@ table.rt td, table.rt th { padding: 5px 6px; }
       </section>
     </div>
   </div>
+
+  <section class="panel" aria-labelledby="h-cams">
+    <div class="ph"><h2 id="h-cams">Robot cameras · Cosmos perception</h2><span class="sub">Cosmos3 Super Reasoner · Token Factory dedicated endpoint · frames are simulation renders</span></div>
+    <div class="cams" id="cams"></div>
+  </section>
 
   <section class="panel" aria-labelledby="h-ns">
     <div class="ph"><h2 id="h-ns">Night Shift · last run night-07</h2><span class="sub">02:00–04:12 · next run 02:00 · one Serverless Jobs pipeline</span></div>
@@ -458,39 +479,55 @@ table.rt td, table.rt th { padding: 5px 6px; }
   for (let i = 0; i < 6; i++) addRow(true);
   if (!reduce) setInterval(() => addRow(false), 2600);
 
-  // ---- live floor (canvas) ----
+  // ---- live floor (canvas over the overhead render) ----
   const cv = document.getElementById('floor'), cx = cv.getContext('2d');
   const CW = cv.width, CH = cv.height;
-  const lanes = [70, 168, 266, 364, 462, 548];
+  const floorImg = new Image(); floorImg.src = 'assets/img/floor-overhead.jpg';
+  const lanes = [76, 164, 252, 339, 425], CROSS = 731;
+  const ZONE = { x0: 630, x1: 790, lane: 3 }, SPILL = { x: 700, lane: 3 }, PERSON = { x: 742, y: 352 };
   const robots = [];
-  for (let i = 0; i < 14; i++) robots.push({ lane: i % 6, x: 60 + (i * 157) % 1000, dir: i % 2 ? -1 : 1, v: 38 + (i * 13) % 24, knows: false, id: 'R' + String(i + 1).padStart(2, '0') });
-  const halted = { x: 690, y: lanes[3] };
-  const spill = { x: 860, lane: 1 };
+  for (let i = 0; i < 12; i++) robots.push({ lane: i % 5, x: 60 + (i * 173) % 1000, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22, knows: false, id: 'R' + String([1, 2, 5, 7, 9, 12, 14, 17, 19, 21, 22, 24][i]).padStart(2, '0') });
+  const halted = { x: 604, lane: 3, id: 'R03' };
   const rings = [], passed = new Map();
   let last = performance.now(), tagAge = 0;
+  function bot(x, y, dir, fill, id, C) {
+    cx.save(); cx.translate(x, y);
+    cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-14, -8, 30, 20, 5); cx.fill();
+    cx.fillStyle = fill; cx.beginPath(); cx.roundRect(-16, -11, 30, 20, 5); cx.fill();
+    cx.lineWidth = 2; cx.strokeStyle = '#ffffff'; cx.stroke();
+    cx.fillStyle = 'rgba(0,0,0,.45)'; cx.fillRect(dir > 0 ? 8 : -16, -11, 6, 20);
+    cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(-1, -1, 3, 0, 7); cx.fill();
+    cx.restore();
+    cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.textAlign = 'center';
+    cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(id, x - 1, y - 16); cx.fillStyle = C.ink; cx.fillText(id, x - 1, y - 16);
+    cx.textAlign = 'start';
+  }
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const C = { floor: css('--map-floor'), shelf: css('--map-shelf'), ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: css('--ink'), muted: css('--muted'), panel: css('--panel') };
-    cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH);
-    cx.fillStyle = C.shelf;
-    for (let r = 0; r < lanes.length - 1; r++) { const y = (lanes[r] + lanes[r + 1]) / 2 - 15; cx.fillRect(40, y, 420, 30); cx.fillRect(560, y, 520, 30); }
-    cx.fillStyle = C.muted; cx.font = '600 15px Barlow, Arial, sans-serif';
-    lanes.forEach((y, i) => cx.fillText('aisle ' + (i + 1), 8, y - 12 < 14 ? y + 30 : y - 12));
-    // zone A4 quarantine
-    cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2; cx.strokeRect(610, lanes[3] - 36, 170, 72); cx.restore();
-    cx.fillStyle = C.crit; cx.fillText('zone A4 · quarantined', 614, lanes[3] - 42);
-    // person
-    cx.strokeStyle = C.crit; cx.fillStyle = C.crit; cx.lineWidth = 4; cx.beginPath(); cx.arc(745, lanes[3] - 18, 7, 0, 7); cx.fill();
-    cx.beginPath(); cx.moveTo(745, lanes[3] - 10); cx.lineTo(745, lanes[3] + 10); cx.moveTo(745, lanes[3] + 10); cx.lineTo(737, lanes[3] + 24); cx.moveTo(745, lanes[3] + 10); cx.lineTo(753, lanes[3] + 24); cx.moveTo(735, lanes[3] - 2); cx.lineTo(755, lanes[3] - 2); cx.stroke();
-    // spill + fading tags
+    const C = { ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: css('--ink'), floor: css('--map-floor') };
+    if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
+    cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
+    cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3;
+    lanes.forEach((y, i) => { cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('AISLE ' + (i + 1), 10, y + 4); cx.fillStyle = C.ink; cx.fillText('AISLE ' + (i + 1), 10, y + 4); });
+    cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('CROSS-AISLE', CROSS - 38, CH - 8); cx.fillStyle = C.ink; cx.fillText('CROSS-AISLE', CROSS - 38, CH - 8);
+    // quarantine zone + spill + fading tags
+    const zy = lanes[ZONE.lane];
+    cx.fillStyle = 'rgba(204,52,52,.12)'; cx.fillRect(ZONE.x0, zy - 30, ZONE.x1 - ZONE.x0, 60);
+    cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2.5; cx.strokeRect(ZONE.x0, zy - 30, ZONE.x1 - ZONE.x0, 60); cx.restore();
+    cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('ZONE A4 · QUARANTINED', ZONE.x0, zy - 36); cx.fillStyle = C.crit; cx.fillText('ZONE A4 · QUARANTINED', ZONE.x0, zy - 36);
+    cx.fillStyle = 'rgba(56,160,220,.45)'; cx.beginPath(); cx.ellipse(SPILL.x, zy + 2, 30, 13, -.2, 0, 7); cx.fill();
+    cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.stroke();
     tagAge = (tagAge + dt) % 12;
-    cx.fillStyle = C.warn; cx.globalAlpha = .85; cx.beginPath(); cx.ellipse(spill.x, lanes[spill.lane], 26, 11, 0, 0, 7); cx.fill();
-    for (let k = 0; k < 3; k++) { cx.globalAlpha = Math.max(0, 1 - tagAge / 12) * (1 - k * .28); const x = spill.x - 60 - k * 36, y = lanes[spill.lane] - 26; cx.beginPath(); cx.moveTo(x, y - 9); cx.lineTo(x + 9, y + 7); cx.lineTo(x - 9, y + 7); cx.closePath(); cx.fill(); }
+    for (let k = 0; k < 3; k++) { cx.globalAlpha = Math.max(0, 1 - tagAge / 12) * (1 - k * .28); const x = SPILL.x - 110 - k * 34, y = zy; cx.fillStyle = C.warn; cx.beginPath(); cx.moveTo(x, y - 9); cx.lineTo(x + 9, y + 7); cx.lineTo(x - 9, y + 7); cx.closePath(); cx.fill(); cx.strokeStyle = '#fff'; cx.lineWidth = 1.5; cx.stroke(); }
     cx.globalAlpha = 1;
+    // person (top-down marker)
+    cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(PERSON.x + 2, PERSON.y + 2, 9, 0, 7); cx.fill();
+    cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 9, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.5; cx.stroke();
+    cx.fillStyle = '#3b2f00'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 3.5, 0, 7); cx.fill();
     // robots
     robots.forEach(r => {
-      if (!reduce) { r.x += r.dir * r.v * dt; if (r.x > CW - 30) r.dir = -1; if (r.x < 70) { r.dir = 1; r.knows = false; } }
-      if (r.lane === spill.lane && Math.abs(r.x - spill.x) < 30) r.knows = true;
+      if (!reduce) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) { r.dir = 1; r.knows = false; } }
+      if (r.lane === ZONE.lane && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; r.knows = true; }
     });
     for (let i = 0; i < robots.length; i++) for (let j = i + 1; j < robots.length; j++) {
       const a = robots[i], b = robots[j];
@@ -504,16 +541,32 @@ table.rt td, table.rt th { padding: 5px 6px; }
     }
     for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 14 + g.age * 50, 0, 7); cx.stroke(); }
     cx.globalAlpha = 1;
-    robots.forEach(r => {
-      const y = lanes[r.lane];
-      if (r.lane === 3 && r.x > 600 && r.x < 790) { r.x = r.dir > 0 ? 599 : 791; r.dir *= -1; }
-      cx.fillStyle = r.knows ? C.warn : C.ok; cx.beginPath(); cx.arc(r.x, y, 13, 0, 7); cx.fill();
-      cx.strokeStyle = C.panel; cx.lineWidth = 3; cx.stroke();
-    });
-    cx.fillStyle = C.crit; cx.beginPath(); cx.arc(halted.x, halted.y, 14, 0, 7); cx.fill(); cx.strokeStyle = C.panel; cx.lineWidth = 3; cx.stroke();
-    cx.fillStyle = C.ink; cx.font = '600 14px "JetBrains Mono", Menlo, monospace'; cx.fillText('R03 halted', halted.x - 40, halted.y + 34);
+    robots.forEach(r => bot(r.x, lanes[r.lane], r.dir, r.knows ? C.warn : C.ok, r.id, C));
+    bot(halted.x, lanes[halted.lane], 1, C.crit, 'R03 · HALTED', C);
     if (!reduce) requestAnimationFrame(frame);
   }
+  floorImg.addEventListener('load', () => { if (reduce) frame(performance.now()); });
+
+  // ---- robot cameras + Cosmos perception (real results only) ----
+  const CAMS = [['cam-r14-spill', 'R14', 'aisle 4 · blind corner'], ['cam-r03-person', 'R03', 'aisle 4 · zone A4'], ['cam-r12-forklift', 'R12', 'aisle 4 · blind corner · Day 2'], ['cam-r07-clear', 'R07', 'aisle 2']];
+  const camBox = document.getElementById('cams');
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function renderCams(idx) {
+    camBox.innerHTML = CAMS.map(([n, robot, where]) => {
+      const hit = idx && idx.results && idx.results[n], res = hit && hit.result;
+      let cap;
+      if (res) {
+        const hz = (res.hazards || []).map(h => `<span>${esc(h.type)} · ${esc(h.severity)}</span>`).join('');
+        cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
+          `<span class="meta">Cosmos · ${(hit.latency_ms / 1000).toFixed(1)} s · conf ${res.confidence ?? '—'} · ${esc((hit.called_at || '').slice(11, 19))} UTC</span>`;
+      } else {
+        cap = `<span class="await">Awaiting Cosmos analysis.</span><span class="meta">run tools/cosmos_perceive.cjs</span>`;
+      }
+      return `<figure class="cam"><div class="shot"><img src="assets/frames/${n}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
+    }).join('');
+  }
+  renderCams(null);
+  fetch('assets/perception/index.json').then(r => r.ok ? r.json() : null).then(renderCams).catch(() => {});
 
   function redraw() { drawLearn(); drawCost(); if (reduce) frame(performance.now()); }
   redraw();

@@ -13,6 +13,7 @@
 *.jpeg
 *.jpg
 !site/assets/img/*.jpg
+!site/assets/frames/*.jpg
 
 # Python
 __pycache__/
@@ -32,3 +33,6 @@ docs/video/build/
 
 # Site build output
 site/dist/
+
+# Wrangler local cache (contains account details)
+.wrangler/
