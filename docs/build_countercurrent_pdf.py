@@ -8,11 +8,7 @@ Usage:
 import math
 import sys
 
-from build_architecture_pdf import C, CSS, arrow, box, e, lbl, page, svg
-
-C["hot"] = ("#b91c1c", "#fef2f2")
-C["cold"] = ("#0e7490", "#ecfeff")
-C["warm"] = ("#b45309", "#fffbeb")
+from build_architecture_pdf import C, CSS, arrow, box, colored_defs, e, lbl, page, robot, svg, text
 
 FOOTER = "NemoFleet Countercurrent Options"
 TOTAL = 5
@@ -22,40 +18,6 @@ LEGEND = [
     ("s2", "NVIDIA models on Token Factory"),
     ("runtime", "Fleet runtime"),
 ]
-
-STOPS = [(0.0, (8, 145, 178)), (0.5, (245, 158, 11)), (1.0, (220, 38, 38))]
-
-
-def heat(t):
-    """Cold cyan → amber → hot red, t in [0, 1]."""
-    t = min(max(t, 0.0), 1.0)
-    for (t0, c0), (t1, c1) in zip(STOPS, STOPS[1:]):
-        if t <= t1:
-            f = (t - t0) / (t1 - t0)
-            return "#%02x%02x%02x" % tuple(round(a + (b - a) * f) for a, b in zip(c0, c1))
-    return "#dc2626"
-
-
-def robot(x, y, t, label="", r=19):
-    out = f'<circle cx="{x}" cy="{y}" r="{r}" fill="{heat(t)}" stroke="#fff" stroke-width="3"/>'
-    out += f'<circle cx="{x}" cy="{y}" r="{r + 1.5}" fill="none" stroke="#0f172a" stroke-opacity=".25" stroke-width="1"/>'
-    if label:
-        out += f'<text x="{x}" y="{y + 4}" class="rb">{e(label)}</text>'
-    return out
-
-
-def colored_defs():
-    out = "<defs>"
-    for name, col in [("hot", "#dc2626"), ("cold", "#0891b2")]:
-        out += (f'<marker id="ah-{name}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" '
-                f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{col}"/></marker>')
-    return out + "</defs>"
-
-
-def text(x, y, s, cls="s", anchor="middle", fill=None):
-    f = f' fill="{fill}"' if fill else ""
-    return f'<text x="{x}" y="{y}" class="{cls}" style="text-anchor:{anchor}"{f}>{e(s)}</text>'
-
 
 # ---------- Page 1: profile chart ----------
 def profile_chart():
