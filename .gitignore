@@ -36,3 +36,6 @@ site/dist/
 
 # Wrangler local cache (contains account details)
 .wrangler/
+
+# Rehearsal output
+runs/*-dry/

@@ -41,7 +41,7 @@ function scanForSecrets(files, label) {
 scanForSecrets(tracked.map(f => path.join(ROOT, f)), 'git-tracked files');
 
 // ---------- 2. code checks ----------
-for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tests/qa.cjs']) {
+for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tools/tf.cjs', 'tools/preflight.cjs', 'tools/run_scenario.cjs', 'tests/qa.cjs']) {
   try { new vm.Script(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^#!.*/, ''), { filename: f }); check(`JS parses: ${f}`, true); }
   catch (e) { check(`JS parses: ${f}`, false, e.message); }
 }
@@ -54,6 +54,14 @@ check('robot camera frames and overhead floor present', frames.length === 0 && f
 const perc = JSON.parse(fs.readFileSync(path.join(ROOT, 'site', 'assets', 'perception', 'index.json'), 'utf8'));
 const fakes = Object.entries(perc.results || {}).filter(([n]) => { const f = path.join(ROOT, 'site', 'assets', 'perception', n + '.json'); return !fs.existsSync(f) || !JSON.parse(fs.readFileSync(f, 'utf8')).raw; });
 check('every Cosmos result shown has a stored raw response from a real call', fakes.length === 0, fakes.map(x => x[0]).join(', '));
+try {
+  const outDry = execFileSync('node', [path.join(ROOT, 'tools', 'run_scenario.cjs'), path.join(ROOT, 'scenarios', 'aisle4-spill.json'), '--dry-run'], { cwd: ROOT }).toString();
+  const runDir = outDry.match(/→ (\S+)\/summary\.json/)[1];
+  const sum = JSON.parse(fs.readFileSync(path.join(ROOT, runDir, 'summary.json'), 'utf8'));
+  fs.rmSync(path.join(ROOT, runDir), { recursive: true, force: true });
+  const safety = sum.results.find(r => r.robot === 'R03');
+  check('scenario dry run: 6 events, person event routed to Ultra, handshakes make no model calls', sum.totals.events === 6 && safety.tier === 'ultra' && sum.totals.peer === 2 && sum.totals.model_calls === 0, JSON.stringify(sum.totals));
+} catch (e) { check('scenario dry run', false, String(e.message).slice(0, 200)); }
 const models = fs.readFileSync(path.join(ROOT, 'config', 'models.yaml'), 'utf8');
 check('models.yaml names the Token Factory base URL and Cosmos endpoint', /base_url: https:\/\/api\.tokenfactory\./.test(models) && /Cosmos3-Super-Reasoner/.test(models));
 
