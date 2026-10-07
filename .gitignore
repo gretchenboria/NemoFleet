@@ -39,3 +39,6 @@ site/dist/
 
 # Rehearsal output
 runs/*-dry/
+
+# Wrangler local secrets
+.dev.vars

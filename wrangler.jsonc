@@ -1,0 +1,16 @@
+// Cloudflare Pages config for the NemoFleet site + console API (functions/). IDs only, no secrets.
+//   node site/build.cjs && npx wrangler pages deploy   (run from the repo root so ./functions is picked up)
+{
+  "name": "nemofleet",
+  "pages_build_output_dir": "site/dist",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    { "binding": "MEMORY", "database_name": "nemofleet-memory", "database_id": "eb9d266f-5753-45da-9378-5797b5cf1fdc" }
+  ],
+  "kv_namespaces": [
+    { "binding": "TAGS", "id": "51e4053c22464b5dbe31b0069ed10281" }
+  ],
+  "r2_buckets": [
+    { "binding": "RUNS", "bucket_name": "nemofleet-runs" }
+  ]
+}

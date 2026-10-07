@@ -1,5 +1,5 @@
 // Build the NemoFleet site into site/dist for Cloudflare Pages.
-//   node site/build.cjs && npx wrangler pages deploy site/dist --project-name nemofleet
+//   node site/build.cjs && npx wrangler pages deploy   (from the repo root; wrangler.toml binds D1/KV/R2 for ./functions)
 // Uses marked from docs/video/node_modules (npm install there first).
 const fs = require('fs');
 const path = require('path');
@@ -91,6 +91,12 @@ write('docs.html', layout('docs.html', 'NemoFleet Docs', 'Architecture, implemen
 let consoleBody = fs.readFileSync(path.join(SRC, 'console.body.html'), 'utf8')
   .replace('<div class="wrap">', '<div class="wrap"><a href="index.html" style="font-family:var(--f-mono);font-size:13px;color:var(--muted);text-decoration:none">← NemoFleet overview</a>');
 write('console.html', `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="icon" href="${FAVICON}"><style>body{margin:0}</style></head><body>\n${consoleBody}\n</body></html>\n`);
+
+// data for the console API (functions/api): scenarios and the model registry, read via env.ASSETS
+fs.mkdirSync(path.join(DIST, 'scenarios'), { recursive: true });
+fs.readdirSync(path.join(ROOT, 'scenarios')).filter(f => f.endsWith('.json')).forEach(f => fs.copyFileSync(path.join(ROOT, 'scenarios', f), path.join(DIST, 'scenarios', f)));
+fs.mkdirSync(path.join(DIST, 'config'), { recursive: true });
+fs.writeFileSync(path.join(DIST, 'config', 'models.json'), JSON.stringify(require(path.join(ROOT, 'tools', 'tf.cjs')).models(), null, 2));
 
 fs.writeFileSync(path.join(DIST, '_headers'), `/assets/*\n  Cache-Control: public, max-age=86400\n/docs/*\n  Cache-Control: public, max-age=3600\n/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`);
 console.log('built', fs.readdirSync(DIST).join(' '));

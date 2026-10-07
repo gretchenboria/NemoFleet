@@ -177,8 +177,6 @@ canvas#floor { aspect-ratio: 1584 / 672; }
 .srow .id { font-size: 11px; }
 .srow .m { font-size: 11.5px; }
 .srow .n::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--line); flex: none; }
-.svc .srow:nth-child(1) .n::before, .svc .srow:nth-child(3) .n::before, .svc .srow:nth-child(4) .n::before { background: var(--nvidia); }
-.svc .srow:nth-child(5) .n::before, .svc .srow:nth-child(6) .n::before, .svc .srow:nth-child(7) .n::before { background: var(--nebius); box-shadow: inset 0 0 0 1px var(--nebius-ink); }
 .brandkey { display: flex; gap: 10px; font-size: 11.5px; color: var(--muted); }
 .brandkey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
 .stages { gap: 8px; }
@@ -224,136 +222,144 @@ table.rt td, table.rt th { padding: 5px 6px; }
 @media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid .col:first-child { grid-column: 1 / -1; } .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 @media (max-width: 760px) { .wrap { padding-inline: 16px; } .grid, .charts { grid-template-columns: minmax(0, 1fr); } .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frow { grid-template-columns: 110px minmax(0, 1fr) 54px; } }
 @media (prefers-reduced-motion: reduce) { table.log tr.new td { animation: none; } }
+
+/* live wiring */
+.svc .srow.nv .n::before { background: var(--nvidia); }
+.svc .srow.nb .n::before { background: var(--nebius); box-shadow: inset 0 0 0 1px var(--nebius-ink); }
+.example.live { color: var(--ok); background: var(--ok-bg); }
+.example.off { color: var(--muted); background: var(--panel-2); }
+.banner { border: 1px solid var(--line); border-left: 4px solid var(--warn); background: var(--panel); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.banner[hidden] { display: none; }
+.btn:disabled { opacity: .55; cursor: progress; }
+a.btn { text-decoration: none; display: inline-block; }
+.empty { color: var(--muted); font-size: 13px; }
+.runlist { display: grid; gap: 4px; }
+.rrow { display: grid; grid-template-columns: 44px 52px 118px minmax(0, 1fr) 70px; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--line); }
+.rrow:first-child { border-top: 0; }
+.rrow .num { text-align: right; }
+.rrow .what { min-width: 0; overflow-wrap: anywhere; }
+.rrow .err { color: var(--crit); }
+.rrow.pending { color: var(--muted); }
+.tier.peer { color: var(--s15); } .tier.nano { color: var(--s1); } .tier.ultra { color: var(--s2); } .tier.cosmos { color: var(--nvidia-ink); } .tier.paused { color: var(--warn); }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tags span { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--muted); }
+dialog.ep { border: 1px solid var(--line); border-radius: 10px; padding: 0; width: min(1100px, calc(100% - 24px)); max-height: calc(100% - 40px); background: var(--panel); color: var(--ink); }
+dialog.ep::backdrop { background: rgba(10, 14, 12, .45); }
+dialog.ep .dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+dialog.ep .db { padding: 8px 14px 14px; overflow-x: auto; }
+table.log td.wrapc { white-space: normal; min-width: 220px; }
+@media (max-width: 560px) { .rrow { grid-template-columns: 40px 48px minmax(0, 1fr) 58px; } .rrow .gate { display: none; } }
 </style>
 
 <div class="wrap">
   <header class="top">
     <div class="brand">
       <h1>NemoFleet Ops</h1>
-      <span class="site"><span id="site-label">DC-04 · Hall B</span> · Shift A · <span id="clock" class="num">09:41:07</span></span>
-      <span class="example" title="Numbers on this page are examples until the first real runs are recorded">Example data</span>
+      <span class="site"><span id="site-label">—</span> · <span id="clock" class="num">--:--:--</span></span>
+      <span class="example off" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
       <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button></div>
     </div>
     <div class="top-actions">
-      <button class="btn primary" id="act-night" data-toast="Night Shift run queued on Serverless Jobs (example only, not connected)">Run Night Shift now</button>
-      <button class="btn" id="act-cosmos" data-toast="Stop requested for the Cosmos endpoint (example only, not connected)">Stop Cosmos endpoint</button>
-      <button class="btn danger" id="act-pause" data-confirm="Confirm: pause all 24 robots?" data-toast="Fleet paused at safe stops (example only, not connected)">Pause fleet</button>
+      <button class="btn primary" id="act-run">Run scenario</button>
+      <button class="btn" id="act-night">Run Night Shift now</button>
+      <a class="btn" id="act-cosmos" href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
+      <button class="btn danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
     </div>
   </header>
+  <div class="banner" id="banner" hidden></div>
 
-  <section class="kpis" aria-label="Fleet summary">
-    <div class="kpi"><span class="label">Robots</span><span class="v num">24</span><span class="d">21 moving · 2 charging · <span class="bad">1 halted</span></span></div>
-    <div class="kpi"><span class="label">Settled on the fleet</span><span class="v num">94.1%</span><span class="d">Nano + peers, no cloud call · <span class="good">+2.3 pts</span></span></div>
-    <div class="kpi"><span class="label">Ultra calls / 100 events</span><span class="v num">5.9</span><span class="d">was 6.8 before night-07 · <span class="good">−13%</span></span></div>
-    <div class="kpi"><span class="label">p50 decision latency</span><span class="v num">290 ms</span><span class="d">Nano on vLLM endpoint · p95 1.9 s</span></div>
-    <div class="kpi"><span class="label">Cost per 1k tasks</span><span class="v num">$1.84</span><span class="d">all Nebius services · <span class="good">−$0.21</span></span></div>
-    <div class="kpi"><span class="label">Safety escalations</span><span class="v num">3</span><span class="d">all resolved by Ultra · 0 overrides</span></div>
+  <section class="kpis" aria-label="Fleet summary" id="kpis"></section>
+
+  <section class="panel" aria-labelledby="h-run">
+    <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: Cosmos on camera frames, then Nano or Ultra through the escalation gate.</span></div>
+    <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
   </section>
 
   <div class="grid">
     <div class="col">
       <section class="panel" aria-labelledby="h-floor">
-        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Hall B · overhead · peer handshakes shown as rings</span></div>
-        <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Overhead view of data center hall B with animated robot markers, a coolant leak and a quarantined zone at the end of cold aisle 2, and a halted robot near a technician"></canvas></div>
+        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulated motion · quarantine zones and halts from live KV tags</span></div>
+        <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
         <div class="legend">
-          <span><i style="background:var(--s1)"></i>Moving</span>
+          <span><i style="background:var(--s1)"></i>Moving (simulated)</span>
           <span><i style="background:var(--warn)"></i>Knows a hazard (peer)</span>
-          <span><i style="background:var(--crit)"></i>Halted by Ultra</span>
+          <span><i style="background:var(--crit)"></i>Halted (KV tag)</span>
           <span><i style="background:var(--s15)"></i>Handshake</span>
-          <span><i style="background:var(--warn);border-radius:2px"></i>Hazard tag (fades)</span><span><i style="background:#f5d90a"></i>Person</span>
+          <span><i style="background:#f5d90a"></i>Person</span>
         </div>
       </section>
       <section class="panel" aria-labelledby="h-tier">
-        <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub">last 60 min · 1,862 events</span></div>
-        <div class="funnel">
-          <div class="frow"><span>Nano reflex</span><span class="track"><b style="width:81.4%;background:var(--s1)"></b></span><span class="num">81.4%</span></div>
-          <div class="frow"><span>Peer precedent</span><span class="track"><b style="width:12.7%;background:var(--s15)"></b></span><span class="num">12.7%</span></div>
-          <div class="frow"><span>Ultra (novel)</span><span class="track"><b style="width:4.3%;background:var(--s2)"></b></span><span class="num">4.3%</span></div>
-          <div class="frow"><span>Ultra (safety)</span><span class="track"><b style="width:1.6%;background:var(--crit)"></b></span><span class="num">1.6%</span></div>
-        </div>
+        <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub" id="tier-sub">no data yet</span></div>
+        <div class="funnel" id="funnel"></div>
       </section>
     </div>
 
     <div class="col">
       <section class="panel" aria-labelledby="h-alarms">
-        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">5</span> open</span></div>
+        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">0</span> open · <button class="btn sm" id="act-episodes">Review episodes</button></span></div>
         <div class="alarms" id="alarms"></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
-        <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">schema-checked before anything moves</span></div>
+        <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">written to D1 and KV</span></div>
         <div class="top-actions">
-          <button class="btn sm" id="q-btn" data-toast="Zone C2 quarantined for 10 min; planner rerouting 3 robots (example only)">Quarantine zone C2</button>
-          <button class="btn sm" data-toast="R07 halted at next safe stop (example only)">Halt robot R07</button>
-          <button class="btn sm" data-toast="Event sent to Ultra for deliberation (example only)">Escalate to Ultra</button>
-          <button class="btn sm" data-toast="Hazard broadcast to all robots, bypassing handshakes (example only)">Broadcast hazard</button>
-          <button class="btn sm danger" data-confirm="Confirm: roll back to night-06?" data-toast="Nano rolled back to adapter night-06 (example only)">Roll back Nano</button>
+          <button class="btn sm" id="q-btn" data-action="quarantine_zone">Quarantine zone</button>
+          <button class="btn sm" id="halt-btn" data-action="halt" data-robot="R07">Halt robot R07</button>
+          <button class="btn sm" id="esc-btn" data-action="escalate">Escalate to Ultra</button>
+          <button class="btn sm" id="bc-btn" data-action="broadcast_hazard">Broadcast hazard</button>
+          <button class="btn sm danger" id="rb-btn" data-action="rollback_nano" data-confirm="Confirm: roll back Nano?">Roll back Nano</button>
         </div>
+        <div><div class="label">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
+        <div><div class="label">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
       </section>
     </div>
 
     <div class="col">
       <section class="panel" aria-labelledby="h-svc">
         <div class="ph"><h2 id="h-svc">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
-        <div class="svc">
-          <div class="srow"><div><div class="n">Nemotron Nano <span class="tier s1">SYSTEM 1</span></div><div class="id mono">nano + adapter night-07 · Serverless Endpoint (vLLM)</div></div><div class="m"><span class="pill ok">Healthy</span><b>p50 280 ms</b>1,515 calls/h</div></div>
-          <div class="srow"><div><div class="n">Peer exchange <span class="tier s15">SYSTEM 1.5</span></div><div class="id">handshakes · fading tags · no model call</div></div><div class="m"><span class="pill ok">Active</span><b>1,284 /h</b>handshakes</div></div>
-          <div class="srow"><div><div class="n">Nemotron Ultra <span class="tier s2">SYSTEM 2</span></div><div class="id mono">Token Factory · id set in models.yaml</div></div><div class="m"><span class="pill ok">Healthy</span><b>p95 22 s</b>110 calls today</div></div>
-          <div class="srow"><div><div class="n">Cosmos3 Super Reasoner <span class="tier s2">PERCEPTION</span></div><div class="id mono">dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm · 4× H200</div></div><div class="m"><span class="pill warn">Running</span><b>$0.37 / min</b>32 min today</div></div>
-          <div class="srow"><div><div class="n">Serverless Jobs <span class="tier job">NIGHT SHIFT</span></div><div class="id">48 dream shards · 1 gate · 1 H200 LoRA</div></div><div class="m"><span class="pill ok">0 failed</span><b>50 / 50</b>last night</div></div>
-          <div class="srow"><div><div class="n">Managed MLflow <span class="tier ops">LINEAGE</span></div><div class="id mono">run 3f9a1c · production = night-07</div></div><div class="m"><span class="pill ok">Synced</span><b>night-07</b>promoted 04:12</div></div>
-          <div class="srow"><div><div class="n">Token Factory Data Lab <span class="tier ops">LOGS</span></div><div class="id">Ultra calls → tonight's replay dataset</div></div><div class="m"><span class="pill ok">Logging</span><b>110</b>calls captured</div></div>
-        </div>
+        <div class="svc" id="svc"></div>
       </section>
     </div>
   </div>
 
   <section class="panel" aria-labelledby="h-cams">
-    <div class="ph"><h2 id="h-cams">Robot cameras · Cosmos perception</h2><span class="sub">Cosmos3 Super Reasoner · Token Factory dedicated endpoint · frames are simulation renders</span></div>
+    <div class="ph"><h2 id="h-cams">Robot cameras · Cosmos perception</h2><span class="sub">Cosmos3 Super Reasoner · Token Factory dedicated endpoint · frames are simulation renders, results are stored real responses</span></div>
     <div class="cams" id="cams"></div>
   </section>
 
   <section class="panel" aria-labelledby="h-ns">
-    <div class="ph"><h2 id="h-ns">Night Shift · last run night-07</h2><span class="sub">02:00–04:12 · next run 02:00 · one Serverless Jobs pipeline</span></div>
-    <div class="stages">
-      <div class="stage"><h3>1 Replay</h3><span class="svcn">Token Factory batch</span><span class="big">2,140</span><span class="note">decisions re-judged · 5 confident mistakes</span><span class="bar"><b style="width:100%"></b></span></div>
-      <div class="stage"><h3>2 Dream</h3><span class="svcn">Serverless Jobs · 48 shards</span><span class="big">312</span><span class="note">variants simulated · 47 failures found</span><span class="bar"><b style="width:100%"></b></span></div>
-      <div class="stage"><h3>3 Gate</h3><span class="svcn">Serverless Jobs</span><span class="big">7 / 60</span><span class="note">lessons pass · fix variants, no regressions</span><span class="bar"><b style="width:100%"></b></span></div>
-      <div class="stage"><h3>4 Consolidate</h3><span class="svcn">H200 job · MLflow</span><span class="big">41 min</span><span class="note">LoRA trained · beat night-06 on held-out set · promoted</span><span class="bar"><b style="width:100%"></b></span></div>
-    </div>
+    <div class="ph"><h2 id="h-ns">Night Shift <span id="ns-night"></span></h2><span class="sub">Replay runs live on Token Factory. Dream, Gate and Consolidate need the Serverless Jobs runner, which is not built yet.</span></div>
+    <div class="stages" id="stages"></div>
     <div class="ns-foot">
-      <div class="tau"><label for="tau" class="label">Escalation threshold τ for next shift</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">recommended by replay disagreement rate</span></div>
-      <button class="btn sm" data-toast="τ = value saved for next shift (example only)" id="tau-save">Apply τ</button>
+      <div class="tau"><label for="tau" class="label">Escalation threshold τ for next run</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">—</span></div>
+      <button class="btn sm" id="tau-save">Apply τ</button>
     </div>
   </section>
 
   <div class="charts">
     <section class="panel" aria-labelledby="h-learn">
-      <div class="ph"><h2 id="h-learn">Learning curve</h2><span class="sub">Ultra calls per 100 events, by night</span></div>
-      <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra calls per 100 events falling from 14.2 to 5.9 over seven nights"></svg>
+      <div class="ph"><h2 id="h-learn">Learning curve</h2><span class="sub">Ultra share of model decisions, % by run</span></div>
+      <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra share of model decisions by scenario run"></svg>
     </section>
     <section class="panel" aria-labelledby="h-peer">
-      <div class="ph"><h2 id="h-peer">Peer exchange</h2><span class="sub">last 60 min</span></div>
-      <div class="stats">
-        <div class="stat"><div class="v">94 s</div><div class="k">p50 time for a hazard to reach the fleet</div></div>
-        <div class="stat"><div class="v">1.0</div><div class="k">perception calls per hazard</div></div>
-        <div class="stat"><div class="v">3,412</div><div class="k">precedents in fleet memory</div></div>
-        <div class="stat"><div class="v">57</div><div class="k">hazard tags expired on schedule</div></div>
-      </div>
+      <div class="ph"><h2 id="h-peer">Fleet memory</h2><span class="sub">D1 precedents · KV tags</span></div>
+      <div class="stats" id="stats"></div>
     </section>
     <section class="panel" aria-labelledby="h-cost">
-      <div class="ph"><h2 id="h-cost">Spend today</h2><span class="sub num">$31.64 of $60.00 budget</span></div>
-      <div class="costbar" id="costbar" role="img" aria-label="Spend today split by service"></div>
+      <div class="ph"><h2 id="h-cost">Usage today</h2><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
+      <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
       <div class="costlegend" id="costlegend"></div>
+      <div class="empty">Cosmos is billed per minute while its dedicated endpoint runs ($0.37/min), not per token.</div>
     </section>
   </div>
 
   <section class="panel" aria-labelledby="h-log">
-    <div class="ph"><h2 id="h-log">Model call log</h2><span class="sub">every Token Factory and endpoint call · newest first</span></div>
-    <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Cost</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
+    <div class="ph"><h2 id="h-log">Model call log</h2><span class="sub">every Token Factory call, from D1 · newest first</span></div>
+    <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
   </section>
 
   <details class="rules">
-    <summary>Alarm rules and thresholds</summary>
+    <summary>Alarm rules and thresholds (design)</summary>
+    <p class="empty">Raised live today: person or safety event (critical), hazard sighting (warning), operator quarantine and pause (info). The other rules are the design for the full system.</p>
     <div class="rulebox"><table class="rt">
       <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
       <tbody>
@@ -373,19 +379,40 @@ table.rt td, table.rt th { padding: 5px 6px; }
     </table></div>
   </details>
 </div>
+<dialog class="ep" id="episodes" aria-labelledby="h-ep">
+  <div class="dh"><h2 id="h-ep">Episodes · <span id="ep-scene"></span></h2><button class="btn sm" id="ep-close">Close</button></div>
+  <div class="db"><p class="empty" id="ep-note">Loading…</p>
+    <table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Robot</th><th>Event</th><th>Latency</th><th>Schema</th><th>Decision</th><th>Night Shift replay (Ultra)</th></tr></thead><tbody id="ep-body"></tbody></table></div>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (() => {
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DASH = '—';
+  const LIVE_URL = 'https://nemofleet.pages.dev/console';
+  let LIVE = false, HEALTH = null, ST = null, BUSY = false;
 
-  // ---- toast + two-step confirm for every action button ----
-  const toast = document.getElementById('toast');
-  let tt;
-  function say(msg) { toast.textContent = msg; toast.hidden = false; clearTimeout(tt); tt = setTimeout(() => toast.hidden = true, 3200); }
-  function wire(btn) {
-    btn.addEventListener('click', () => {
+  // ---- toast ----
+  const toast = $('toast'); let tt;
+  function say(msg, ms = 5000) { toast.textContent = msg; toast.hidden = false; clearTimeout(tt); tt = setTimeout(() => toast.hidden = true, ms); }
+
+  // ---- API ----
+  async function api(p, body) {
+    const r = await fetch('/api/' + p, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+    const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+    if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  }
+  const offline = () => say(`Not connected to the NemoFleet API here. Open ${LIVE_URL} to run this for real.`, 6000);
+
+  // a button that confirms first (data-confirm), disables while running, and reports the real result or error
+  function wire(btn, fn) {
+    btn.addEventListener('click', async () => {
+      if (!LIVE) return offline();
       const conf = btn.dataset.confirm;
       if (conf && !btn.classList.contains('confirming')) {
         btn.dataset.label = btn.textContent; btn.textContent = conf; btn.classList.add('confirming');
@@ -393,92 +420,282 @@ table.rt td, table.rt th { padding: 5px 6px; }
         return;
       }
       if (conf) { btn.textContent = btn.dataset.label; btn.classList.remove('confirming'); }
-      let m = btn.dataset.toast || 'Done';
-      if (btn.id === 'tau-save') m = m.replace('value', document.getElementById('tau').value);
-      say(m);
+      btn.disabled = true;
+      try { const m = await fn(); if (m) say(m); } catch (e) { say(`Failed: ${e.message}`, 8000); }
+      finally { btn.disabled = false; refresh(); }
     });
   }
-  document.querySelectorAll('button[data-toast]').forEach(wire);
 
-  // ---- clock ----
-  const clock = document.getElementById('clock');
-  let t0 = new Date(); t0.setHours(9, 41, 7);
-  const start = performance.now();
-  setInterval(() => { const d = new Date(t0.getTime() + (performance.now() - start)); clock.textContent = d.toTimeString().slice(0, 8); }, 1000);
+  // ---- clock (real local time) ----
+  const tick = () => $('clock').textContent = new Date().toTimeString().slice(0, 8);
+  tick(); setInterval(tick, 1000);
 
-  // ---- alarms (per scene) ----
-  const box = document.getElementById('alarms'), open = document.getElementById('open-count');
+  // ---- helpers over real rows ----
+  const pct = (a, b) => b ? (100 * a / b) : null;
+  const fmtPct = v => v == null ? DASH : v.toFixed(1) + '%';
+  const fmtMs = v => v == null ? DASH : v >= 1000 ? (v / 1000).toFixed(1) + ' s' : Math.round(v) + ' ms';
+  const quant = (xs, q) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
+  const shortModel = m => String(m || '').replace(/^dedicated\//, '').replace(/^nvidia\//, '').replace(/-g_\w+$/, '');
+  const hhmmss = ts => ts ? new Date(ts).toTimeString().slice(0, 8) : DASH;
+  const parse = s => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+  const tagNames = () => (ST?.tags || []).map(t => t.name);
+
+  // decision events = (run, robot, event) groups over Nano/Ultra calls; peer handshakes come from peer precedents
+  function derive() {
+    const calls = ST?.calls || [], evs = new Map();
+    for (const c of calls) if (c.tier === 'nano' || c.tier === 'ultra') {
+      const k = c.run_id ? `${c.run_id}|${c.robot}|${c.event}` : `op|${c.id}`;
+      const e = evs.get(k) || { run: c.run_id, event: c.event, ts: c.ts, tiers: new Set() };
+      e.tiers.add(c.tier); if (c.ts < e.ts) e.ts = c.ts; evs.set(k, e);
+    }
+    const list = [...evs.values()], peer = ST?.precedents?.peer_total || 0;
+    const nanoOnly = list.filter(e => !e.tiers.has('ultra')).length;
+    const ultraSafety = list.filter(e => e.tiers.has('ultra') && e.event === 'safety').length;
+    const ultraOther = list.filter(e => e.tiers.has('ultra') && e.event !== 'safety').length;
+    const lat = t => calls.filter(c => c.tier === t && c.latency_ms != null).map(c => c.latency_ms);
+    return { calls, list, peer, nanoOnly, ultraSafety, ultraOther, total: list.length + peer, nanoLat: lat('nano'), ultraLat: lat('ultra'),
+      tokens: calls.reduce((s, c) => s + (c.prompt_tokens || 0) + (c.completion_tokens || 0), 0) };
+  }
+
+  // ---- KPIs ----
+  function renderKpis() {
+    const d = derive(), tags = tagNames(), halted = tags.filter(t => t.includes(':halt:')).length, zones = tags.filter(t => t.includes(':zone:')).length;
+    const k = [
+      ['Settled on the fleet', fmtPct(pct(d.nanoOnly + d.peer, d.total)), d.total ? `Nano + peers, no Ultra call · ${d.total} events` : 'no data yet'],
+      ['Ultra calls / 100 events', d.total ? (100 * (d.ultraSafety + d.ultraOther) / d.total).toFixed(1) : DASH, d.total ? `${d.ultraSafety} safety · ${d.ultraOther} novel or unsure` : 'no data yet'],
+      ['p50 Nano latency', fmtMs(quant(d.nanoLat, .5)), d.nanoLat.length ? `p95 ${fmtMs(quant(d.nanoLat, .95))} · ${d.nanoLat.length} calls` : 'no data yet'],
+      ['p50 Ultra latency', fmtMs(quant(d.ultraLat, .5)), d.ultraLat.length ? `p95 ${fmtMs(quant(d.ultraLat, .95))} · ${d.ultraLat.length} calls` : 'no data yet'],
+      ['Tokens used', d.calls.length ? d.tokens.toLocaleString('en-US') : DASH, d.calls.length ? `${d.calls.length} model calls (last 200)` : 'no data yet'],
+      ['Halted robots', ST ? String(halted) : DASH, ST ? `${zones} zone${zones === 1 ? '' : 's'} quarantined${ST.paused ? ' · <span class="bad">fleet paused</span>' : ''}` : 'no data yet'],
+    ];
+    $('kpis').innerHTML = k.map(([l, v, s]) => `<div class="kpi"><span class="label">${l}</span><span class="v num">${v}</span><span class="d">${s}</span></div>`).join('');
+    const rows = [['Nano reflex', d.nanoOnly, '--s1'], ['Peer precedent', d.peer, '--s15'], ['Ultra (novel / unsure)', d.ultraOther, '--s2'], ['Ultra (safety)', d.ultraSafety, '--crit']];
+    $('funnel').innerHTML = rows.map(([n, v, c]) => { const p = pct(v, d.total); return `<div class="frow"><span>${n}</span><span class="track"><b style="width:${p ?? 0}%;background:var(${c})"></b></span><span class="num">${fmtPct(p)}</span></div>`; }).join('');
+    $('tier-sub').textContent = d.total ? `${d.total} events · last 200 calls` : 'no data yet';
+    const pb = $('act-pause'); if (!pb.classList.contains('confirming')) { pb.textContent = ST?.paused ? 'Resume fleet' : 'Pause fleet'; pb.dataset.confirm = ST?.paused ? '' : 'Confirm: pause the fleet?'; }
+  }
+
+  // ---- alarms ----
   const sevName = { crit: 'Critical', warn: 'Warning', info: 'Info' };
-  function renderAlarms(alarms) {
-    box.innerHTML = '';
-    alarms.forEach((a, i) => {
-      const el = document.createElement('div'); el.className = 'alarm'; el.dataset.sev = a.sev;
-      el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${a.t}</span></div><div class="meta">${a.meta}</div><div class="acts"></div></div>`;
-      a.acts.forEach(label => {
-        const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.id = `al-${i}-${label.replace(/\W+/g, '').toLowerCase()}`;
-        b.addEventListener('click', () => {
-          if (label === 'Acknowledge') { el.classList.toggle('acked'); b.textContent = el.classList.contains('acked') ? 'Reopen' : 'Acknowledge'; open.textContent = box.querySelectorAll('.alarm:not(.acked)').length; }
-          else say(`${label}: example only, not connected`);
-        });
-        el.querySelector('.acts').appendChild(b);
-      });
+  function renderAlarms() {
+    const box = $('alarms'), al = ST?.alarms || [];
+    box.innerHTML = al.length ? '' : `<div class="empty">${LIVE ? 'No open alarms. Alarms are raised by scenario runs and operator actions.' : 'Not connected: no alarm data.'}</div>`;
+    al.forEach(a => {
+      const el = document.createElement('div'); el.className = 'alarm' + (a.status === 'acked' ? ' acked' : ''); el.dataset.sev = a.sev;
+      el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${esc(a.title)}</span></div><div class="meta">${esc(a.meta || '')} · ${hhmmss(a.created_at)}</div><div class="acts"></div></div>`;
+      const acts = el.querySelector('.acts');
+      const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
+      add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
+      add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared from KV`; });
+      if (a.run_id) add('Review episodes', 'episodes', async () => { openEpisodes(); });
       box.appendChild(el);
     });
-    open.textContent = alarms.length;
+    $('open-count').textContent = al.filter(a => a.status === 'open').length;
   }
 
-  // ---- tau slider ----
-  const tau = document.getElementById('tau'), tauV = document.getElementById('tau-v'), tauN = document.getElementById('tau-note');
-  tau.addEventListener('input', () => { tauV.textContent = Number(tau.value).toFixed(2); tauN.textContent = tau.value < 0.5 ? 'fewer escalations, more risk' : tau.value > 0.75 ? 'more escalations, higher cost' : 'recommended by replay disagreement rate'; });
+  // ---- actions + tags ----
+  function renderActions() {
+    const tags = ST?.tags || [];
+    $('tags').innerHTML = tags.length ? tags.map(t => `<span title="${t.expires ? 'expires ' + esc(t.expires) : 'no expiry'}">${esc(t.name.replace(SCENE + ':', ''))}</span>`).join('') : `<span>${ST ? 'none' : DASH}</span>`;
+    const acts = ST?.actions || [];
+    $('actions-log').innerHTML = acts.length ? acts.slice(0, 5).map(a => `<div><span class="mono">${hhmmss(a.created_at)}</span> · ${esc(a.source)} · ${esc(a.type)}</div>`).join('') : (ST ? 'none yet' : DASH);
+  }
 
-  // ---- learning curve ----
+  // ---- services ----
+  function renderSvc() {
+    const m = HEALTH?.models || {}, d = derive(), calls = d.calls;
+    const n = t => calls.filter(c => c.tier === t).length;
+    const lastCosmos = (ST?.perception || [])[0];
+    const pill = (ok, yes, no) => `<span class="pill ${ok ? 'ok' : 'idle'}">${ok ? yes : no}</span>`;
+    const key = !!HEALTH?.nebius_key;
+    const rows = [
+      ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
+      ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'handshakes · fading KV tags · no model call', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
+      ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
+      ['nv', 'Cosmos3 Super Reasoner', 's2', 'PERCEPTION', (m.perception || 'not connected') + ' · 4× H200', pill(lastCosmos, 'Responded', 'No response yet'), `<b>$0.37 / min</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'while running'}`],
+      ['', 'Fleet memory', 'ops', 'CLOUDFLARE', 'D1 precedents + calls · KV tags · R2 raw bodies', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'D1 · KV · R2 up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>live precedents`],
+      ['nb', 'Serverless Jobs', 'job', 'NIGHT SHIFT', 'Dream · Gate · Consolidate runner', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
+      ['nb', 'Managed MLflow', 'ops', 'LINEAGE', 'adapter lineage and promotion', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
+    ];
+    $('svc').innerHTML = rows.map(([c, name, t, tl, id, p, met]) => `<div class="srow ${c}"><div><div class="n">${name} <span class="tier ${t}">${tl}</span></div><div class="id mono">${esc(id)}</div></div><div class="m">${p}${met}</div></div>`).join('');
+  }
+
+  // ---- cameras: stored real Cosmos responses only ----
+  let STATIC_PERC = null;
+  function renderCams() {
+    const latest = {};
+    for (const p of ST?.perception || []) if (!latest[p.frame]) latest[p.frame] = { ...p, result: parse(p.result_json) };
+    if (!ST && STATIC_PERC?.results) Object.assign(latest, STATIC_PERC.results);
+    $('cams').innerHTML = SC.cams.map(([nm, robot, where]) => {
+      const hit = latest[nm], res = hit && hit.result;
+      let cap;
+      if (res) {
+        const hz = (res.hazards || []).map(h => `<span>${esc(h.type)} · ${esc(h.severity)}</span>`).join('');
+        cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
+          `<span class="meta">Cosmos · ${fmtMs(hit.latency_ms)} · conf ${res.confidence ?? DASH} · ${hhmmss(hit.called_at)}</span>`;
+      } else if (hit) cap = `<span class="await">Cosmos replied but the reply was not valid JSON; raw response stored in R2.</span><span class="meta">${hhmmss(hit.called_at)}</span>`;
+      else cap = `<span class="await">No Cosmos result yet.</span><span class="meta">${LIVE ? 'Run scenario calls Cosmos on this frame' : 'not connected'}</span>`;
+      return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${nm}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
+    }).join('');
+  }
+
+  // ---- Night Shift ----
+  function renderNight() {
+    const rows = ST?.night_shift || [], rep = rows.find(r => r.stage === 'replay'), met = parse(rep?.metrics_json) || {};
+    const nano = (ST?.calls || []).filter(c => c.tier === 'nano' && c.valid === 1), done = nano.filter(c => c.replay_json).length;
+    $('ns-night').textContent = rep ? `· last run ${rep.night}` : ST ? '· no run yet' : '';
+    const stage = (h, svc, big, note, w) => `<div class="stage"><h3>${h}</h3><span class="svcn">${svc}</span><span class="big">${big}</span><span class="note">${note}</span><span class="bar"><b style="width:${w}%"></b></span></div>`;
+    $('stages').innerHTML =
+      stage('1 Replay', 'Token Factory · Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
+        rep ? `decisions re-judged · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}` : 'no replay yet: Run Night Shift now', nano.length ? Math.round(100 * done / nano.length) : 0) +
+      stage('2 Dream', 'Serverless Jobs', DASH, 'Not built yet: needs the Serverless Jobs runner', 0) +
+      stage('3 Gate', 'Serverless Jobs', DASH, 'Not built yet', 0) +
+      stage('4 Consolidate', 'H200 job · MLflow', DASH, 'Not built yet: no LoRA adapter trained', 0);
+    const tau = $('tau');
+    if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }
+    $('tau-note').textContent = ST ? `in use ${Number(ST.tau).toFixed(2)} · scenario default ${Number(ST.tau_default).toFixed(2)}` : DASH;
+  }
+
+  // ---- learning curve: Ultra share by run, from real calls ----
   function drawLearn() {
-    const svg = document.getElementById('learn');
-    const vals = [14.2, 11.8, 10.1, 8.9, 7.6, 6.8, 5.9], W = 360, H = 190, L = 34, R = 12, T = 14, B = 30, max = 15;
-    const x = i => L + i * (W - L - R) / (vals.length - 1), y = v => T + (1 - v / max) * (H - T - B);
-    const line = css('--nvidia-ink'), grid = css('--line');
+    const svg = $('learn'), W = 360, H = 190, L = 34, R = 12, T = 14, B = 30;
+    const byRun = new Map();
+    for (const e of derive().list) if (e.run) { const r = byRun.get(e.run) || { ts: e.ts, n: 0, u: 0 }; r.n++; if (e.tiers.has('ultra')) r.u++; if (e.ts < r.ts) r.ts = e.ts; byRun.set(e.run, r); }
+    const vals = [...byRun.values()].sort((a, b) => a.ts < b.ts ? -1 : 1).slice(-10).map(r => 100 * r.u / r.n);
+    const grid = css('--line'), line = css('--nvidia-ink');
     let s = '';
-    [0, 5, 10, 15].forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`; });
-    vals.forEach((v, i) => s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">n0${i + 1}</text>`);
+    const y = v => T + (1 - v / 100) * (H - T - B);
+    [0, 50, 100].forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`; });
+    if (!vals.length) { s += `<text x="${(L + W - R) / 2}" y="${H / 2}" text-anchor="middle">no runs yet</text>`; svg.innerHTML = s; return; }
+    const x = i => vals.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (vals.length - 1);
+    vals.forEach((v, i) => s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">r${i + 1}</text>`);
     const pts = vals.map((v, i) => `${x(i)},${y(v)}`).join(' ');
-    s += `<polygon points="${x(0)},${y(0)} ${pts} ${x(vals.length - 1)},${y(0)}" fill="${line}" fill-opacity=".14"/>`;
-    s += `<polyline points="${pts}" fill="none" stroke="${line}" stroke-width="2.5" stroke-linejoin="round"/>`;
-    const lx = x(vals.length - 1), ly = y(vals[vals.length - 1]);
-    s += `<circle cx="${lx}" cy="${ly}" r="5" fill="${line}"/><text x="${lx - 8}" y="${ly - 10}" text-anchor="end" style="fill:${css('--ink')};font-weight:600">5.9</text>`;
+    if (vals.length > 1) s += `<polyline points="${pts}" fill="none" stroke="${line}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    vals.forEach((v, i) => s += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${line}"/>`);
+    const lv = vals[vals.length - 1]; s += `<text x="${x(vals.length - 1) - 8}" y="${y(lv) - 10}" text-anchor="end" style="fill:${css('--ink')};font-weight:600">${lv.toFixed(0)}%</text>`;
     svg.innerHTML = s;
   }
 
-  // ---- cost ----
-  function drawCost() {
-    const items = [['Cosmos endpoint', 11.84, '--nvidia-ink'], ['Nemotron Ultra', 9.40, '--nvidia'], ['Nano endpoint', 6.10, '--s15'], ['Serverless Jobs', 3.20, '--nebius-ink'], ['Batch replay', 1.10, '--nebius']];
-    const budget = 60;
-    document.getElementById('costbar').innerHTML = items.map(([, v, c]) => `<b style="width:${(v / budget * 100).toFixed(2)}%;background:var(${c})"></b>`).join('') + `<b style="flex:1;background:var(--panel-2)"></b>`;
-    document.getElementById('costlegend').innerHTML = items.map(([n, v, c]) => `<div><span><i style="background:var(${c})"></i>${n}</span><span class="num">$${v.toFixed(2)}</span></div>`).join('');
+  // ---- fleet memory stats ----
+  function renderStats() {
+    const v = x => ST ? String(x) : DASH;
+    const st = [[v(ST?.precedents?.n ?? 0), 'live precedents (Ultra + peer copies)'], [v(ST?.precedents?.peer_total ?? 0), 'peer copies made by handshakes'],
+      [v((ST?.tags || []).length), 'active KV tags (fade on TTL)'], [v((ST?.perception || []).length), 'stored Cosmos responses']];
+    $('stats').innerHTML = st.map(([a, b]) => `<div class="stat"><div class="v">${a}</div><div class="k">${b}</div></div>`).join('');
+  }
+
+  // ---- usage today: real tokens by model ----
+  function drawUsage() {
+    const today = new Date().toISOString().slice(0, 10), by = new Map();
+    for (const c of ST?.calls || []) if (String(c.ts).startsWith(today)) { const k = shortModel(c.model), r = by.get(k) || { tok: 0, n: 0 }; r.tok += (c.prompt_tokens || 0) + (c.completion_tokens || 0); r.n++; by.set(k, r); }
+    const items = [...by.entries()].sort((a, b) => b[1].tok - a[1].tok), total = items.reduce((s, [, r]) => s + r.tok, 0), colors = ['--nvidia-ink', '--nvidia', '--s15', '--nebius-ink'];
+    $('use-sub').textContent = total ? `${total.toLocaleString('en-US')} tokens today (UTC)` : 'no calls today';
+    $('costbar').innerHTML = total ? items.map(([, r], i) => `<b style="width:${(100 * r.tok / total).toFixed(2)}%;background:var(${colors[i % 4]})"></b>`).join('') : `<b style="flex:1;background:var(--panel-2)"></b>`;
+    $('costlegend').innerHTML = items.map(([n, r], i) => `<div><span><i style="background:var(${colors[i % 4]})"></i>${esc(n)}</span><span class="num">${r.tok.toLocaleString('en-US')} tok · ${r.n} calls</span></div>`).join('');
   }
 
   // ---- call log ----
-  let tmpl = [];
-  const tierLabel = { s1: 'S1', s15: 'S1.5', s2: 'S2' };
-  const logEl = document.getElementById('log');
-  let n = 0;
-  function addRow(initial) {
-    const [tier, model, robot, ev, lat, tok, cost, res] = tmpl[n % tmpl.length]; n++;
-    const tr = document.createElement('tr'); if (!initial) tr.className = 'new';
-    tr.innerHTML = `<td class="mono">${clock.textContent}</td><td><span class="tier ${tier}">${tierLabel[tier]}</span></td><td class="mono">${model}</td><td>${robot}</td><td>${ev}</td>` +
-      `<td class="num">${lat >= 1000 ? (lat / 1000).toFixed(1) + ' s' : lat + ' ms'}</td><td class="num">${tok ? tok.toLocaleString('en-US') : '—'}</td><td class="num">${cost ? '$' + cost.toFixed(4) : '$0'}</td><td>${res}</td>`;
-    logEl.prepend(tr);
-    while (logEl.children.length > 8) logEl.lastChild.remove();
+  const TIER = { nano: ['nano', 'S1 · Nano'], ultra: ['ultra', 'S2 · Ultra'], perception: ['cosmos', 'Cosmos'] };
+  function resultOf(c) {
+    if (c.tier === 'perception') return c.valid ? 'perception stored' : 'reply not JSON (raw in R2)';
+    if (c.valid === 0) return '<span class="bad">schema reject</span>';
+    const d = parse(c.decision_json); return d ? esc(d.actions.map(a => a.type).join(', ')) + ` · conf ${d.confidence}` : DASH;
   }
-  if (!reduce) setInterval(() => addRow(false), 2600);
+  function renderLog() {
+    const calls = (ST?.calls || []).slice(0, 12);
+    $('log').innerHTML = calls.length ? calls.map(c => `<tr><td class="mono">${hhmmss(c.ts)}</td><td><span class="tier ${TIER[c.tier][0]}">${TIER[c.tier][1]}</span></td><td class="mono">${esc(shortModel(c.model))}</td><td>${esc(c.robot || DASH)}</td><td>${esc(c.event || DASH)}</td>` +
+      `<td class="num">${fmtMs(c.latency_ms)}</td><td class="num">${c.prompt_tokens != null ? ((c.prompt_tokens || 0) + (c.completion_tokens || 0)).toLocaleString('en-US') : DASH}</td><td>${resultOf(c)}</td></tr>`).join('')
+      : `<tr><td colspan="8" class="empty">${LIVE ? 'No model calls yet for this scene. Click Run scenario.' : 'Not connected: no call data.'}</td></tr>`;
+  }
 
-  // ---- live floor (canvas over the overhead render) ----
-  const cv = document.getElementById('floor'), cx = cv.getContext('2d');
+  function renderAll() { renderKpis(); renderAlarms(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
+  async function refresh() {
+    if (!LIVE) { renderAll(); return; }
+    const want = SCENE;
+    try { const s = await api('state?scene=' + want); if (want === SCENE) { ST = s; renderAll(); } }
+    catch (e) { say(`Could not load state: ${e.message}`, 8000); }
+  }
+
+  // ---- Run scenario: start → step each event → finish ----
+  const KIND = { routine: 'routine', first_sighting: 'first sighting', peer_handshake: 'peer handshake', safety: 'safety', variant: 'variant' };
+  function rrow(ev, r, err) {
+    const tier = r ? (r.tier === 'peer' ? 'peer' : r.tier) : null;
+    const what = err ? `<span class="err">${esc(err)}</span>` : !r ? esc(ev.text.slice(0, 110)) + (ev.text.length > 110 ? '…' : '') :
+      r.tier === 'peer' || r.tier === 'paused' ? esc(r.note) :
+      (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision after retry → safe stop</span>`) +
+      (r.perception ? ` · Cosmos: ${esc(r.perception.recommended_action || '?')}` : r.perception_error ? ` · <span class="err">Cosmos unavailable</span>` : '');
+    return `<div class="rrow${r || err ? '' : ' pending'}"><span class="mono">t=${ev.t}s</span><span class="mono">${esc(ev.robot)}</span><span class="gate">${r ? `<span class="tier ${tier}">${esc(r.tier.toUpperCase())}</span> ${esc(r.gate || '')}` : esc(KIND[ev.kind] || ev.kind)}</span><span class="what">${what}</span><span class="num mono">${r && r.latency_ms ? fmtMs(r.latency_ms) : r ? '0 calls' : ''}</span></div>`;
+  }
+  async function runScenario() {
+    if (BUSY) return 'A run is already in progress';
+    BUSY = true; const scene = SCENE, btn = $('act-run'); btn.textContent = 'Running…';
+    try {
+      const s = await api('scenario/start', { scene });
+      const out = s.events.map(() => null), errs = s.events.map(() => null);
+      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `${s.run_id} · τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
+      paint(0);
+      for (let i = 0; i < s.events.length; i++) {
+        try { out[i] = await api('scenario/step', { scene, run_id: s.run_id, i }); } catch (e) { errs[i] = e.message; }
+        paint(i + 1); if (scene === SCENE) await refresh();
+      }
+      const f = await api('scenario/finish', { run_id: s.run_id });
+      const failed = errs.filter(Boolean).length;
+      return `Run finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed (see Scenario run)` : ''}`;
+    } finally { BUSY = false; btn.textContent = 'Run scenario'; }
+  }
+
+  // ---- Night Shift replay loop ----
+  async function runNight() {
+    if (BUSY) return 'Another run is in progress';
+    BUSY = true; const btn = $('act-night'), scene = SCENE;
+    try {
+      let r, rounds = 0, judged = 0;
+      do { btn.textContent = `Replaying… ${judged}`; r = await api('night-shift/replay', { scene }); judged += r.verdicts.length; rounds++; if (scene === SCENE) await refresh(); } while (r.remaining > 0 && r.verdicts.length && rounds < 50);
+      return judged ? `Replay: Ultra re-judged ${judged} Nano decision${judged === 1 ? '' : 's'} · ${r.disagree} disagreement${r.disagree === 1 ? '' : 's'} in total. ${r.next_stages}` : 'Replay: no un-judged Nano decisions. Run a scenario first.';
+    } finally { BUSY = false; btn.textContent = 'Run Night Shift now'; }
+  }
+
+  // ---- episodes dialog ----
+  const dlg = $('episodes');
+  async function openEpisodes() {
+    $('ep-scene').textContent = SC.site; $('ep-body').innerHTML = ''; $('ep-note').textContent = 'Loading…';
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    const { episodes } = await api('episodes?scene=' + SCENE);
+    $('ep-note').textContent = episodes.length ? `${episodes.length} most recent Nano and Ultra decisions from D1. Replay verdicts appear after Run Night Shift now.` : 'No episodes yet. Click Run scenario.';
+    $('ep-body').innerHTML = episodes.map(e => { const d = parse(e.decision_json), v = parse(e.replay_json);
+      return `<tr><td class="mono">${hhmmss(e.ts)}</td><td><span class="tier ${TIER[e.tier][0]}">${TIER[e.tier][1]}</span></td><td>${esc(e.robot || DASH)}</td><td>${esc(e.event || DASH)}</td><td class="num">${fmtMs(e.latency_ms)}</td><td>${e.valid ? 'valid' : '<span class="bad">reject</span>'}</td>` +
+        `<td class="wrapc">${d ? esc(d.actions.map(a => a.type).join(', ')) + ' · ' + esc(d.rationale || '') : DASH}</td><td class="wrapc">${v ? (v.agree === true ? 'agrees' : v.agree === false ? '<span class="bad">disagrees</span>' : 'unparsed') + ' · ' + esc(v.reason || '') + (v.better_action ? ' · better: ' + esc(v.better_action) : '') : e.tier === 'nano' && e.valid ? 'not replayed yet' : DASH}</td></tr>`; }).join('');
+  }
+  $('ep-close').addEventListener('click', () => dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+
+  // ---- buttons ----
+  wire($('act-run'), runScenario);
+  wire($('act-night'), runNight);
+  wire($('act-episodes'), async () => { await openEpisodes(); });
+  wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused (KV flag): scenario steps make no model calls until you resume'; });
+  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined: KV tag with a 10 min TTL`, halt: () => 'R07 halted: KV tag with a 1 h TTL',
+    broadcast_hazard: () => 'Hazard broadcast written as a KV tag (10 min TTL)', rollback_nano: () => 'Rollback flag written to KV. No LoRA adapter is deployed yet, so Nano itself is unchanged.' };
+  document.querySelectorAll('[data-action]').forEach(b => wire(b, async () => {
+    const type = b.dataset.action, body = { scene: SCENE, type };
+    if (type === 'quarantine_zone') body.zone = SC.zoneName;
+    if (type === 'halt') body.robot = b.dataset.robot;
+    if (type === 'broadcast_hazard') body.message = `Operator broadcast: hazard at ${SC.zoneName}`;
+    const r = await api('actions', body);
+    if (type === 'escalate') return r.decision ? `Ultra (${fmtMs(r.latency_ms)}): ${r.decision.actions.map(a => a.type).join(', ')} · ${r.decision.rationale || ''}` : 'Ultra returned no valid decision after a retry';
+    return ACT_MSG[type]();
+  }));
+  const tau = $('tau');
+  tau.addEventListener('input', () => { tau.dataset.dirty = '1'; $('tau-v').textContent = Number(tau.value).toFixed(2); });
+  wire($('tau-save'), async () => { await api('actions', { scene: SCENE, type: 'set_tau', tau: Number(tau.value) }); delete tau.dataset.dirty; return `τ = ${Number(tau.value).toFixed(2)} saved to KV; the next run uses it`; });
+
+  // ---- live floor (simulated motion; zones and halts from KV tags) ----
+  const cv = $('floor'), cx = cv.getContext('2d');
   const CW = cv.width, CH = cv.height;
   const floorImg = new Image();
-  let SC = null, lanes = [], ZONE = null, SPILL = null, PERSON = null, halted = null, robots = [];
+  let SC = null, SCENE = 'warehouse', lanes = [], ZONE = null, SPILL = null, PERSON = null, robots = [];
   const CROSS = 731;
   const rings = [], passed = new Map();
-  let last = performance.now(), tagAge = 0;
+  let last = performance.now();
   function initRobots() {
     robots = [];
     for (let i = 0; i < 12; i++) robots.push({ lane: i % lanes.length, x: 60 + (i * 173) % 1000, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22, knows: false, id: 'R' + String([1, 2, 5, 7, 9, 12, 14, 17, 19, 21, 22, 24][i]).padStart(2, '0') });
@@ -499,29 +716,29 @@ table.rt td, table.rt th { padding: 5px 6px; }
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const C = { ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: css('--ink'), floor: css('--map-floor') };
+    const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
     cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3;
     SC.labels.forEach(([y, label]) => { cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(label, 10, y + 4); cx.fillStyle = C.ink; cx.fillText(label, 10, y + 4); });
     cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('CROSS-AISLE', CROSS - 38, CH - 8); cx.fillStyle = C.ink; cx.fillText('CROSS-AISLE', CROSS - 38, CH - 8);
-    // quarantine zone + spill + fading tags
+    cx.strokeText('SIMULATION', CW - 92, 18); cx.fillStyle = C.ink; cx.fillText('SIMULATION', CW - 92, 18);
     const zy = ZONE.y;
-    cx.fillStyle = 'rgba(204,52,52,.12)'; cx.fillRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68);
-    cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2.5; cx.strokeRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68); cx.restore();
-    cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(SC.zoneLabel, ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText(SC.zoneLabel, ZONE.x0, zy - 40);
+    if (zoneOn) {
+      cx.fillStyle = 'rgba(204,52,52,.12)'; cx.fillRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68);
+      cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2.5; cx.strokeRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68); cx.restore();
+      cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(SC.zoneLabel, ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText(SC.zoneLabel, ZONE.x0, zy - 40);
+    }
     cx.fillStyle = 'rgba(56,160,220,.45)'; cx.beginPath(); cx.ellipse(SPILL.x, zy + 2, 30, 13, -.2, 0, 7); cx.fill();
     cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.stroke();
-    tagAge = (tagAge + dt) % 12;
-    for (let k = 0; k < 3; k++) { cx.globalAlpha = Math.max(0, 1 - tagAge / 12) * (1 - k * .28); const x = SPILL.x - 110 - k * 34, y = zy; cx.fillStyle = C.warn; cx.beginPath(); cx.moveTo(x, y - 9); cx.lineTo(x + 9, y + 7); cx.lineTo(x - 9, y + 7); cx.closePath(); cx.fill(); cx.strokeStyle = '#fff'; cx.lineWidth = 1.5; cx.stroke(); }
-    cx.globalAlpha = 1;
-    // person (top-down marker)
     cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(PERSON.x + 2, PERSON.y + 2, 9, 0, 7); cx.fill();
     cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 9, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.5; cx.stroke();
     cx.fillStyle = '#3b2f00'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 3.5, 0, 7); cx.fill();
-    // robots
+    const paused = !!ST?.paused;
     robots.forEach(r => {
-      if (!reduce) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) { r.dir = 1; r.knows = false; } }
-      if (ZONE.lanes.includes(r.lane) && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; r.knows = true; }
+      const stop = paused || halts.includes(r.id);
+      if (!reduce && !stop) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) { r.dir = 1; r.knows = false; } }
+      if (zoneOn && ZONE.lanes.includes(r.lane) && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; r.knows = true; }
     });
     for (let i = 0; i < robots.length; i++) for (let j = i + 1; j < robots.length; j++) {
       const a = robots[i], b = robots[j];
@@ -535,84 +752,63 @@ table.rt td, table.rt th { padding: 5px 6px; }
     }
     for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 14 + g.age * 50, 0, 7); cx.stroke(); }
     cx.globalAlpha = 1;
-    robots.forEach(r => bot(r.x, lanes[r.lane], r.dir, r.knows ? C.warn : C.ok, r.id, C));
-    bot(halted.x, lanes[halted.lane], 1, C.crit, 'R03 · HALTED', C);
+    robots.forEach(r => bot(r.x, lanes[r.lane], r.dir, halts.includes(r.id) ? C.crit : r.knows ? C.warn : C.ok, halts.includes(r.id) ? r.id + ' · HALTED' : r.id, C));
+    halts.filter(h => !robots.some(r => r.id === h)).forEach((h, k) => bot(SC.halted.x - k * 40, lanes[SC.halted.lane], 1, C.crit, h + ' · HALTED', C));
     if (!reduce) requestAnimationFrame(frame);
   }
   floorImg.addEventListener('load', () => { if (reduce) frame(performance.now()); });
 
-  // ---- robot cameras + Cosmos perception (real results only) ----
-  let CAMS = [];
-  const camBox = document.getElementById('cams');
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  function renderCams(idx) {
-    camBox.innerHTML = CAMS.map(([n, robot, where]) => {
-      const hit = idx && idx.results && idx.results[n], res = hit && hit.result;
-      let cap;
-      if (res) {
-        const hz = (res.hazards || []).map(h => `<span>${esc(h.type)} · ${esc(h.severity)}</span>`).join('');
-        cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
-          `<span class="meta">Cosmos · ${(hit.latency_ms / 1000).toFixed(1)} s · conf ${res.confidence ?? '—'} · ${esc((hit.called_at || '').slice(11, 19))} UTC</span>`;
-      } else {
-        cap = `<span class="await">Awaiting Cosmos analysis.</span><span class="meta">run tools/cosmos_perceive.cjs</span>`;
-      }
-      return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${n}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
-    }).join('');
-  }
-
   // ---- scenes ----
-  const SHARED = [
-    { sev: 'warn', t: 'Cosmos endpoint idle 18 min', meta: '4× H200 dedicated · $6.66 spent while idle', acts: ['Acknowledge', 'Stop endpoint'] },
-    { sev: 'warn', t: 'Ultra p95 latency 31 s', meta: 'above 30 s for 5 min · live escalations routed to Nemotron Super', acts: ['Acknowledge'] },
-    { sev: 'warn', t: 'Confident mistakes 0.4%', meta: 'replay flagged 5 decisions at confidence ≥ 0.9 · τ lowered to 0.62', acts: ['Acknowledge', 'Review episodes'] }];
   const SCENES = {
-    warehouse: { dir: 'assets/scenes/warehouse/', perception: 'assets/perception/warehouse/index.json', site: 'DC-04 Reno · fulfillment center', floorSub: 'Zone B · overhead · peer handshakes shown as rings',
+    warehouse: { dir: 'assets/scenes/warehouse/', perception: 'assets/perception/warehouse/index.json', site: 'DC-04 Reno · fulfillment center',
       lanes: [76, 164, 252, 339, 425], labels: [[76, 'AISLE 1'], [164, 'AISLE 2'], [252, 'AISLE 3'], [339, 'AISLE 4'], [425, 'AISLE 5']],
       zone: { x0: 630, x1: 790, lanes: [3], y: 339 }, zoneLabel: 'ZONE A4 · QUARANTINED', zoneName: 'A4', person: { x: 742, y: 352 }, halted: { x: 604, lane: 3 },
-      alarms: [{ sev: 'crit', t: 'Person in lane · aisle 4', meta: 'R03 halted · zone A4 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] }, ...SHARED,
-        { sev: 'info', t: 'Hazard tag expired early', meta: 'spill at cell 41,7 · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] }],
-      cams: [['cam-r14-spill', 'R14', 'aisle 4 · blind corner'], ['cam-r03-person', 'R03', 'aisle 4 · zone A4'], ['cam-r12-forklift', 'R12', 'aisle 4 · blind corner · Day 2'], ['cam-r07-clear', 'R07', 'aisle 2']],
-      log: [['s1', 'nano · night-07', 'R12', 'pallet in aisle 2', 240, 410, 0.0001, 'settled · reroute'], ['s15', 'peer cache', 'R09', 'spill ahead (hop 2)', 3, 0, 0, 'settled · no call'],
-        ['s1', 'nano · night-07', 'R05', 'congestion at dock', 310, 388, 0.0001, 'settled · wait 4 s'], ['s2', 'nemotron-ultra', 'R03', 'person in lane', 6200, 2140, 0.0049, 'halt + quarantine A4'],
-        ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · liquid', 1800, 1290, 0.0062, 'spill · tag cell 41,7'], ['s1', 'nano · night-07', 'R21', 'blocked exit B', 270, 402, 0.0001, 'settled · reroute'],
-        ['s15', 'peer cache', 'R17', 'forklift crossing (hop 1)', 2, 0, 0, 'settled · no call']] },
-    datacenter: { dir: 'assets/scenes/datacenter/', perception: 'assets/perception/datacenter/index.json', site: 'DC-04 · Hall B · data center', floorSub: 'Hall B · overhead · peer handshakes shown as rings',
+      cams: [['cam-r14-spill', 'R14', 'aisle 4 · blind corner'], ['cam-r03-person', 'R03', 'aisle 4 · zone A4'], ['cam-r12-forklift', 'R12', 'aisle 4 · blind corner · Day 2'], ['cam-r07-clear', 'R07', 'aisle 2']] },
+    datacenter: { dir: 'assets/scenes/datacenter/', perception: 'assets/perception/datacenter/index.json', site: 'DC-04 · Hall B · data center',
       lanes: [100, 124, 226, 250, 352, 376], labels: [[112, 'COLD AISLE 1'], [238, 'COLD AISLE 2'], [364, 'COLD AISLE 3']],
       zone: { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, zoneLabel: 'ZONE C2 · QUARANTINED', zoneName: 'C2', person: { x: 742, y: 246 }, halted: { x: 604, lane: 2 },
-      alarms: [{ sev: 'crit', t: 'Technician in cold aisle 2', meta: 'R03 halted · zone C2 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] }, ...SHARED,
-        { sev: 'info', t: 'Hazard tag expired early', meta: 'coolant leak at row C2 end · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] }],
-      cams: [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']],
-      log: [['s1', 'nano · night-07', 'R12', 'open rack door · row B4', 240, 410, 0.0001, 'settled · reroute'], ['s15', 'peer cache', 'R09', 'coolant leak ahead (hop 2)', 3, 0, 0, 'settled · no call'],
-        ['s1', 'nano · night-07', 'R05', 'cart in cross-aisle', 310, 388, 0.0001, 'settled · wait 4 s'], ['s2', 'nemotron-ultra', 'R03', 'technician in cold aisle', 6200, 2140, 0.0049, 'halt + quarantine C2'],
-        ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · coolant', 1800, 1290, 0.0062, 'leak · tag row C2'], ['s1', 'nano · night-07', 'R21', 'hot-aisle door ajar', 270, 402, 0.0001, 'settled · reroute'],
-        ['s15', 'peer cache', 'R17', 'lift cart crossing (hop 1)', 2, 0, 0, 'settled · no call']] },
+      cams: [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']] },
   };
   function applyScene(name) {
     if (!SCENES[name]) name = 'warehouse';
-    SC = SCENES[name];
-    document.getElementById('site-label').textContent = SC.site;
-    document.getElementById('floor-sub').textContent = SC.floorSub;
-    const q = document.getElementById('q-btn');
-    q.textContent = `Quarantine zone ${SC.zoneName}`; q.dataset.toast = `Zone ${SC.zoneName} quarantined for 10 min; planner rerouting 3 robots (example only)`;
+    SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null;
+    $('site-label').textContent = SC.site;
+    $('q-btn').textContent = `Quarantine zone ${SC.zoneName}`;
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
-    renderAlarms(SC.alarms);
-    tmpl = SC.log; logEl.innerHTML = ''; n = 0; for (let i = 0; i < 6; i++) addRow(true);
-    lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person; halted = { ...SC.halted, id: 'R03' }; initRobots();
+    if (!BUSY) { $('runlist').innerHTML = '<div class="empty">No run in this session yet.</div>'; }
+    lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person; initRobots();
     floorImg.src = SC.dir + 'floor.jpg';
-    CAMS = SC.cams; renderCams(null);
-    fetch(SC.perception).then(r => r.ok ? r.json() : null).then(idx => { if (SC === SCENES[name]) renderCams(idx); }).catch(() => {});
+    renderAll();
+    if (!LIVE) fetch(SC.perception).then(r => r.ok ? r.json() : null).then(idx => { if (SC === SCENES[name]) { STATIC_PERC = idx; renderCams(); } }).catch(() => {});
+    refresh();
     try { localStorage.setItem('nemofleet-scene', name); } catch (e) {}
     if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
   }
-  document.querySelectorAll('.scene-switch button').forEach(b => b.addEventListener('click', () => applyScene(b.dataset.scene)));
-  addEventListener('hashchange', () => applyScene(location.hash.slice(1)));
+  document.querySelectorAll('.scene-switch button').forEach(b => b.addEventListener('click', () => { if (BUSY) return say('Wait for the current run to finish before switching scenes'); applyScene(b.dataset.scene); }));
+  addEventListener('hashchange', () => { if (!BUSY && location.hash.slice(1) !== SCENE) applyScene(location.hash.slice(1)); });
+
+  // ---- mode: LIVE when /api/health answers, otherwise an offline preview with no data ----
+  function setMode() {
+    const m = $('mode'), b = $('banner');
+    if (LIVE) {
+      m.className = 'example live'; m.textContent = 'Live · D1 · KV · R2'; m.title = 'Connected to the NemoFleet API; every number comes from stored real calls';
+      b.hidden = HEALTH.nebius_key; b.textContent = 'Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project.';
+    } else {
+      m.className = 'example off'; m.textContent = 'Offline preview'; m.title = 'The NemoFleet API is not reachable from this page';
+      b.hidden = false; b.innerHTML = `Offline preview: this copy of the console is not connected to the NemoFleet API, so it shows no data. Open <a href="${LIVE_URL}">${LIVE_URL}</a> to run scenarios with real model calls.`;
+    }
+  }
   let initial = location.hash.slice(1);
   if (!SCENES[initial]) { try { initial = localStorage.getItem('nemofleet-scene') || 'warehouse'; } catch (e) { initial = 'warehouse'; } }
   applyScene(initial);
-
-  function redraw() { drawLearn(); drawCost(); if (reduce) frame(performance.now()); }
-  redraw();
   requestAnimationFrame(frame);
+  const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
+  fetch('/api/health', { cache: 'no-store', signal: ctl.signal }).then(r => r.ok ? r.json() : null).catch(() => null).then(h => {
+    LIVE = !!(h && h.d1 && 'nebius_key' in h); HEALTH = h; setMode(); refresh();
+    if (LIVE) setInterval(() => { if (!BUSY && !document.hidden) refresh(); }, 15000);
+  });
+
+  function redraw() { drawLearn(); drawUsage(); if (reduce) frame(performance.now()); }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 })();

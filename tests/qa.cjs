@@ -5,7 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const vm = require('vm');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
+const os = require('os');
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'site', 'dist');
 const puppeteer = require(path.join(ROOT, 'docs', 'video', 'node_modules', 'puppeteer-core'));
@@ -45,6 +46,9 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
   try { new vm.Script(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^#!.*/, ''), { filename: f }); check(`JS parses: ${f}`, true); }
   catch (e) { check(`JS parses: ${f}`, false, e.message); }
 }
+try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
+catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
+check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
 for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
@@ -80,6 +84,7 @@ for (const f of fs.readdirSync(path.join(DIST, 'docs'))) {
   const b = fs.readFileSync(path.join(DIST, 'docs', f));
   check(`valid PDF: docs/${f}`, b.slice(0, 5).toString() === '%PDF-' && b.length > 20000);
 }
+check('build publishes scenarios and the model registry for the API', fs.existsSync(path.join(DIST, 'scenarios', 'hall-b-coolant-leak.json')) && fs.existsSync(path.join(DIST, 'scenarios', 'aisle4-spill.json')) && !!JSON.parse(fs.readFileSync(path.join(DIST, 'config', 'models.json'), 'utf8')).deliberator);
 const mp4 = path.join(DIST, 'assets', 'nemofleet-explainer.mp4');
 check('video under the 25 MB Pages file limit', fs.existsSync(mp4) && fs.statSync(mp4).size < 25 * 1024 * 1024);
 const tooBig = walk(DIST).filter(f => fs.statSync(f).size >= 25 * 1024 * 1024);
@@ -123,9 +128,10 @@ const server = http.createServer((req, res) => {
   const page = await browser.newPage();
   let errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const probe = u => /\/api\/health$/.test(u || '');  // the console's offline-detection probe; 404 on the static server is expected
+  page.on('console', m => { if (m.type() === 'error' && !probe(m.location()?.url)) errors.push(m.text()); });
   page.on('requestfailed', r => { if (!/fonts\.g/.test(r.url()) && r.failure()?.errorText !== 'net::ERR_ABORTED') errors.push('request failed: ' + r.url()); });
-  page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
+  page.on('response', r => { if (r.status() >= 400 && !probe(r.url())) errors.push(`${r.status()} ${r.url()}`); });
 
   for (const p of pages) for (const [w, h] of [[390, 844], [768, 1024], [1440, 900]]) for (const scheme of ['light', 'dark']) {
     errors = [];
@@ -172,18 +178,51 @@ const server = http.createServer((req, res) => {
   }
   await page.goto(base + 'console.html#warehouse', { waitUntil: 'load' });
   await page.click('#scene-datacenter');
-  const sw = await page.evaluate(() => ({ hash: location.hash, alarm: document.querySelector('.alarm .t').textContent }));
-  check('console: scene switch changes the scene and the URL', sw.hash === '#datacenter' && /cold aisle/i.test(sw.alarm), JSON.stringify(sw));
+  const sw = await page.evaluate(() => ({ hash: location.hash, site: document.getElementById('site-label').textContent }));
+  check('console: scene switch changes the scene and the URL', sw.hash === '#datacenter' && /Hall B/.test(sw.site), JSON.stringify(sw));
+  await new Promise(r => setTimeout(r, 800));
+  const off = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, banner: !document.getElementById('banner').hidden, text: document.body.innerText,
+    kpis: [...document.querySelectorAll('.kpi .v')].map(v => v.textContent) }));
+  check('console offline: labelled "Offline preview" with a banner, and shows no numbers', off.mode === 'Offline preview' && off.banner && off.kpis.every(v => v === '—'), JSON.stringify({ mode: off.mode, kpis: off.kpis }));
+  check('console: no "example only" text anywhere', !/example only/i.test(off.text));
   await page.click('#act-night'); await new Promise(r => setTimeout(r, 200));
   const toast = await page.evaluate(() => { const t = document.getElementById('toast'); return { shown: !t.hidden, text: t.textContent }; });
-  check('console: Run Night Shift shows a clearly labelled example toast', toast.shown && /example only/i.test(toast.text), JSON.stringify(toast));
-  await page.click('#act-pause');
-  const confirmText = await page.$eval('#act-pause', b => b.textContent);
-  check('console: Pause fleet asks for confirmation first', /Confirm/.test(confirmText), confirmText);
-  const before = await page.$eval('#open-count', e => +e.textContent);
-  await page.click('#al-0-acknowledge');
-  const after = await page.$eval('#open-count', e => +e.textContent);
-  check('console: acknowledging an alarm lowers the open count', after === before - 1, `${before} → ${after}`);
+  check('console offline: buttons say they are not connected and link the live console', toast.shown && /Not connected/.test(toast.text) && /nemofleet\.pages\.dev/.test(toast.text), JSON.stringify(toast));
+
+  // ---------- 6. live API + console against wrangler pages dev (local D1/KV/R2; no model calls) ----------
+  const state = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-qa-'));
+  try {
+    execFileSync('npx', ['wrangler', 'd1', 'migrations', 'apply', 'nemofleet-memory', '--local', '-c', 'cloudflare/wrangler.jsonc', '--persist-to', state], { cwd: ROOT, stdio: 'pipe' });
+    const port = 8790 + Math.floor(Math.random() * 100);
+    const dev = spawn('npx', ['wrangler', 'pages', 'dev', 'site/dist', '--d1', 'MEMORY=eb9d266f-5753-45da-9378-5797b5cf1fdc', '--kv', 'TAGS', '--r2', 'RUNS', '--port', String(port), '--persist-to', state], { cwd: ROOT, stdio: 'ignore', detached: true });
+    const api = `http://127.0.0.1:${port}/api/`;
+    const get = p => fetch(api + p).then(r => r.json()), post = (p, b) => fetch(api + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
+    let health = null;
+    for (let i = 0; i < 60 && !health; i++) { await new Promise(r => setTimeout(r, 1000)); health = await get('health').catch(() => null); }
+    try {
+      check('API /api/health: d1, kv and r2 bound, model ids served', health && health.d1 && health.kv && health.r2 && health.models?.deliberator, JSON.stringify(health));
+      await post('actions', { scene: 'datacenter', type: 'quarantine_zone', zone: 'C2' });
+      let st = await get('state?scene=datacenter');
+      check('API: quarantine writes a KV zone tag and raises an alarm', st.tags.some(t => t.name === 'datacenter:zone:C2') && st.alarms.some(a => /Zone C2 quarantined/.test(a.title)), JSON.stringify(st.tags));
+      const al = st.alarms[0];
+      await post('alarms/ack', { id: al.id }); st = await get('state?scene=datacenter');
+      const acked = st.alarms.find(a => a.id === al.id)?.status;
+      await post('alarms/ack', { id: al.id }); st = await get('state?scene=datacenter');
+      check('API: alarm ack round-trip (open → acked → open)', acked === 'acked' && st.alarms.find(a => a.id === al.id)?.status === 'open', acked);
+      const rel = await post('alarms/release', { id: al.id }); st = await get('state?scene=datacenter');
+      check('API: release clears the alarm and its zone tags', rel.ok && !st.alarms.some(a => a.id === al.id) && !st.tags.some(t => t.name.includes(':zone:')), JSON.stringify(rel));
+      const s0 = await post('scenario/start', { scene: 'datacenter' }), peer = await post('scenario/step', { scene: 'datacenter', run_id: s0.run_id, i: 2 });
+      check('API: scenario start returns 6 events; a handshake step makes no model call', s0.events?.length === 6 && peer.tier === 'peer' && peer.model_calls === 0, JSON.stringify(peer));
+      errors = [];
+      await page.goto(`http://127.0.0.1:${port}/console.html#datacenter`, { waitUntil: 'networkidle0' }); await new Promise(r => setTimeout(r, 1200));
+      const live = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, text: document.body.innerText, svc: document.querySelectorAll('#svc .srow').length }));
+      check('console LIVE: detects the API, renders services, no "example only" text, no errors', /^Live/.test(live.mode) && live.svc === 7 && !/example only/i.test(live.text) && !errors.length, live.mode + errors.join(';'));
+      await page.click('#q-btn'); await new Promise(r => setTimeout(r, 1500));
+      const tags = await page.$eval('#tags', e => e.innerText);
+      check('console LIVE: Quarantine button writes a KV tag shown in the console', /zone:C2/.test(tags), tags);
+    } finally { try { process.kill(-dev.pid); } catch {} }
+  } catch (e) { check('live API checks ran', false, String(e.message).slice(0, 300)); }
+  fs.rmSync(state, { recursive: true, force: true });
 
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
