@@ -8,8 +8,6 @@ Usage:
 import html
 import sys
 
-OUT_HTML = sys.argv[1]
-
 C = {
     "runtime": ("#1d4ed8", "#eff6ff"),
     "s1": ("#3f6212", "#f1f9e4"),
@@ -270,16 +268,16 @@ LEGEND_ITEMS = [
 ]
 
 
-def legend(dashed=False):
+def legend(dashed=False, items_list=None):
     items = "".join(
         f'<span><i class="sw" style="border-color:{C[k][0]};background:{C[k][1]}"></i>{e(t)}</span>'
-        for k, t in LEGEND_ITEMS)
+        for k, t in (items_list or LEGEND_ITEMS))
     return f'<div class="legend">{items}{"<span>- - - dashed arrow = response / return</span>" if dashed else ""}</div>'
 
 
-def page(n, kicker, title, body, show_legend=True, dashed=False):
+def page(n, kicker, title, body, show_legend=True, dashed=False, footer="NemoFleet Architecture", total=5, legend_items=None):
     return f"""<section class="page"><header><h1>{e(title)}</h1><div class="kicker">{e(kicker)}</div></header>
-{body}{legend(dashed) if show_legend else ""}<footer>NemoFleet Architecture · {n} / 5</footer></section>"""
+{body}{legend(dashed, legend_items) if show_legend else ""}<footer>{e(footer)} · {n} / {total}</footer></section>"""
 
 
 def chip(kind):
@@ -329,24 +327,29 @@ def module_cards():
     return '<div class="grid">' + "".join(out) + "</div>"
 
 
-pages = [
-    page(1, "System map", "NemoFleet · System 1 / System 2 for robot fleets",
-         '<p class="lead">A fast model on each robot handles routine events; a large reasoning model in the cloud handles only what is novel or high-stakes. '
-         'A deterministic planner owns every trajectory, so paths are collision-free by construction.</p>' + system_map()),
-    page(2, "Escalation sequence", "A person enters a robot lane",
-         '<p class="lead">Cosmos turns pixels into meaning, Nano proposes a response with low confidence, the gate escalates, '
-         'Ultra decides, the planner reroutes, and the decision becomes a precedent for next time.</p>' + sequence(), dashed=True),
-    page(3, "Responsibilities and safety boundary", "Who decides what",
-         '<div class="principle"><b>Principle:</b> models decide <i>what</i> should happen; the planner decides <i>how</i> to move. '
-         'Every model output must pass schema validation before anything moves.</div>' + resp_table +
-         '<h2>Action schema boundary</h2>' + schema()),
-    page(4, "Red-team frontier", "Measuring when to escalate",
-         '<p class="lead">Nemotron generates adversarial warehouse scenarios, Serverless Jobs run them in parallel at several escalation thresholds τ, '
-         'and the results map the success / latency / cost frontier of the hybrid against Nano-only and Ultra-only baselines.</p>'
-         + pipeline() + '<h2>Where NVIDIA and Nebius are used</h2>' + usage_table +
-         '<p class="lead" style="margin-top:8px;font-size:12px;color:#64748b">Model IDs to be confirmed against the Token Factory catalog.</p>'),
-    page(5, "Planned module layout", "Code map: nemofleet/", module_cards()),
-]
+def main(out_html):
+    pages = [
+        page(1, "System map", "NemoFleet · System 1 / System 2 for robot fleets",
+             '<p class="lead">A fast model on each robot handles routine events; a large reasoning model in the cloud handles only what is novel or high-stakes. '
+             'A deterministic planner owns every trajectory, so paths are collision-free by construction.</p>' + system_map()),
+        page(2, "Escalation sequence", "A person enters a robot lane",
+             '<p class="lead">Cosmos turns pixels into meaning, Nano proposes a response with low confidence, the gate escalates, '
+             'Ultra decides, the planner reroutes, and the decision becomes a precedent for next time.</p>' + sequence(), dashed=True),
+        page(3, "Responsibilities and safety boundary", "Who decides what",
+             '<div class="principle"><b>Principle:</b> models decide <i>what</i> should happen; the planner decides <i>how</i> to move. '
+             'Every model output must pass schema validation before anything moves.</div>' + resp_table +
+             '<h2>Action schema boundary</h2>' + schema()),
+        page(4, "Red-team frontier", "Measuring when to escalate",
+             '<p class="lead">Nemotron generates adversarial warehouse scenarios, Serverless Jobs run them in parallel at several escalation thresholds τ, '
+             'and the results map the success / latency / cost frontier of the hybrid against Nano-only and Ultra-only baselines.</p>'
+             + pipeline() + '<h2>Where NVIDIA and Nebius are used</h2>' + usage_table +
+             '<p class="lead" style="margin-top:8px;font-size:12px;color:#64748b">Model IDs to be confirmed against the Token Factory catalog.</p>'),
+        page(5, "Planned module layout", "Code map: nemofleet/", module_cards()),
+    ]
 
-with open(OUT_HTML, "w") as f:
-    f.write(f'<!doctype html><html><head><meta charset="utf-8"><title>NemoFleet Architecture</title><style>{CSS}</style></head><body>{"".join(pages)}</body></html>')
+    with open(out_html, "w") as f:
+        f.write(f'<!doctype html><html><head><meta charset="utf-8"><title>NemoFleet Architecture</title><style>{CSS}</style></head><body>{"".join(pages)}</body></html>')
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

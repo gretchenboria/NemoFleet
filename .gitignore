@@ -4,6 +4,11 @@
 !.env.example
 *.pdf
 !docs/NemoFleet-Architecture.pdf
+!docs/NemoFleet-Countercurrent-Options.pdf
+
+# Third-party reference images
+*.jpeg
+*.jpg
 
 # Python
 __pycache__/

@@ -10,6 +10,8 @@ System 1 / System 2 cognition for robot fleets, built for the Nebius x NVIDIA Gl
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the system map, escalation sequence, and module layout, or the print-ready [PDF](docs/NemoFleet-Architecture.pdf).
 
+Fleet-learning design options inspired by countercurrent heat exchange and ant trails: [docs/NemoFleet-Countercurrent-Options.pdf](docs/NemoFleet-Countercurrent-Options.pdf).
+
 ## Setup
 
 ```bash

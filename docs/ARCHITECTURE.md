@@ -1,6 +1,7 @@
 # NemoFleet Architecture
 
 📄 **Print-ready version:** [NemoFleet-Architecture.pdf](NemoFleet-Architecture.pdf)
+🦆 **Fleet-learning options:** [NemoFleet-Countercurrent-Options.pdf](NemoFleet-Countercurrent-Options.pdf)
 
 NemoFleet splits robot-fleet cognition into two speeds, the way people do:
 
