@@ -12,6 +12,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the system map, escalation 
 
 Fleet-learning design options inspired by countercurrent heat exchange and ant trails: [docs/NemoFleet-Countercurrent-Options.pdf](docs/NemoFleet-Countercurrent-Options.pdf).
 
+🎬 Explainer video (2.5 min): [docs/NemoFleet-Peer-Learning-Explainer.mp4](docs/NemoFleet-Peer-Learning-Explainer.mp4). Regenerate with `cd docs/video && npm install && npm run build` (macOS, Chrome, ffmpeg).
+
 ## Setup
 
 ```bash

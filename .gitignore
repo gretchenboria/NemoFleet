@@ -21,3 +21,7 @@ venv/
 # Outputs
 *.csv
 .DS_Store
+
+# Video build artifacts
+node_modules/
+docs/video/build/

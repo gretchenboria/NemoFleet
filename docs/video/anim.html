@@ -1,0 +1,421 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>NemoFleet Peer Learning</title>
+<style>
+html, body { margin: 0; background: #fff; overflow: hidden; }
+#stage { width: 1920px; height: 1080px; }
+svg { display: block; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+</style></head>
+<body><div id="stage"></div>
+<script>
+const W = 1920, H = 1080;
+const C = { hot: '#dc2626', cold: '#0891b2', ink: '#0f172a', mute: '#64748b', line: '#cbd5e1', purple: '#6d28d9',
+  teal: '#0f766e', amber: '#f59e0b', blue: '#1d4ed8', soft: '#f8fafc' };
+let TL = null;
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => { t = clamp(t); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+const fade = (u, t0, d = 0.6) => ease((u - t0) / d);
+const mod = (a, n) => ((a % n) + n) % n;
+const STOPS = [[0, [8, 145, 178]], [0.5, [245, 158, 11]], [1, [220, 38, 38]]];
+function heat(t) {
+  t = clamp(t);
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const [t0, c0] = STOPS[i], [t1, c1] = STOPS[i + 1];
+    if (t <= t1) { const f = (t - t0) / (t1 - t0); return 'rgb(' + c0.map((a, k) => Math.round(a + (c1[k] - a) * f)).join(',') + ')'; }
+  }
+  return C.hot;
+}
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function txt(x, y, s, o = {}) {
+  const { size = 28, weight = 500, fill = C.ink, anchor = 'start', op = 1, italic = false, ls = 0 } = o;
+  return `<text x="${x}" y="${y}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}" opacity="${op}"${italic ? ' font-style="italic"' : ''} letter-spacing="${ls}">${esc(s)}</text>`;
+}
+function rect(x, y, w, h, o = {}) {
+  const { rx = 18, fill = '#fff', stroke = C.line, sw = 2.5, op = 1, dash = '' } = o;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+}
+function box(x, y, w, h, title, sub, o = {}) {
+  const { stroke = C.blue, fill = '#eff6ff', op = 1, size = 34 } = o;
+  const lines = sub ? (Array.isArray(sub) ? sub : [sub]) : [];
+  const total = size + lines.length * 30;
+  let ty = y + h / 2 - total / 2 + size - 4;
+  let out = rect(x, y, w, h, { fill, stroke, sw: 3.5, op });
+  out += txt(x + w / 2, ty, title, { size, weight: 700, fill: stroke, anchor: 'middle', op });
+  lines.forEach((l, i) => out += txt(x + w / 2, ty + 34 + i * 30, l, { size: 24, fill: '#334155', anchor: 'middle', op }));
+  return out;
+}
+function robot(x, y, t, o = {}) {
+  const { r = 30, label = '', op = 1, ring = null } = o;
+  let out = `<g opacity="${op}">`;
+  if (ring) out += `<circle cx="${x}" cy="${y}" r="${r + 9}" fill="none" stroke="${ring}" stroke-width="5"/>`;
+  out += `<circle cx="${x}" cy="${y}" r="${r}" fill="${heat(t)}" stroke="#fff" stroke-width="4"/>`;
+  out += `<circle cx="${x}" cy="${y}" r="${r + 2}" fill="none" stroke="#0f172a" stroke-opacity=".22" stroke-width="1.5"/>`;
+  if (label) out += txt(x, y + 7, label, { size: 20, weight: 800, fill: '#fff', anchor: 'middle' });
+  return out + '</g>';
+}
+function arrow(x1, y1, x2, y2, o = {}) {
+  const { color = '#475569', sw = 4, op = 1, head = 16, dash = '', both = false } = o;
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  const tri = (x, y, ang) => {
+    const p1 = [x - head * Math.cos(ang - .45), y - head * Math.sin(ang - .45)];
+    const p2 = [x - head * Math.cos(ang + .45), y - head * Math.sin(ang + .45)];
+    return `<polygon points="${x},${y} ${p1} ${p2}" fill="${color}"/>`;
+  };
+  const sx = both ? x1 + Math.cos(a) * head * .8 : x1, sy = both ? y1 + Math.sin(a) * head * .8 : y1;
+  const ex = x2 - Math.cos(a) * head * .8, ey = y2 - Math.sin(a) * head * .8;
+  let out = `<g opacity="${op}"><line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  out += tri(x2, y2, a);
+  if (both) out += tri(x1, y1, a + Math.PI);
+  return out + '</g>';
+}
+function header(kicker, title, op = 1) {
+  return txt(120, 92, kicker.toUpperCase(), { size: 22, weight: 700, fill: C.mute, ls: 3, op }) +
+         txt(120, 150, title, { size: 56, weight: 800, op });
+}
+function sentStart(S, i) { return S[Math.min(i, S.length - 1)].t0; }
+
+// ---------- scenes: (u, D, S) -> svg ----------
+const scenes = {
+  title(u, D) {
+    let out = '';
+    for (let i = 0; i < 18; i++) {
+      const xr = mod(i * 120 + u * 90, W + 120) - 60, xl = W + 60 - mod(i * 120 + 60 + u * 90, W + 120);
+      out += `<circle cx="${xr}" cy="760" r="14" fill="${heat(0.95 - xr / W * 0.6)}" opacity=".85"/>`;
+      out += `<circle cx="${xl}" cy="830" r="14" fill="${heat(0.83 - xl / W * 0.6)}" opacity=".85"/>`;
+    }
+    const a = fade(u, 0.2, 1);
+    out += txt(W / 2, 330, 'NEMOFLEET · SYSTEM 1.5', { size: 28, weight: 700, fill: C.mute, anchor: 'middle', ls: 5, op: a });
+    out += txt(W / 2, 450, 'Teaching robots in passing', { size: 96, weight: 800, anchor: 'middle', op: a });
+    out += txt(W / 2, 540, 'Countercurrent curriculum + ant-trail antennation', { size: 40, weight: 500, fill: '#334155', anchor: 'middle', op: fade(u, 1.0, 1) });
+    return out;
+  },
+
+  problem(u, D, S) {
+    let out = header('The problem', 'Every robot asks the cloud, every time');
+    out += box(760, 220, 400, 140, 'Nemotron Ultra', 'cloud · expensive', { stroke: C.purple, fill: '#f5f3ff' });
+    const t0 = sentStart(S, 0) + 0.5;
+    let calls = 0;
+    for (let i = 0; i < 8; i++) {
+      const x = 260 + i * 200, y = 780;
+      out += `<line x1="${x}" y1="${y - 34}" x2="960" y2="362" stroke="${C.line}" stroke-width="2"/>`;
+      for (let k = 0; k < 12; k++) {
+        const start = t0 + i * 0.31 + k * 2.3, p = (u - start) / 1.0;
+        if (p >= 1) calls++;
+        else if (p > 0) out += `<circle cx="${lerp(x, 960, ease(p))}" cy="${lerp(y - 34, 362, ease(p))}" r="11" fill="${C.purple}"/>`;
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const x = 260 + i * 200;
+      out += robot(x, 780, 0.12);
+      out += txt(x, 718, '?', { size: 34, weight: 800, fill: C.purple, anchor: 'middle', op: .9 });
+    }
+    out += rect(1440, 420, 400, 170, { fill: C.soft });
+    out += txt(1640, 480, 'Ultra calls', { size: 28, fill: C.mute, anchor: 'middle' });
+    out += txt(1640, 556, String(calls), { size: 64, weight: 800, fill: C.purple, anchor: 'middle' });
+    out += rect(80, 420, 400, 170, { fill: C.soft });
+    out += txt(280, 480, 'GPU spend', { size: 28, fill: C.mute, anchor: 'middle' });
+    out += rect(120, 515, 320, 36, { rx: 10, fill: '#fff' });
+    out += rect(120, 515, Math.min(320, calls * 4.5), 36, { rx: 10, fill: C.hot, stroke: C.hot });
+    return out;
+  },
+
+  duck(u, D, S) {
+    let out = header('Nature’s trick #1', 'Countercurrent heat exchange');
+    out += `<ellipse cx="960" cy="250" rx="330" ry="80" fill="#fee2e2" stroke="#fca5a5" stroke-width="3"/>`;
+    out += txt(960, 262, 'body · warm core', { size: 32, weight: 700, fill: '#b91c1c', anchor: 'middle' });
+    out += rect(560, 880, 800, 50, { rx: 12, fill: '#e0f2fe', stroke: '#7dd3fc' });
+    out += txt(960, 915, 'ice', { size: 28, weight: 700, fill: C.cold, anchor: 'middle' });
+    const top = 330, bot = 860, L = bot - top;
+    out += rect(870, top, 60, L, { rx: 30, fill: '#fff7f7', stroke: '#fca5a5' });
+    out += rect(990, top, 60, L, { rx: 30, fill: '#f0fdff', stroke: '#67e8f9' });
+    for (let k = 0; k < 9; k++) {
+      const yd = top + 20 + mod(k * 60 + u * 110, L - 40), pd = (yd - top) / L;
+      out += `<circle cx="900" cy="${yd}" r="16" fill="${heat(1 - pd * 0.85)}"/>`;
+      const yu = bot - 20 - mod(k * 60 + 30 + u * 110, L - 40), pu = (yu - top) / L;
+      out += `<circle cx="1020" cy="${yu}" r="16" fill="${heat(0.9 - pu * 0.85)}"/>`;
+    }
+    const ta = sentStart(S, 3);
+    [420, 530, 640, 750].forEach((y, i) => {
+      const pulse = 0.55 + 0.45 * Math.sin(u * 5 - i);
+      out += arrow(934, y, 986, y, { color: C.amber, sw: 6, head: 16, op: fade(u, ta - 0.3) * pulse });
+    });
+    out += arrow(760, 420, 760, 720, { color: C.hot, sw: 5, op: fade(u, sentStart(S, 2)) });
+    out += txt(740, 560, 'warm blood', { size: 30, weight: 700, fill: C.hot, anchor: 'end', op: fade(u, sentStart(S, 2)) });
+    out += txt(740, 600, 'flows down', { size: 30, fill: '#334155', anchor: 'end', op: fade(u, sentStart(S, 2)) });
+    out += arrow(1160, 720, 1160, 420, { color: C.cold, sw: 5, op: fade(u, sentStart(S, 2) + 1) });
+    out += txt(1180, 560, 'cold blood', { size: 30, weight: 700, fill: C.cold, op: fade(u, sentStart(S, 2) + 1) });
+    out += txt(1180, 600, 'flows back up', { size: 30, fill: '#334155', op: fade(u, sentStart(S, 2) + 1) });
+    out += rect(1460, 690, 400, 110, { fill: '#fffbeb', stroke: '#fcd34d', op: fade(u, ta) });
+    out += txt(1660, 735, 'heat crosses over', { size: 32, weight: 700, fill: '#92400e', anchor: 'middle', op: fade(u, ta) });
+    out += txt(1660, 775, 'at every point', { size: 30, fill: '#92400e', anchor: 'middle', op: fade(u, ta) });
+    return out;
+  },
+
+  charts(u, D, S) {
+    let out = header('Why direction matters', 'Same direction vs. opposite directions');
+    const panel = (ox, title, hotF, coldF, coldRev, p, note, nop) => {
+      const x0 = ox + 70, x1 = ox + 720, y0 = 780, h = 380;
+      const Y = v => y0 - v * h;
+      let s = rect(ox, 250, 780, 640, { fill: '#fff' });
+      s += txt(ox + 40, 310, title, { size: 34, weight: 700 });
+      s += `<line x1="${x0}" y1="${y0 - h - 10}" x2="${x0}" y2="${y0}" stroke="#94a3b8" stroke-width="3"/>`;
+      s += `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="#94a3b8" stroke-width="3"/>`;
+      s += txt(x1, y0 + 40, 'along the route →', { size: 24, fill: C.mute, anchor: 'end' });
+      const line = (f, col, rev) => {
+        const n = Math.max(2, Math.round(60 * p)); const pts = [];
+        for (let i = 0; i <= n; i++) { let q = i / 60; if (rev) q = 1 - q; pts.push(`${x0 + q * (x1 - x0)},${Y(f(q))}`); }
+        return p > 0 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round"/>` : '';
+      };
+      s += line(hotF, C.hot, false) + line(coldF, C.cold, coldRev);
+      s += txt(ox + 40, 850, note, { size: 28, weight: 600, fill: '#334155', italic: true, op: nop });
+      return s;
+    };
+    const p1 = clamp((u - sentStart(S, 0) - 0.3) / 3.5), p2 = clamp((u - sentStart(S, 1) - 0.3) / 3.5);
+    out += panel(120, 'Same direction', q => 0.5 + 0.4 * Math.exp(-3.2 * q), q => 0.5 - 0.4 * Math.exp(-3.2 * q), false, p1,
+      'Both stall at the average.', fade(u, sentStart(S, 0) + 3.5));
+    out += panel(1020, 'Opposite directions', q => 0.92 - 0.72 * q, q => 0.82 - 0.72 * q, true, p2,
+      'Cold side ends nearly as warm as the hot.', fade(u, sentStart(S, 1) + 3.5));
+    out += txt(1660, 310, 'hot →', { size: 28, weight: 700, fill: C.hot, anchor: 'end' }) + txt(1770, 310, '← cold', { size: 28, weight: 700, fill: C.cold, anchor: 'end' });
+    out += txt(760, 310, 'hot →', { size: 28, weight: 700, fill: C.hot, anchor: 'end' }) + txt(870, 310, 'cold →', { size: 28, weight: 700, fill: C.cold, anchor: 'end' });
+    return out;
+  },
+
+  mapping(u, D, S) {
+    let out = header('The swap', 'Heat → knowledge');
+    const rows = [['Heat', 'Knowledge: problems already solved', 0.95], ['Warm blood', 'Trained robots', 0.9],
+                  ['Cold blood', 'New robots', 0.08], ['Heat lost to the ice', 'GPU spent re-solving known problems', 0.5]];
+    rows.forEach(([a, b, t], i) => {
+      const op = fade(u, sentStart(S, i) - 0.2), y = 300 + i * 150;
+      out += `<g opacity="${op}">`;
+      out += rect(220, y, 620, 110, { fill: C.soft });
+      out += `<circle cx="290" cy="${y + 55}" r="28" fill="${heat(t)}"/>`;
+      out += txt(345, y + 66, a, { size: 38, weight: 700 });
+      out += arrow(870, y + 55, 1010, y + 55, { color: '#475569', sw: 6, head: 22 });
+      out += rect(1040, y, 680, 110, { fill: '#f0fdfa', stroke: '#5eead4' });
+      out += txt(1080, y + 66, b, { size: 36, weight: 600, fill: '#134e4a' });
+      out += '</g>';
+    });
+    return out;
+  },
+
+  optionA(u, D, S) {
+    let out = header('Option A · learning', 'Countercurrent curriculum');
+    out += box(80, 300, 250, 460, 'Core', ['Nemotron', 'Ultra'], { stroke: C.purple, fill: '#f5f3ff' });
+    out += box(1590, 300, 250, 460, 'Frontier', ['new robots', 'arrive'], { stroke: '#0e7490', fill: '#ecfeff' });
+    out += rect(360, 370, 1200, 120, { rx: 60, fill: '#fef2f2', stroke: '#fca5a5' });
+    out += rect(360, 570, 1200, 120, { rx: 60, fill: '#ecfeff', stroke: '#67e8f9' });
+    out += txt(390, 350, 'TRAINED → toward the edge', { size: 26, weight: 700, fill: '#b91c1c', ls: 2 });
+    out += txt(390, 735, '← NEW ROBOTS toward the core · warming up', { size: 26, weight: 700, fill: '#0e7490', ls: 2 });
+    const span = 1200, sp = 70, tT = x => 0.95 - 0.6 * (x - 360) / span;
+    const edgeOp = x => clamp(Math.min(x - 360, 1560 - x) / 50);
+    const tops = [], bots = [];
+    for (let i = 0; i < 6; i++) tops.push(360 + mod(i * 200 + u * sp, span));
+    for (let i = 0; i < 6; i++) bots.push(1560 - mod(i * 200 + 100 + u * sp, span));
+    tops.forEach(xt => bots.forEach(xb => {
+      const d = Math.abs(xt - xb);
+      if (d < 34) { const m = (xt + xb) / 2; out += arrow(m, 496, m, 564, { color: C.amber, sw: 6, head: 16, both: true, op: (1 - d / 34) * edgeOp(m) }); }
+    }));
+    tops.forEach(x => out += robot(x, 430, tT(x), { op: edgeOp(x) }));
+    bots.forEach(x => out += robot(x, 630, tT(x) - 0.13, { op: edgeOp(x) }));
+    out += txt(960, 790, 'every pass: a small, easy step up', { size: 30, weight: 600, fill: '#92400e', anchor: 'middle', op: fade(u, sentStart(S, 3)) });
+    // rare escalations: only at the end
+    const te = sentStart(S, 4) + 1.5;
+    [te, te + 2.5].forEach(t0 => {
+      const p = (u - t0) / 0.9;
+      if (p > 0 && p < 1) out += `<circle cx="${lerp(400, 300, ease(p))}" cy="${lerp(630, 560, ease(p))}" r="12" fill="${C.purple}"/>`;
+    });
+    const n = (u > te + 0.9 ? 1 : 0) + (u > te + 3.4 ? 1 : 0);
+    out += txt(205, 840, `Ultra calls: ${n}`, { size: 30, weight: 700, fill: C.purple, anchor: 'middle', op: fade(u, sentStart(S, 4)) });
+    out += txt(205, 878, 'only what no peer can answer', { size: 22, fill: C.mute, anchor: 'middle', op: fade(u, sentStart(S, 4)) });
+    return out;
+  },
+
+  ants(u, D, S) {
+    let out = header('Nature’s trick #2', 'Ants swap news when they pass');
+    const yT = x => 600 + 50 * Math.sin(x / 210);
+    let d = 'M 220,' + yT(220);
+    for (let x = 230; x <= 1700; x += 10) d += ` L ${x},${yT(x)}`;
+    out += `<path d="${d}" fill="none" stroke="#e7e5e4" stroke-width="110" stroke-linecap="round"/>`;
+    out += `<path d="M 120,700 A 120,120 0 0 1 360,700 Z" fill="#a16207" opacity=".85"/>` + txt(240, 740, 'nest', { size: 30, weight: 700, fill: '#713f12', anchor: 'middle' });
+    out += `<circle cx="1760" cy="${yT(1760) - 10}" r="70" fill="#86efac" stroke="#16a34a" stroke-width="3"/>` + txt(1760, yT(1760) + 100, 'food', { size: 30, weight: 700, fill: '#166534', anchor: 'middle' });
+    const ant = (x, dir, col) => {
+      const y = yT(x) + (dir > 0 ? -26 : 26), ang = Math.atan(50 / 210 * Math.cos(x / 210));
+      const g = `<g transform="translate(${x},${y}) rotate(${ang * 180 / Math.PI}) scale(${1.7 * dir},1.7)">` +
+        `<ellipse cx="-22" cy="0" rx="13" ry="9" fill="${col}"/><circle cx="-4" cy="0" r="7" fill="${col}"/><circle cx="12" cy="0" r="8" fill="${col}"/>` +
+        `<path d="M18,-4 L32,-14 M18,4 L32,14" stroke="${col}" stroke-width="2.5" fill="none"/>` +
+        `<path d="M-8,0 L-14,-14 M-8,0 L-14,14 M0,0 L2,-15 M0,0 L2,15 M6,0 L12,-14 M6,0 L12,14" stroke="${col}" stroke-width="2" fill="none"/></g>`;
+      return g;
+    };
+    const outb = [], inb = [];
+    for (let i = 0; i < 7; i++) outb.push(330 + mod(i * 210 + u * 95, 1380));
+    for (let i = 0; i < 7; i++) inb.push(1710 - mod(i * 210 + 105 + u * 95, 1380));
+    outb.forEach(xo => inb.forEach(xi => {
+      const dd = Math.abs(xo - xi);
+      if (dd < 40) out += `<circle cx="${(xo + xi) / 2}" cy="${yT((xo + xi) / 2)}" r="${22 + (40 - dd)}" fill="#fde68a" opacity="${0.75 * (1 - dd / 40)}"/>`;
+    }));
+    outb.forEach(x => out += ant(x, 1, '#7f1d1d'));
+    inb.forEach(x => out += ant(x, -1, '#155e75'));
+    out += txt(900, 430, 'outbound: what’s ahead?', { size: 32, weight: 700, fill: '#7f1d1d', anchor: 'middle', op: fade(u, sentStart(S, 2)) });
+    out += txt(1000, 800, 'returning: status home', { size: 32, weight: 700, fill: '#155e75', anchor: 'middle', op: fade(u, sentStart(S, 3)) });
+    return out;
+  },
+
+  optionB(u, D, S) {
+    let out = header('Option B · runtime', 'Ant-trail antennation');
+    out += box(80, 200, 240, 120, 'Ultra', 'digests only', { stroke: C.purple, fill: '#f5f3ff', size: 30 });
+    out += box(80, 400, 240, 280, 'Depot', ['sends', 'digest'], { stroke: C.blue, fill: '#eff6ff', size: 30 });
+    out += box(1600, 200, 240, 120, 'Cosmos', 'first sighting', { stroke: C.purple, fill: '#f5f3ff', size: 30 });
+    out += box(1600, 400, 240, 280, 'Frontier', [], { stroke: '#0e7490', fill: '#ecfeff', size: 30 });
+    const X0 = 350, X1 = 1570, span = X1 - X0, sp = 110, SPILL = 1430;
+    out += rect(X0, 400, span, 280, { rx: 24, fill: C.soft });
+    out += `<line x1="${X0 + 20}" y1="540" x2="${X1 - 20}" y2="540" stroke="${C.line}" stroke-width="3" stroke-dasharray="16 12"/>`;
+    out += txt(X0 + 24, 432, 'OUTBOUND →', { size: 22, weight: 700, fill: '#b91c1c', ls: 2 });
+    out += txt(X1 - 24, 665, '← INBOUND', { size: 22, weight: 700, fill: '#0e7490', ls: 2, anchor: 'end' });
+    const tSpill = sentStart(S, 2) + 0.8;
+    // deterministic simulation from 0 to u
+    const NO = 6, NI = 6, dt = 1 / 30;
+    const xo = i => X0 + mod(i * 205 + t * sp, span), xi = j => X1 - mod(j * 205 + 102 + t * sp, span);
+    let t = 0;
+    const ko = Array(NO).fill(-1), ki = Array(NI).fill(-1);
+    let prevO = [...Array(NO).keys()].map(xo), prevI = [...Array(NI).keys()].map(xi);
+    let tCosmos = -1, tDigest = -1, tagT = -1;
+    const flashes = [];
+    for (t = dt; t <= u + 1e-9; t += dt) {
+      const curO = [...Array(NO).keys()].map(xo), curI = [...Array(NI).keys()].map(xi);
+      for (let i = 0; i < NO; i++) if (curO[i] < prevO[i] - 300) ko[i] = (tDigest >= 0 ? t : -1); // new robot leaves depot
+      for (let j = 0; j < NI; j++) {
+        if (curI[j] > prevI[j] + 300) { if (ki[j] >= 0 && tDigest < 0) tDigest = t; ki[j] = -1; }
+        if (t >= tSpill && prevI[j] >= SPILL && curI[j] < SPILL && ki[j] < 0) {
+          if (tCosmos < 0) tCosmos = t;
+          ki[j] = t; tagT = t;
+        }
+      }
+      for (let i = 0; i < NO; i++) for (let j = 0; j < NI; j++) {
+        if (Math.abs(curO[i] - curI[j]) < 14) {
+          if (ki[j] >= 0 && ko[i] < 0) { ko[i] = t; flashes.push([t, (curO[i] + curI[j]) / 2]); }
+          else if (ko[i] >= 0 && ki[j] < 0) { ki[j] = t; flashes.push([t, (curO[i] + curI[j]) / 2]); }
+        }
+      }
+      prevO = curO; prevI = curI;
+    }
+    t = u;
+    // spill + tags
+    if (u >= tSpill) {
+      const a = fade(u, tSpill, 0.5);
+      out += `<ellipse cx="${SPILL}" cy="540" rx="${46 * a}" ry="${22 * a}" fill="${C.amber}" opacity=".85"/>`;
+    }
+    if (tagT >= 0) {
+      const life = Math.exp(-(u - tagT) / 6);
+      [SPILL - 110, SPILL - 160, SPILL - 210].forEach((x, k) => {
+        const o = life * (1 - k * 0.25);
+        out += `<polygon points="${x},527 ${x + 14},553 ${x - 14},553" fill="${C.amber}" stroke="#b45309" stroke-width="2" opacity="${o}"/>`;
+      });
+    }
+    flashes.forEach(([tf, x]) => {
+      const p = (u - tf) / 0.7;
+      if (p >= 0 && p < 1) out += `<circle cx="${x}" cy="540" r="${40 + 50 * p}" fill="none" stroke="${C.purple}" stroke-width="5" opacity="${1 - p}"/>`;
+    });
+    const edgeOp = x => clamp(Math.min(x - X0, X1 - x) / 40);
+    let informed = 0;
+    for (let i = 0; i < NO; i++) { const x = xo(i); if (ko[i] >= 0) informed++; out += robot(x, 470, 0.9, { op: edgeOp(x), ring: ko[i] >= 0 ? C.amber : null, label: ko[i] >= 0 ? '!' : '' }); }
+    for (let j = 0; j < NI; j++) { const x = xi(j); if (ki[j] >= 0) informed++; out += robot(x, 610, 0.15, { op: edgeOp(x), ring: ki[j] >= 0 ? C.amber : null, label: ki[j] >= 0 ? '!' : '' }); }
+    // model-call pulses
+    if (tCosmos >= 0) { const p = (u - tCosmos) / 0.8; if (p < 1) out += `<circle cx="${lerp(SPILL, 1720, ease(p))}" cy="${lerp(610, 322, ease(p))}" r="13" fill="${C.purple}"/>`; }
+    if (tDigest >= 0) { const p = (u - tDigest) / 0.8; if (p < 1) out += `<circle cx="200" cy="${lerp(400, 322, ease(p))}" r="13" fill="${C.purple}"/>`; }
+    // counters
+    out += rect(400, 760, 1120, 110, { fill: '#fff' });
+    const cnt = (x, label, v, col) => txt(x, 812, label, { size: 26, fill: C.mute, anchor: 'middle' }) + txt(x, 852, v, { size: 36, weight: 800, fill: col, anchor: 'middle' });
+    out += cnt(600, 'Cosmos calls', tCosmos >= 0 && u > tCosmos + 0.8 ? '1' : '0', C.purple);
+    out += cnt(960, 'robots that know', `${informed} / ${NO + NI}`, '#b45309');
+    out += cnt(1320, 'Ultra', tDigest >= 0 && u > tDigest + 0.8 ? '1 digest' : '0', C.purple);
+    return out;
+  },
+
+  together(u, D, S) {
+    let out = header('Together', 'A decides who passes whom. B decides what they say.');
+    const a = fade(u, sentStart(S, 0)), b = fade(u, sentStart(S, 0) + 1.5);
+    out += rect(140, 230, 780, 330, { fill: '#fff', op: a });
+    out += txt(180, 290, 'A · who passes whom', { size: 36, weight: 700, op: a });
+    for (let i = 0; i < 5; i++) {
+      out += robot(240 + i * 150, 370, 0.95 - i * 0.15, { op: a, r: 26 });
+      out += robot(240 + i * 150, 490, 0.82 - i * 0.15, { op: a, r: 26 });
+      out += arrow(240 + i * 150, 402, 240 + i * 150, 458, { color: C.amber, sw: 5, head: 13, both: true, op: a });
+    }
+    out += rect(1000, 230, 780, 330, { fill: '#fff', op: b });
+    out += txt(1040, 290, 'B · what they say', { size: 36, weight: 700, op: b });
+    out += robot(1240, 380, 0.9, { op: b, r: 34, ring: C.amber, label: '!' });
+    out += robot(1540, 470, 0.15, { op: b, r: 34 });
+    out += arrow(1285, 395, 1495, 455, { color: C.purple, sw: 5, both: true, op: b });
+    out += txt(1390, 520, 'hazards ⇄ orders', { size: 28, fill: '#334155', anchor: 'middle', op: b });
+    const s = fade(u, sentStart(S, 2) - 0.2);
+    out += rect(140, 620, 1640, 280, { fill: '#fef2f2', stroke: C.hot, sw: 4, op: s });
+    out += `<g opacity="${s}" stroke="${C.ink}" stroke-width="7" stroke-linecap="round" fill="none"><circle cx="300" cy="700" r="26" fill="${C.ink}"/>` +
+      `<path d="M300,730 L300,810 M300,750 L260,790 M300,750 L340,790 M300,810 L270,870 M300,810 L330,870"/></g>`;
+    out += txt(400, 745, 'Person in the lane', { size: 40, weight: 800, fill: '#7f1d1d', op: s });
+    out += txt(400, 800, 'always escalates to Ultra, whatever the peers say', { size: 32, fill: '#7f1d1d', op: s });
+    out += arrow(1280, 760, 1480, 760, { color: C.hot, sw: 7, head: 22, op: s });
+    out += box(1500, 690, 240, 140, 'Ultra', 'always', { stroke: C.purple, fill: '#f5f3ff', op: s, size: 34 });
+    return out;
+  },
+
+  outro(u, D, S) {
+    const tEnd = sentStart(S, 2) - 0.3;
+    if (u < tEnd) {
+      let out = header('How we’ll prove it', 'Measured on Nebius Serverless Jobs');
+      const cols = [['No peers', 0.15], ['Random pairing', 0.5], ['Countercurrent + antennation', 0.9]];
+      cols.forEach(([name, t], i) => {
+        const op = fade(u, 0.3 + i * 0.7), x = 160 + i * 540;
+        out += rect(x, 250, 500, 560, { fill: '#fff', op });
+        out += `<circle cx="${x + 60}" cy="320" r="24" fill="${heat(t)}" opacity="${op}"/>`;
+        out += txt(x + 100, 332, name, { size: name.length > 20 ? 30 : 34, weight: 700, op });
+        ['Ultra calls per new problem', 'Hazard reaches whole fleet', 'New-robot warm-up time'].forEach((m, k) => {
+          const y = 430 + k * 125, mo = op * fade(u, sentStart(S, 1) + k * 0.5);
+          out += txt(x + 40, y, m, { size: 26, fill: C.mute, op: mo });
+          out += txt(x + 40, y + 50, 'to be measured', { size: 32, weight: 700, fill: '#334155', op: mo });
+        });
+      });
+      return out;
+    }
+    const a = fade(u, tEnd, 0.8);
+    let out = '';
+    for (let i = 0; i < 18; i++) {
+      const xr = mod(i * 120 + u * 90, W + 120) - 60, xl = W + 60 - mod(i * 120 + 60 + u * 90, W + 120);
+      out += `<circle cx="${xr}" cy="760" r="14" fill="${heat(0.95 - xr / W * 0.6)}" opacity="${.85 * a}"/>`;
+      out += `<circle cx="${xl}" cy="830" r="14" fill="${heat(0.83 - xl / W * 0.6)}" opacity="${.85 * a}"/>`;
+    }
+    out += txt(W / 2, 430, 'Cold feet, warm core.', { size: 104, weight: 800, anchor: 'middle', op: a });
+    out += txt(W / 2, 530, 'NemoFleet · Nebius Token Factory × NVIDIA Nemotron', { size: 38, weight: 500, fill: '#334155', anchor: 'middle', op: fade(u, tEnd + 0.8) });
+    return out;
+  },
+};
+
+// ---------- captions ----------
+function wrap(s, max) {
+  const words = s.split(' '), lines = [''];
+  words.forEach(w => { if ((lines[lines.length - 1] + ' ' + w).trim().length > max) lines.push(w); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim(); });
+  return lines;
+}
+function caption(sc, u) {
+  const s = sc.sentences.find(x => u >= x.t0 && u < x.t1);
+  if (!s) return '';
+  const lines = wrap(s.text, 80), h = 26 + lines.length * 44;
+  let out = `<rect x="${W / 2 - 860}" y="${1058 - h}" width="1720" height="${h}" rx="16" fill="#0f172a" opacity=".82"/>`;
+  lines.forEach((l, i) => out += txt(W / 2, 1058 - h + 50 + i * 44, l, { size: 34, weight: 500, fill: '#fff', anchor: 'middle' }));
+  return out;
+}
+
+function render(t) {
+  const sc = TL.find(s => t >= s.start && t < s.start + s.dur) || TL[TL.length - 1];
+  const u = t - sc.start;
+  const op = Math.min(clamp(u / 0.4), clamp((sc.dur - u) / 0.35));
+  const brand = txt(W - 120, 92, 'NEMOFLEET', { size: 22, weight: 800, fill: '#94a3b8', anchor: 'end', ls: 4 });
+  const body = scenes[sc.id](u, sc.dur, sc.sentences);
+  document.getElementById('stage').innerHTML =
+    `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#fff"/>` +
+    `<g opacity="${op}">${sc.id === 'title' || sc.id === 'outro' ? '' : brand}${body}</g>${caption(sc, u)}</svg>`;
+}
+window.setTimeline = tl => { TL = tl; };
+window.render = render;
+</script></body></html>
