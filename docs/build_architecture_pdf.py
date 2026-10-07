@@ -128,7 +128,7 @@ def system_map():
     b.append('<rect x="8" y="92" width="984" height="388" rx="12" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 5"/>')
     b.append('<text x="124" y="114" class="band">FLEET RUNTIME · FastAPI</text>')
 
-    b.append(box(20, 160, 170, 300, "runtime", "World simulator", ["warehouse grid", "robots · humans", "hazards", "tick loop"]))
+    b.append(box(20, 160, 170, 300, "runtime", "World simulator", ["warehouse or", "data center hall", "robots · humans", "hazards · tick loop"]))
     b.append(box(250, 150, 160, 70, "s2", "Perception", ["Cosmos Reason VLM"]))
     b.append(box(250, 270, 160, 70, "runtime", "Event bus", ["sensor + scene events"]))
     b.append(box(470, 150, 160, 70, "runtime", "Precedent memory", ["Ultra + peer decisions"]))
@@ -328,6 +328,25 @@ def schema():
     return svg(250, "".join(b))
 
 
+# ---------- Page 9: live console and API ----------
+def live_api():
+    b = []
+    b.append(box(0, 110, 170, 90, "ui", "Ops console", ["nemofleet.pages.dev", "/console"]))
+    b.append(arrow([(170, 155), (238, 155)]))
+    b.append(lbl(204, 145, "/api/*"))
+    b.append(box(240, 80, 220, 150, "runtime", "Pages Functions", ["functions/api/[[path]].js", "gate · schema · retry", "safe stop · alarms"]))
+    b.append(box(560, 0, 200, 70, "s2", "Token Factory", ["Cosmos · Nano · Ultra"]))
+    b.append(box(560, 95, 200, 70, "cold", "D1", ["calls · alarms · actions", "precedents · night_shift"]))
+    b.append(box(560, 190, 200, 70, "warm", "KV (TTL)", ["hazard tags · zones", "halts · pause · τ"]))
+    b.append(box(560, 285, 200, 50, "motion", "R2", ["raw prompts + outputs"]))
+    for y in (35, 130, 225, 310):
+        b.append(arrow([(460, 155), (510, 155), (510, y), (558, y)], head=True))
+    b.append(box(816, 60, 180, 220, "batch", "Not built yet", ["Dream · Gate", "Consolidate (LoRA)", "MLflow", "vLLM endpoint", "Serverless Jobs runner"]))
+    b.append(arrow([(760, 130), (814, 130)], dashed=True))
+    b.append(lbl(789, 120, "replay"))
+    return svg(340, "".join(b))
+
+
 # ---------- Page 4: red-team pipeline ----------
 def pipeline():
     b = []
@@ -419,7 +438,7 @@ def legend(dashed=False, items_list=None):
     return f'<div class="legend">{items}{"<span>- - - dashed arrow = response / return</span>" if dashed else ""}</div>'
 
 
-def page(n, kicker, title, body, show_legend=True, dashed=False, footer="NemoFleet Architecture", total=8, legend_items=None):
+def page(n, kicker, title, body, show_legend=True, dashed=False, footer="NemoFleet Architecture", total=9, legend_items=None):
     return f"""<section class="page"><header><h1>{e(title)}</h1><div class="kicker">{e(kicker)}</div></header>
 {body}{legend(dashed, legend_items) if show_legend else ""}<footer>{e(footer)} · {n} / {total}</footer></section>"""
 
@@ -494,6 +513,16 @@ def main(out_html):
         ("Everything expires", "Precedents and hazard tags carry a TTL, so a bad lesson can’t circulate forever."),
         ("Conflicts escalate", "Ultra outranks peers. Two precedents that disagree are themselves an escalation trigger."),
     ]) + "</div>"
+    sites_rows = [
+        ("Site", "Fulfillment center DC-04, zone B, aisles 1–5", "Hyperscale hall B, cold aisles 1–3"),
+        ("Scenario", "scenarios/aisle4-spill.json", "scenarios/hall-b-coolant-leak.json"),
+        ("Hazard · Cosmos, once", "Liquid spill at the aisle 4 blind corner", "Coolant leak at the row C2 end"),
+        ("Person · always Ultra", "Picker in aisle 4", "Technician in cold aisle 2"),
+        ("Day 2 variant · Nano", "Spill plus a forklift crossing", "Leak plus a lift cart crossing"),
+        ("Robots", "Picking AMRs, pallet movers", "Inspection rovers, drive-swap robots, rack-mover lifts"),
+    ]
+    sites_table = ("<table><tr><th></th><th>Warehouse</th><th>Data center</th></tr>" + "".join(
+        f"<tr><td>{e(a)}</td><td>{e(b)}</td><td>{e(c)}</td></tr>" for a, b, c in sites_rows) + "</table>")
     pages = [
         page(1, "System map", "NemoFleet · System 1 / System 2 for robot fleets",
              '<p class="lead">A fast model on each robot handles routine events, peers share what the fleet already knows when they pass, '
@@ -515,9 +544,9 @@ def main(out_html):
              'and the thymus deletes cells that would attack the body. Every night NemoFleet does the same on Nebius. The edge experiences an incident once; '
              'the core lives through hundreds of versions of it.</p>' + night_shift() +
              '<div class="cards" style="grid-template-columns:repeat(3,1fr);margin-top:14px">'
-             '<div class="c"><b>Day 1 · the incident</b>A robot nearly hits a spill at a blind corner and escalates to Ultra. Every Ultra call is already logged.</div>'
+             '<div class="c"><b>Day 1 · the incident</b>A robot nearly hits a spill at a blind corner (data center: a coolant leak at a row end) and escalates to Ultra. Every Ultra call is already logged.</div>'
              '<div class="c"><b>Night · on screen</b>Live counters: decisions re-judged, dreams simulated, lessons through the thymus, fine-tune, promotion gate. Real runs only.</div>'
-             '<div class="c"><b>Day 2 · the payoff</b>A different robot meets a variant it never saw (spill plus forklift) and handles it with Nano alone: “learned in dream #217”.</div></div>'
+             '<div class="c"><b>Day 2 · the payoff</b>A different robot meets a variant it never saw (spill plus forklift, or leak plus lift cart) and handles it with Nano alone: “learned in dream #217”.</div></div>'
              '<div class="cards" style="grid-template-columns:1fr 1fr;margin-top:12px">'
              '<div class="c"><b>Verify in week 1</b>Nemotron models live in the catalog; batch inference for Ultra; Data Lab logging. Nemotron is not on Token Factory’s fine-tune list, so training runs in our own container on Serverless Jobs.</div>'
              '<div class="c"><b>Stretch: physical trigger</b>A real Jetson Orin Nano spots a labeled spill and stops locally; Ultra + Tavily pull the Safety Data Sheet. That incident becomes tonight’s dream.</div></div>'),
@@ -532,8 +561,12 @@ def main(out_html):
              '<p class="lead">Serverless Jobs run adversarial scenarios in parallel across escalation thresholds τ and pairing strategies: '
              'the escalation frontier, plus countercurrent vs. concurrent vs. no-peer warm-up and hazard-spread curves.</p>'
              + pipeline() + '<h2>Where NVIDIA and Nebius are used</h2>' + usage_table +
-             '<p class="lead" style="margin-top:8px;font-size:12px;color:#64748b">Model IDs to be confirmed against the Token Factory catalog.</p>'),
+             '<p class="lead" style="margin-top:8px;font-size:12px;color:#64748b">Model IDs in use (config/models.yaml): nvidia/Nemotron-3-Ultra-550b-a55b · nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B · nvidia/nemotron-3-super-120b-a12b · Cosmos3-Super-Reasoner (dedicated endpoint).</p>'),
         page(8, "Planned module layout", "Code map: nemofleet/", module_cards()),
+        page(9, "Two sites · what is built", "One fleet design, two scenario files",
+             '<p class="lead">The same gate, peer layer, schema and Night Shift run in a fulfillment-center warehouse and a hyperscale data center hall. '
+             'Only the scenario file, the robot types and the prompt’s action examples change. The operator console and its API are live today.</p>'
+             + sites_table + '<h2>Live console and API</h2>' + live_api(), show_legend=False),
     ]
 
     with open(out_html, "w") as f:

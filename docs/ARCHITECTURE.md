@@ -13,6 +13,8 @@ NemoFleet splits robot-fleet cognition into speeds, the way people do, and lets 
 
 **Nebius is the warm core.** Like a duck that keeps heat in its body and lets its feet run cheap, NemoFleet doesn't cut compute; it moves it. Instead of re-solving problems the fleet already solved, compute goes to what only the core can do: deliberating on new problems (Token Factory), stress-testing the fleet at scale (Serverless Jobs), and learning from experience (fine-tuning). Cheaper decisions per robot also mean operators can run more robots on the same budget.
 
+**Two sites, one design.** The same fleet runs in a fulfillment-center **warehouse** (DC-04, a liquid spill at an aisle 4 blind corner) and a hyperscale **data center** hall (hall B, a coolant leak at the end of row C2). Only the scenario file and the robot types change; the gate, the peer layer, the schema and Night Shift are identical. See [section 11](#11-two-sites) and the [demo use case](DEMO.md).
+
 Geometry is never delegated to an LLM. A deterministic planner owns every trajectory, so every path is collision-free by construction. The models decide *what* should happen; the planner decides *how* to move.
 
 The peer layer combines two designs from the [countercurrent options](NemoFleet-Countercurrent-Options.pdf):
@@ -34,7 +36,7 @@ flowchart TB
     end
 
     subgraph CORE["Fleet Runtime - FastAPI"]
-        SIM["World Simulator<br/>warehouse grid, robots, humans, hazards"]
+        SIM["World Simulator<br/>warehouse or data center hall,<br/>robots, humans, hazards"]
         EVT["Event Bus"]
         MOTION["Motion Layer<br/>A* + CBS multi-agent pathfinding"]
         EXEC["Action Executor<br/>schema-validated actions"]
@@ -49,7 +51,7 @@ flowchart TB
 
     subgraph EDGE["System 1 - per robot"]
         NANO["Reflex Agent<br/>Nemotron Nano"]
-        GATE{"Escalation Gate<br/>still unsure<br/>or safety-critical?"}
+        GATE{"Escalation Gate<br/>unsure, novel hazard,<br/>or safety-critical?"}
     end
 
     subgraph CLOUD["System 2 - Nebius Token Factory"]
@@ -207,9 +209,9 @@ flowchart LR
 | **4 Consolidate** | Memories move from hippocampus to cortex | Survivors become the training set. A Serverless Job LoRA-fine-tunes Nano in our own container, MLflow records the lineage, and the new Nano is promoted only if it beats today's on the red-team suite. | Serverless Jobs (GPU); Managed MLflow; Serverless Endpoints |
 
 **The demo moment (about 25 seconds).**
-1. Day 1: a robot nearly hits a spill at a blind corner and escalates to Ultra.
+1. Day 1: a robot nearly hits a spill at a blind corner (in the data center, a coolant leak at a row end) and escalates to Ultra.
 2. Night Shift runs on screen, with live counters for decisions re-judged, dreams simulated, lessons through the thymus, and the fine-tune.
-3. Day 2: a different robot meets a variant it never saw (spill plus forklift at the same corner) and handles it with Nano alone. The overlay reads "learned in dream #217".
+3. Day 2: a different robot meets a variant it never saw (spill plus forklift at the same corner; in the data center, leak plus a lift cart) and handles it with Nano alone. The overlay reads "learned in dream #217".
 
 Every number shown must come from a real run.
 
@@ -316,7 +318,7 @@ flowchart LR
 nemofleet/
 ├── models.py          # Pydantic: WorldState, Robot, Event, FleetAction, Decision, Precedent
 ├── sim/
-│   ├── world.py       # Warehouse grid, robots, humans, hazards, tick loop
+│   ├── world.py       # Site grid (warehouse or data center hall), robots, humans, hazards, tick loop
 │   ├── proximity.py   # Pass detection, handshake events, fading hazard tags (Option B)
 │   └── scenarios.py   # Scenario loading and procedural generation
 ├── motion/
@@ -362,3 +364,45 @@ nemofleet/
 | Red-team and pairing sweeps | — | Serverless Jobs |
 
 Confirm the exact model IDs against the Token Factory catalog before wiring up the client.
+
+---
+
+## 11. Two sites
+
+| | Warehouse | Data center |
+|---|---|---|
+| Site | Fulfillment center DC-04, zone B, aisles 1–5 | Hyperscale hall B, cold aisles 1–3 |
+| Scenario | `scenarios/aisle4-spill.json` | `scenarios/hall-b-coolant-leak.json` |
+| Hazard, seen once by Cosmos | Liquid spill at the aisle 4 blind corner | Coolant leak on the floor tiles at the row C2 end |
+| Person, always Ultra | Picker in aisle 4 | Technician in cold aisle 2 |
+| Day 2 variant, settled by Nano | Spill plus a forklift crossing | Leak plus a lift cart crossing |
+| Robots | Picking AMRs, pallet movers | Inspection rovers (thermal + LED camera), drive-swap robots, rack-mover lifts |
+| Typical tasks | `PICK-…` orders, pallet moves | `SCAN-…` thermal sweeps, `SWAP-…` drive and PSU swaps, `MOVE-…` sled moves |
+
+Each scenario lists six events (routine, first sighting, two handshakes, person, variant) with a robot, a device type, a location and a camera frame. The prompt's action examples are per site (aisles and docks, or cold aisles and staging bays); the FleetAction schema is the same.
+
+## 12. Live console and API (built)
+
+The operator console is a static page on Cloudflare Pages; its buttons call a Pages Functions API that does the real work.
+
+```mermaid
+flowchart LR
+    UI["Ops console<br/>nemofleet.pages.dev/console"] -->|/api/*| API["Pages Functions<br/>functions/api/[[path]].js"]
+    API -->|Cosmos, Nano, Ultra| TF["Nebius Token Factory"]
+    API --> D1[("D1<br/>calls · alarms · actions<br/>precedents · runs · night_shift")]
+    API --> KV[("KV<br/>hazard tags, zones, halts<br/>pause, τ (TTL)")]
+    API --> R2[("R2<br/>raw prompts + outputs")]
+```
+
+| Route | What it does |
+|---|---|
+| `GET /api/health` | Store bindings, key present, model ids |
+| `GET /api/state?scene=` | Everything the console renders for one site |
+| `POST /api/scenario/start · step · finish` | One event per step: Cosmos on the frame, then the gate (safety → Ultra; novel hazard → Ultra; else Nano, escalating below τ); validated decisions are applied to KV and raise alarms |
+| `POST /api/actions` | Operator actions: quarantine, halt, broadcast, escalate (real Ultra call), pause/resume, set τ, rollback flag |
+| `POST /api/alarms/ack · release` | Alarm state in D1; release clears zone tags in KV |
+| `GET /api/episodes` | Recent Nano and Ultra decisions with replay verdicts |
+| `POST /api/night-shift/replay` | Night Shift stage 1: Ultra re-judges Nano decisions in batches of 4 |
+
+Built today: everything in this table. Not built yet: Dream, Gate and Consolidate (the Serverless Jobs runner), the LoRA adapter, MLflow and the vLLM endpoint. The console shows those as "not built yet" rather than placeholder numbers.
+

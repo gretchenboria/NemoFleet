@@ -456,6 +456,31 @@ const scenes = {
     return out;
   },
 
+  sites(u, D, S) {
+    let out = header('Two sites', 'One fleet design, two scenario files');
+    const cols = [[120, 'Warehouse', 'fulfillment center DC-04 · zone B, aisle 4', 'amber'], [980, 'Data center', 'hyperscale hall B · cold aisle 2', 'cold']];
+    const rows = [['hazard (Cosmos, once)', 'liquid spill at a blind corner', 'coolant leak at a row end'],
+                  ['person (always Ultra)', 'picker in the aisle', 'technician at a rack'],
+                  ['Day 2 variant (Nano)', 'spill + forklift', 'leak + lift cart'],
+                  ['robots', 'picking AMRs · pallet movers', 'inspection rovers · drive-swap · rack lifts']];
+    cols.forEach(([x, t, sub, k], c) => {
+      const op = fade(u, 0.4 + c * 0.5);
+      out += rect(x, 210, 820, 510, { fill: K[k][1], stroke: K[k][0], sw: 3.5, op });
+      out += txt(x + 40, 275, t, { size: 44, weight: 800, fill: K[k][0], op });
+      out += txt(x + 40, 313, sub, { size: 24, fill: '#334155', op });
+      rows.forEach(([lab, w, d], i) => {
+        const ro = op * fade(u, sentStart(S, 1) + i * 0.5);
+        out += txt(x + 40, 375 + i * 85, lab.toUpperCase(), { size: 18, weight: 700, fill: C.mute, ls: 2, op: ro });
+        out += txt(x + 40, 411 + i * 85, c ? d : w, { size: 30, weight: 600, op: ro });
+      });
+    });
+    const so = fade(u, sentStart(S, 2));
+    out += rect(120, 745, 1680, 120, { fill: C.soft, op: so });
+    out += txt(960, 795, 'same in both: escalation gate · FleetAction schema · peer handshakes · Night Shift', { size: 30, weight: 700, fill: C.ink, anchor: 'middle', op: so });
+    out += txt(960, 839, 'scenarios/aisle4-spill.json  ·  scenarios/hall-b-coolant-leak.json', { size: 24, fill: '#334155', anchor: 'middle', mono: true, op: so });
+    return out;
+  },
+
   outro(u, D, S) {
     const tEnd = sentStart(S, 1) - 0.3;
     if (u < tEnd) {

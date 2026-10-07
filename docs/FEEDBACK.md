@@ -4,9 +4,9 @@ Kept from day 1 of the build. Every item has the same four parts: **problem**, *
 
 ## 1. Cosmos is available only as a dedicated endpoint
 - **Problem:** `nvidia/Cosmos3-Super-Reasoner` is offered on Token Factory as a dedicated endpoint only, sized at 4× H200. Physical AI perception is bursty (in our design one call per new hazard), so paying for a whole always-on endpoint is a poor fit. Earlier research couldn't find Cosmos on Token Factory at all, so it's also hard to discover.
-- **Measured:** $0.37 per minute (about $22.20 per hour) while running, us-central1, from the console. Preflight on Oct 7 got HTTP 429 "model is starting, please retry" from the endpoint, so a stopped endpoint can't serve a demo on demand. *To measure:* cold-start time from stopped to Ready, and calls per demo run.
+- **Measured:** $0.37 per minute (about $22.20 per hour) while running, us-central1, from the console. Preflight on Oct 7 got HTTP 429 "model is starting, please retry" from the endpoint, so a stopped endpoint can't serve a demo on demand. Every request we sent from Oct 7 02:23 UTC to 21:38 UTC (over 19 hours, every check) got the same 429 "starting", with no ETA or state in the response, and the dedicated endpoint does not appear in `GET /v1/models`, so a client can't tell "warming up" from "stuck" or "no capacity". *To measure:* cold-start time from stopped to Ready once it succeeds, and calls per demo run.
 - **Workaround:** run the endpoint only during test and recording sessions, with min replicas at 0 or the endpoint stopped otherwise, and batch perception requests.
-- **Suggested fix:** offer Cosmos Reasoner per token (serverless), or a smaller single-GPU configuration with scale-to-zero, and list it in the model catalog next to Nemotron.
+- **Suggested fix:** return endpoint state and an ETA (or a capacity error) instead of a bare 429 while starting, and list dedicated endpoints in `/v1/models` with their status. Offer Cosmos Reasoner per token (serverless), or a smaller single-GPU configuration with scale-to-zero, and list it in the model catalog next to Nemotron.
 
 ## 2. Nemotron models are not fine-tunable on Token Factory
 - **Problem:** the fine-tunable list doesn't include Nemotron, so the hackathon's headline model family can't be post-trained on Token Factory.

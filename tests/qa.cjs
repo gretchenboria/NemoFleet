@@ -165,9 +165,9 @@ const server = http.createServer((req, res) => {
   await page.goto(base + 'video.html', { waitUntil: 'domcontentloaded' });
   const dur = await page.evaluate(() => new Promise(res => { const v = document.getElementById('vid'); if (v.readyState >= 1) return res(v.duration); v.addEventListener('loadedmetadata', () => res(v.duration)); setTimeout(() => res(-1), 8000); }));
   check('explainer video loads metadata (about 3 min)', dur > 150 && dur < 260, `duration ${dur}`);
-  await page.click('[data-t="122"]'); await new Promise(r => setTimeout(r, 300));
+  await page.click('[data-t="125"]'); await new Promise(r => setTimeout(r, 300));
   const ct = await page.evaluate(() => document.getElementById('vid').currentTime);
-  check('chapter link seeks the video', Math.abs(ct - 122) < 2, `currentTime ${ct}`);
+  check('chapter link seeks the video', Math.abs(ct - 125) < 2, `currentTime ${ct}`);
 
   // console interactions
   for (const sc of ['warehouse', 'datacenter']) {

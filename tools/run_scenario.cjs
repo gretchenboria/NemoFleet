@@ -65,10 +65,12 @@ const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet. Decide 
     const context = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : '') +
       (precedents[ev.robot] ? `\nPeer precedent: hop ${precedents[ev.robot].hops} from ${precedents[ev.robot].from}.` : '');
     const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
-    let tier = safety ? 'ultra' : 'nano', decision = null, errors = [], calls = 0;
+    // same gate as the console API: an unknown hazard (no precedent yet in this run) always escalates
+    const novel = (ev.kind === 'first_sighting' || !!(seen && (seen.hazards || []).length)) && !Object.keys(precedents).length;
+    let tier = safety || novel ? 'ultra' : 'nano', decision = null, errors = [], calls = 0;
 
     if (dry) {
-      console.log(`t=${ev.t}s ${ev.robot} · ${ev.kind} · would call ${tier === 'ultra' ? 'Ultra (safety gate)' : 'Nano, escalate to Ultra if confidence < ' + sc.tau}`);
+      console.log(`t=${ev.t}s ${ev.robot} · ${ev.kind} · would call ${tier === 'ultra' ? `Ultra (${safety ? 'safety' : 'novel hazard'} gate)` : 'Nano, escalate to Ultra if confidence < ' + sc.tau}`);
       results.push({ t: ev.t, robot: ev.robot, tier, dry_run: true });
       continue;
     }
@@ -88,6 +90,7 @@ const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet. Decide 
     let out = await ask(tier);
     if (tier === 'nano' && (!out || out.d.confidence < sc.tau)) { tier = 'ultra'; out = await ask('ultra'); }
     decision = out && out.d;
+    if (decision && tier === 'ultra') precedents[ev.robot] = { from: 'ultra', hops: 0 };
     results.push({ t: ev.t, robot: ev.robot, tier, model: out && out.model, model_calls: calls, latency_ms: out && out.latency_ms, decision, executed: !!decision, errors: decision ? [] : errors });
     console.log(`t=${ev.t}s ${ev.robot} · ${tier.toUpperCase()} · ${decision ? decision.actions.map(a => a.type).join(', ') + ` · conf ${decision.confidence}` : 'no valid action after retry → safe stop'}`);
   }

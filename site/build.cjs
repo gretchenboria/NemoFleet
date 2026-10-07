@@ -12,9 +12,9 @@ fs.mkdirSync(path.join(DIST, 'docs'), { recursive: true });
 fs.cpSync(path.join(__dirname, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
 const PDFS = [
-  ['NemoFleet-Architecture.pdf', 'ARCHITECTURE', 'System architecture', 'System map, peer layer, warm core, Night Shift, escalation sequence, responsibilities, red-team pipeline, code map.'],
+  ['NemoFleet-Architecture.pdf', 'ARCHITECTURE', 'System architecture', 'System map, two sites and the live API, peer layer, warm core, Night Shift, escalation sequence, responsibilities, red-team pipeline, code map.'],
   ['NemoFleet-Nebius-Plan.pdf', 'PLAN', 'Implementation plan', 'Agreed by three review agents: decisions, schedule, cut lines and vote record.'],
-  ['NemoFleet-Demo-Use-Case.pdf', 'DEMO', 'Demo use case', 'The aisle 4 spill: Day 1 → Night Shift → Day 2, with what is real and the fallbacks.'],
+  ['NemoFleet-Demo-Use-Case.pdf', 'DEMO', 'Demo use case', 'One hazard at two sites (warehouse spill, data center coolant leak): Day 1 → Night Shift → Day 2, with what is real and the fallbacks.'],
   ['NemoFleet-Countercurrent-Options.pdf', 'DESIGN', 'Peer-learning options', 'The three peer-learning designs considered, with comparison.'],
   ['NemoFleet-Nebius-Feedback.pdf', 'FEEDBACK', 'Platform feedback', 'Measured feedback on Token Factory, Serverless AI and AI Cloud.'],
 ];
@@ -62,17 +62,18 @@ write('index.html', layout('index.html', 'NemoFleet', 'Robot fleets that stop pa
 // demo (from docs/DEMO.md)
 let demo = marked.parse(fs.readFileSync(path.join(ROOT, 'docs', 'DEMO.md'), 'utf8'))
   .replace(/<table>/g, '<div class="tbl"><table>').replace(/<\/table>/g, '</table></div>')
-  .replace(/<input (checked="" )?disabled="" type="checkbox">/g, '☐');
-write('demo.html', layout('demo.html', 'NemoFleet Demo', 'The aisle 4 spill: seen once by Cosmos, spread by handshake, made safe by Ultra, learned overnight on Nebius.',
+  .replace(/<input (checked="" )?disabled="" type="checkbox">/g, '☐')
+  .replace(/href="([A-Z_]+\.md)(#[^"]*)?"/g, (m, f, h) => `href="https://github.com/gretchenboria/NemoFleet/blob/main/docs/${f}${h || ''}"`);
+write('demo.html', layout('demo.html', 'NemoFleet Demo', 'One hazard, two sites: a warehouse spill or a data center coolant leak, seen once by Cosmos, spread by handshake, made safe by Ultra, learned overnight on Nebius.',
   `<section class="band grid-tex" style="border-top:0"><div class="wrap"><span class="eyebrow">Demo use case</span><article class="prose">${demo}</article></div></section>`));
 
 // video
-const chapters = [['0:00', 0, 'A fleet that learns from itself'], ['0:09', 9, 'The problem'], ['0:24', 24, 'Three speeds of thinking'], ['0:54', 54, 'Two ideas from biology'],
-  ['1:10', 70, 'Robots swap knowledge when they pass'], ['1:29', 89, 'Countercurrent pairing'], ['1:43', 103, 'Safety boundary'], ['2:02', 122, 'Night Shift on Nebius'],
-  ['2:42', 162, 'Day 2: an unseen variant'], ['2:59', 179, 'How we prove it']];
+const chapters = [['0:00', 0, 'A fleet that learns from itself'], ['0:09', 9, 'The problem'], ['0:27', 27, 'Three speeds of thinking'], ['0:58', 58, 'Two ideas from biology'],
+  ['1:13', 73, 'Robots swap knowledge when they pass'], ['1:32', 92, 'Countercurrent pairing'], ['1:46', 106, 'Safety boundary'], ['2:05', 125, 'Night Shift on Nebius'],
+  ['2:46', 166, 'Day 2: an unseen variant'], ['3:03', 183, 'Two sites: warehouse and data center'], ['3:22', 202, 'How we prove it']];
 write('video.html', layout('video.html', 'NemoFleet Explainer', 'A 3-minute narrated explainer of NemoFleet: architecture, peer exchange, safety and Night Shift on Nebius.',
   `<section class="band" style="border-top:0"><div class="wrap">
-    <div class="sec-head"><span class="eyebrow">Explainer · 3:19</span><h2>How NemoFleet works</h2><p class="lead">Narrated with Gemini 3.8 Flash TTS. Animations are illustrative; result numbers come only from recorded runs.</p></div>
+    <div class="sec-head"><span class="eyebrow">Explainer · 3:43</span><h2>How NemoFleet works</h2><p class="lead">Narrated with Gemini 3.8 Flash TTS. Animations are illustrative; result numbers come only from recorded runs.</p></div>
     <video class="video" id="vid" controls preload="metadata" poster="assets/img/video-poster.jpg" src="assets/nemofleet-explainer.mp4"></video>
     <div class="tbl"><table><thead><tr><th>Time</th><th>Chapter</th></tr></thead><tbody>
       ${chapters.map(([ts, s, t]) => `<tr><td class="mono"><a href="#t${s}" data-t="${s}">${ts}</a></td><td>${t}</td></tr>`).join('')}
