@@ -49,19 +49,24 @@ for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pd
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
-const frames = ['cam-r14-leak', 'cam-r03-person', 'cam-r12-cart', 'cam-r07-clear'].filter(f => !fs.existsSync(path.join(ROOT, 'site', 'assets', 'frames', f + '.jpg')));
-check('robot camera frames and overhead floor present', frames.length === 0 && fs.existsSync(path.join(ROOT, 'site', 'assets', 'img', 'floor-overhead.jpg')), frames.join(', '));
-const perc = JSON.parse(fs.readFileSync(path.join(ROOT, 'site', 'assets', 'perception', 'index.json'), 'utf8'));
-const fakes = Object.entries(perc.results || {}).filter(([n]) => { const f = path.join(ROOT, 'site', 'assets', 'perception', n + '.json'); return !fs.existsSync(f) || !JSON.parse(fs.readFileSync(f, 'utf8')).raw; });
-check('every Cosmos result shown has a stored raw response from a real call', fakes.length === 0, fakes.map(x => x[0]).join(', '));
-try {
-  const outDry = execFileSync('node', [path.join(ROOT, 'tools', 'run_scenario.cjs'), path.join(ROOT, 'scenarios', 'hall-b-coolant-leak.json'), '--dry-run'], { cwd: ROOT }).toString();
-  const runDir = outDry.match(/→ (\S+)\/summary\.json/)[1];
-  const sum = JSON.parse(fs.readFileSync(path.join(ROOT, runDir, 'summary.json'), 'utf8'));
-  fs.rmSync(path.join(ROOT, runDir), { recursive: true, force: true });
-  const safety = sum.results.find(r => r.robot === 'R03');
-  check('scenario dry run: 6 events, person event routed to Ultra, handshakes make no model calls', sum.totals.events === 6 && safety.tier === 'ultra' && sum.totals.peer === 2 && sum.totals.model_calls === 0, JSON.stringify(sum.totals));
-} catch (e) { check('scenario dry run', false, String(e.message).slice(0, 200)); }
+for (const [scene, names] of [['warehouse', ['cam-r14-spill', 'cam-r03-person', 'cam-r12-forklift', 'cam-r07-clear']], ['datacenter', ['cam-r14-leak', 'cam-r03-person', 'cam-r12-cart', 'cam-r07-clear']]]) {
+  const dir = path.join(ROOT, 'site', 'assets', 'scenes', scene);
+  const missing = names.filter(f => !fs.existsSync(path.join(dir, 'frames', f + '.jpg')));
+  check(`${scene}: floor render and 4 robot camera frames present`, !missing.length && fs.existsSync(path.join(dir, 'floor.jpg')), missing.join(', '));
+  const pdir = path.join(ROOT, 'site', 'assets', 'perception', scene), perc = JSON.parse(fs.readFileSync(path.join(pdir, 'index.json'), 'utf8'));
+  const fakes = Object.keys(perc.results || {}).filter(n => { const f = path.join(pdir, n + '.json'); return !fs.existsSync(f) || !JSON.parse(fs.readFileSync(f, 'utf8')).raw; });
+  check(`${scene}: every Cosmos result shown has a stored raw response from a real call`, !fakes.length, fakes.join(', '));
+}
+for (const scen of ['aisle4-spill', 'hall-b-coolant-leak']) {
+  try {
+    const outDry = execFileSync('node', [path.join(ROOT, 'tools', 'run_scenario.cjs'), path.join(ROOT, 'scenarios', scen + '.json'), '--dry-run'], { cwd: ROOT }).toString();
+    const runDir = outDry.match(/→ (\S+)\/summary\.json/)[1];
+    const sum = JSON.parse(fs.readFileSync(path.join(ROOT, runDir, 'summary.json'), 'utf8'));
+    fs.rmSync(path.join(ROOT, runDir), { recursive: true, force: true });
+    const safety = sum.results.find(r => r.robot === 'R03');
+    check(`${scen} dry run: 6 events, person event routed to Ultra, handshakes make no model calls`, sum.totals.events === 6 && safety.tier === 'ultra' && sum.totals.peer === 2 && sum.totals.model_calls === 0, JSON.stringify(sum.totals));
+  } catch (e) { check(`${scen} dry run`, false, String(e.message).slice(0, 200)); }
+}
 const models = fs.readFileSync(path.join(ROOT, 'config', 'models.yaml'), 'utf8');
 check('models.yaml names the Token Factory base URL and Cosmos endpoint', /base_url: https:\/\/api\.tokenfactory\./.test(models) && /Cosmos3-Super-Reasoner/.test(models));
 
@@ -159,7 +164,16 @@ const server = http.createServer((req, res) => {
   check('chapter link seeks the video', Math.abs(ct - 122) < 2, `currentTime ${ct}`);
 
   // console interactions
-  await page.goto(base + 'console.html', { waitUntil: 'load' });
+  for (const sc of ['warehouse', 'datacenter']) {
+    errors = [];
+    await page.goto(base + 'console.html#' + sc, { waitUntil: 'domcontentloaded' }); await new Promise(r => setTimeout(r, 900));
+    const st = await page.evaluate(() => ({ pressed: document.querySelector('.scene-switch [aria-pressed="true"]')?.dataset.scene, imgs: [...document.querySelectorAll('#cams img')].map(i => i.complete && i.naturalWidth > 0), alarm: document.querySelector('.alarm .t')?.textContent }));
+    check(`console #${sc}: scene selected, 4 camera frames load, no errors`, st.pressed === sc && st.imgs.length === 4 && st.imgs.every(Boolean) && !errors.length, JSON.stringify(st) + errors.join(';'));
+  }
+  await page.goto(base + 'console.html#warehouse', { waitUntil: 'load' });
+  await page.click('#scene-datacenter');
+  const sw = await page.evaluate(() => ({ hash: location.hash, alarm: document.querySelector('.alarm .t').textContent }));
+  check('console: scene switch changes the scene and the URL', sw.hash === '#datacenter' && /cold aisle/i.test(sw.alarm), JSON.stringify(sw));
   await page.click('#act-night'); await new Promise(r => setTimeout(r, 200));
   const toast = await page.evaluate(() => { const t = document.getElementById('toast'); return { shown: !t.hidden, text: t.textContent }; });
   check('console: Run Night Shift shows a clearly labelled example toast', toast.shown && /example only/i.test(toast.text), JSON.stringify(toast));

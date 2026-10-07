@@ -202,6 +202,9 @@ details.rules summary { font-size: 15px; }
 table.rt { font-size: 12.5px; }
 table.rt td, table.rt th { padding: 5px 6px; }
 
+.scene-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel); }
+.scene-switch button { border: 0; background: transparent; padding: 4px 11px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.scene-switch button[aria-pressed="true"] { background: var(--nvidia); color: #0b1400; }
 .cams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .cam { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); display: grid; }
 .cam .shot { position: relative; }
@@ -227,8 +230,9 @@ table.rt td, table.rt th { padding: 5px 6px; }
   <header class="top">
     <div class="brand">
       <h1>NemoFleet Ops</h1>
-      <span class="site">DC-04 · Hall B · Shift A · <span id="clock" class="num">09:41:07</span></span>
+      <span class="site"><span id="site-label">DC-04 · Hall B</span> · Shift A · <span id="clock" class="num">09:41:07</span></span>
       <span class="example" title="Numbers on this page are examples until the first real runs are recorded">Example data</span>
+      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button></div>
     </div>
     <div class="top-actions">
       <button class="btn primary" id="act-night" data-toast="Night Shift run queued on Serverless Jobs (example only, not connected)">Run Night Shift now</button>
@@ -249,7 +253,7 @@ table.rt td, table.rt th { padding: 5px 6px; }
   <div class="grid">
     <div class="col">
       <section class="panel" aria-labelledby="h-floor">
-        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub">Hall B · overhead · peer handshakes shown as rings</span></div>
+        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Hall B · overhead · peer handshakes shown as rings</span></div>
         <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Overhead view of data center hall B with animated robot markers, a coolant leak and a quarantined zone at the end of cold aisle 2, and a halted robot near a technician"></canvas></div>
         <div class="legend">
           <span><i style="background:var(--s1)"></i>Moving</span>
@@ -278,7 +282,7 @@ table.rt td, table.rt th { padding: 5px 6px; }
       <section class="panel" aria-labelledby="h-quick">
         <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">schema-checked before anything moves</span></div>
         <div class="top-actions">
-          <button class="btn sm" data-toast="Zone C2 quarantined for 10 min; planner rerouting 3 robots (example only)">Quarantine zone C2</button>
+          <button class="btn sm" id="q-btn" data-toast="Zone C2 quarantined for 10 min; planner rerouting 3 robots (example only)">Quarantine zone C2</button>
           <button class="btn sm" data-toast="R07 halted at next safe stop (example only)">Halt robot R07</button>
           <button class="btn sm" data-toast="Event sent to Ultra for deliberation (example only)">Escalate to Ultra</button>
           <button class="btn sm" data-toast="Hazard broadcast to all robots, bypassing handshakes (example only)">Broadcast hazard</button>
@@ -402,29 +406,26 @@ table.rt td, table.rt th { padding: 5px 6px; }
   const start = performance.now();
   setInterval(() => { const d = new Date(t0.getTime() + (performance.now() - start)); clock.textContent = d.toTimeString().slice(0, 8); }, 1000);
 
-  // ---- alarms ----
-  const alarms = [
-    { sev: 'crit', t: 'Technician in cold aisle 2', meta: 'R03 halted · zone C2 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] },
-    { sev: 'warn', t: 'Cosmos endpoint idle 18 min', meta: '4× H200 dedicated · $6.66 spent while idle', acts: ['Acknowledge', 'Stop endpoint'] },
-    { sev: 'warn', t: 'Ultra p95 latency 31 s', meta: 'above 30 s for 5 min · live escalations routed to Nemotron Super', acts: ['Acknowledge'] },
-    { sev: 'warn', t: 'Confident mistakes 0.4%', meta: 'replay flagged 5 decisions at confidence ≥ 0.9 · τ lowered to 0.62', acts: ['Acknowledge', 'Review episodes'] },
-    { sev: 'info', t: 'Hazard tag expired early', meta: 'coolant leak at row C2 end · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] },
-  ];
+  // ---- alarms (per scene) ----
   const box = document.getElementById('alarms'), open = document.getElementById('open-count');
   const sevName = { crit: 'Critical', warn: 'Warning', info: 'Info' };
-  alarms.forEach((a, i) => {
-    const el = document.createElement('div'); el.className = 'alarm'; el.dataset.sev = a.sev;
-    el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${a.t}</span></div><div class="meta">${a.meta}</div><div class="acts"></div></div>`;
-    a.acts.forEach(label => {
-      const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.id = `al-${i}-${label.replace(/\W+/g, '').toLowerCase()}`;
-      b.addEventListener('click', () => {
-        if (label === 'Acknowledge') { el.classList.toggle('acked'); b.textContent = el.classList.contains('acked') ? 'Reopen' : 'Acknowledge'; open.textContent = box.querySelectorAll('.alarm:not(.acked)').length; }
-        else say(`${label}: example only, not connected`);
+  function renderAlarms(alarms) {
+    box.innerHTML = '';
+    alarms.forEach((a, i) => {
+      const el = document.createElement('div'); el.className = 'alarm'; el.dataset.sev = a.sev;
+      el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${a.t}</span></div><div class="meta">${a.meta}</div><div class="acts"></div></div>`;
+      a.acts.forEach(label => {
+        const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.id = `al-${i}-${label.replace(/\W+/g, '').toLowerCase()}`;
+        b.addEventListener('click', () => {
+          if (label === 'Acknowledge') { el.classList.toggle('acked'); b.textContent = el.classList.contains('acked') ? 'Reopen' : 'Acknowledge'; open.textContent = box.querySelectorAll('.alarm:not(.acked)').length; }
+          else say(`${label}: example only, not connected`);
+        });
+        el.querySelector('.acts').appendChild(b);
       });
-      el.querySelector('.acts').appendChild(b);
+      box.appendChild(el);
     });
-    box.appendChild(el);
-  });
+    open.textContent = alarms.length;
+  }
 
   // ---- tau slider ----
   const tau = document.getElementById('tau'), tauV = document.getElementById('tau-v'), tauN = document.getElementById('tau-note');
@@ -456,15 +457,7 @@ table.rt td, table.rt th { padding: 5px 6px; }
   }
 
   // ---- call log ----
-  const tmpl = [
-    ['s1', 'nano · night-07', 'R12', 'open rack door · row B4', 240, 410, 0.0001, 'settled · reroute'],
-    ['s15', 'peer cache', 'R09', 'coolant leak ahead (hop 2)', 3, 0, 0, 'settled · no call'],
-    ['s1', 'nano · night-07', 'R05', 'cart in cross-aisle', 310, 388, 0.0001, 'settled · wait 4 s'],
-    ['s2', 'nemotron-ultra', 'R03', 'technician in cold aisle', 6200, 2140, 0.0049, 'halt + quarantine C2'],
-    ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · coolant', 1800, 1290, 0.0062, 'leak · tag row C2'],
-    ['s1', 'nano · night-07', 'R21', 'hot-aisle door ajar', 270, 402, 0.0001, 'settled · reroute'],
-    ['s15', 'peer cache', 'R17', 'lift cart crossing (hop 1)', 2, 0, 0, 'settled · no call'],
-  ];
+  let tmpl = [];
   const tierLabel = { s1: 'S1', s15: 'S1.5', s2: 'S2' };
   const logEl = document.getElementById('log');
   let n = 0;
@@ -476,20 +469,21 @@ table.rt td, table.rt th { padding: 5px 6px; }
     logEl.prepend(tr);
     while (logEl.children.length > 8) logEl.lastChild.remove();
   }
-  for (let i = 0; i < 6; i++) addRow(true);
   if (!reduce) setInterval(() => addRow(false), 2600);
 
   // ---- live floor (canvas over the overhead render) ----
   const cv = document.getElementById('floor'), cx = cv.getContext('2d');
   const CW = cv.width, CH = cv.height;
-  const floorImg = new Image(); floorImg.src = 'assets/img/floor-overhead.jpg';
-  const lanes = [100, 124, 226, 250, 352, 376], CROSS = 731;
-  const ZONE = { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, SPILL = { x: 700 }, PERSON = { x: 742, y: 246 };
-  const robots = [];
-  for (let i = 0; i < 12; i++) robots.push({ lane: i % 6, x: 60 + (i * 173) % 1000, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22, knows: false, id: 'R' + String([1, 2, 5, 7, 9, 12, 14, 17, 19, 21, 22, 24][i]).padStart(2, '0') });
-  const halted = { x: 604, lane: 2, id: 'R03' };
+  const floorImg = new Image();
+  let SC = null, lanes = [], ZONE = null, SPILL = null, PERSON = null, halted = null, robots = [];
+  const CROSS = 731;
   const rings = [], passed = new Map();
   let last = performance.now(), tagAge = 0;
+  function initRobots() {
+    robots = [];
+    for (let i = 0; i < 12; i++) robots.push({ lane: i % lanes.length, x: 60 + (i * 173) % 1000, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22, knows: false, id: 'R' + String([1, 2, 5, 7, 9, 12, 14, 17, 19, 21, 22, 24][i]).padStart(2, '0') });
+    rings.length = 0; passed.clear();
+  }
   function bot(x, y, dir, fill, id, C) {
     cx.save(); cx.translate(x, y);
     cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-14, -8, 30, 20, 5); cx.fill();
@@ -508,13 +502,13 @@ table.rt td, table.rt th { padding: 5px 6px; }
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
     cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3;
-    [112, 238, 364].forEach((y, i) => { cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('COLD AISLE ' + (i + 1), 10, y + 4); cx.fillStyle = C.ink; cx.fillText('COLD AISLE ' + (i + 1), 10, y + 4); });
+    SC.labels.forEach(([y, label]) => { cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(label, 10, y + 4); cx.fillStyle = C.ink; cx.fillText(label, 10, y + 4); });
     cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('CROSS-AISLE', CROSS - 38, CH - 8); cx.fillStyle = C.ink; cx.fillText('CROSS-AISLE', CROSS - 38, CH - 8);
     // quarantine zone + spill + fading tags
     const zy = ZONE.y;
     cx.fillStyle = 'rgba(204,52,52,.12)'; cx.fillRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68);
     cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2.5; cx.strokeRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68); cx.restore();
-    cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText('ZONE C2 · QUARANTINED', ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText('ZONE C2 · QUARANTINED', ZONE.x0, zy - 40);
+    cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(SC.zoneLabel, ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText(SC.zoneLabel, ZONE.x0, zy - 40);
     cx.fillStyle = 'rgba(56,160,220,.45)'; cx.beginPath(); cx.ellipse(SPILL.x, zy + 2, 30, 13, -.2, 0, 7); cx.fill();
     cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.stroke();
     tagAge = (tagAge + dt) % 12;
@@ -548,7 +542,7 @@ table.rt td, table.rt th { padding: 5px 6px; }
   floorImg.addEventListener('load', () => { if (reduce) frame(performance.now()); });
 
   // ---- robot cameras + Cosmos perception (real results only) ----
-  const CAMS = [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']];
+  let CAMS = [];
   const camBox = document.getElementById('cams');
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function renderCams(idx) {
@@ -562,11 +556,59 @@ table.rt td, table.rt th { padding: 5px 6px; }
       } else {
         cap = `<span class="await">Awaiting Cosmos analysis.</span><span class="meta">run tools/cosmos_perceive.cjs</span>`;
       }
-      return `<figure class="cam"><div class="shot"><img src="assets/frames/${n}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
+      return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${n}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
     }).join('');
   }
-  renderCams(null);
-  fetch('assets/perception/index.json').then(r => r.ok ? r.json() : null).then(renderCams).catch(() => {});
+
+  // ---- scenes ----
+  const SHARED = [
+    { sev: 'warn', t: 'Cosmos endpoint idle 18 min', meta: '4× H200 dedicated · $6.66 spent while idle', acts: ['Acknowledge', 'Stop endpoint'] },
+    { sev: 'warn', t: 'Ultra p95 latency 31 s', meta: 'above 30 s for 5 min · live escalations routed to Nemotron Super', acts: ['Acknowledge'] },
+    { sev: 'warn', t: 'Confident mistakes 0.4%', meta: 'replay flagged 5 decisions at confidence ≥ 0.9 · τ lowered to 0.62', acts: ['Acknowledge', 'Review episodes'] }];
+  const SCENES = {
+    warehouse: { dir: 'assets/scenes/warehouse/', perception: 'assets/perception/warehouse/index.json', site: 'DC-04 Reno · fulfillment center', floorSub: 'Zone B · overhead · peer handshakes shown as rings',
+      lanes: [76, 164, 252, 339, 425], labels: [[76, 'AISLE 1'], [164, 'AISLE 2'], [252, 'AISLE 3'], [339, 'AISLE 4'], [425, 'AISLE 5']],
+      zone: { x0: 630, x1: 790, lanes: [3], y: 339 }, zoneLabel: 'ZONE A4 · QUARANTINED', zoneName: 'A4', person: { x: 742, y: 352 }, halted: { x: 604, lane: 3 },
+      alarms: [{ sev: 'crit', t: 'Person in lane · aisle 4', meta: 'R03 halted · zone A4 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] }, ...SHARED,
+        { sev: 'info', t: 'Hazard tag expired early', meta: 'spill at cell 41,7 · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] }],
+      cams: [['cam-r14-spill', 'R14', 'aisle 4 · blind corner'], ['cam-r03-person', 'R03', 'aisle 4 · zone A4'], ['cam-r12-forklift', 'R12', 'aisle 4 · blind corner · Day 2'], ['cam-r07-clear', 'R07', 'aisle 2']],
+      log: [['s1', 'nano · night-07', 'R12', 'pallet in aisle 2', 240, 410, 0.0001, 'settled · reroute'], ['s15', 'peer cache', 'R09', 'spill ahead (hop 2)', 3, 0, 0, 'settled · no call'],
+        ['s1', 'nano · night-07', 'R05', 'congestion at dock', 310, 388, 0.0001, 'settled · wait 4 s'], ['s2', 'nemotron-ultra', 'R03', 'person in lane', 6200, 2140, 0.0049, 'halt + quarantine A4'],
+        ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · liquid', 1800, 1290, 0.0062, 'spill · tag cell 41,7'], ['s1', 'nano · night-07', 'R21', 'blocked exit B', 270, 402, 0.0001, 'settled · reroute'],
+        ['s15', 'peer cache', 'R17', 'forklift crossing (hop 1)', 2, 0, 0, 'settled · no call']] },
+    datacenter: { dir: 'assets/scenes/datacenter/', perception: 'assets/perception/datacenter/index.json', site: 'DC-04 · Hall B · data center', floorSub: 'Hall B · overhead · peer handshakes shown as rings',
+      lanes: [100, 124, 226, 250, 352, 376], labels: [[112, 'COLD AISLE 1'], [238, 'COLD AISLE 2'], [364, 'COLD AISLE 3']],
+      zone: { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, zoneLabel: 'ZONE C2 · QUARANTINED', zoneName: 'C2', person: { x: 742, y: 246 }, halted: { x: 604, lane: 2 },
+      alarms: [{ sev: 'crit', t: 'Technician in cold aisle 2', meta: 'R03 halted · zone C2 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] }, ...SHARED,
+        { sev: 'info', t: 'Hazard tag expired early', meta: 'coolant leak at row C2 end · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] }],
+      cams: [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']],
+      log: [['s1', 'nano · night-07', 'R12', 'open rack door · row B4', 240, 410, 0.0001, 'settled · reroute'], ['s15', 'peer cache', 'R09', 'coolant leak ahead (hop 2)', 3, 0, 0, 'settled · no call'],
+        ['s1', 'nano · night-07', 'R05', 'cart in cross-aisle', 310, 388, 0.0001, 'settled · wait 4 s'], ['s2', 'nemotron-ultra', 'R03', 'technician in cold aisle', 6200, 2140, 0.0049, 'halt + quarantine C2'],
+        ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · coolant', 1800, 1290, 0.0062, 'leak · tag row C2'], ['s1', 'nano · night-07', 'R21', 'hot-aisle door ajar', 270, 402, 0.0001, 'settled · reroute'],
+        ['s15', 'peer cache', 'R17', 'lift cart crossing (hop 1)', 2, 0, 0, 'settled · no call']] },
+  };
+  function applyScene(name) {
+    if (!SCENES[name]) name = 'warehouse';
+    SC = SCENES[name];
+    document.getElementById('site-label').textContent = SC.site;
+    document.getElementById('floor-sub').textContent = SC.floorSub;
+    const q = document.getElementById('q-btn');
+    q.textContent = `Quarantine zone ${SC.zoneName}`; q.dataset.toast = `Zone ${SC.zoneName} quarantined for 10 min; planner rerouting 3 robots (example only)`;
+    document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
+    renderAlarms(SC.alarms);
+    tmpl = SC.log; logEl.innerHTML = ''; n = 0; for (let i = 0; i < 6; i++) addRow(true);
+    lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person; halted = { ...SC.halted, id: 'R03' }; initRobots();
+    floorImg.src = SC.dir + 'floor.jpg';
+    CAMS = SC.cams; renderCams(null);
+    fetch(SC.perception).then(r => r.ok ? r.json() : null).then(idx => { if (SC === SCENES[name]) renderCams(idx); }).catch(() => {});
+    try { localStorage.setItem('nemofleet-scene', name); } catch (e) {}
+    if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+  }
+  document.querySelectorAll('.scene-switch button').forEach(b => b.addEventListener('click', () => applyScene(b.dataset.scene)));
+  addEventListener('hashchange', () => applyScene(location.hash.slice(1)));
+  let initial = location.hash.slice(1);
+  if (!SCENES[initial]) { try { initial = localStorage.getItem('nemofleet-scene') || 'warehouse'; } catch (e) { initial = 'warehouse'; } }
+  applyScene(initial);
 
   function redraw() { drawLearn(); drawCost(); if (reduce) frame(performance.now()); }
   redraw();

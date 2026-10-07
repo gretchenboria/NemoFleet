@@ -38,6 +38,7 @@ Preflight picks the newest Nemotron Ultra, Nano and Super it finds in your catal
 ## 3. Rehearse offline, then run
 
 ```bash
+# pick a scene: scenarios/aisle4-spill.json (warehouse) or scenarios/hall-b-coolant-leak.json (data center)
 node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json --dry-run   # no network, no cost
 node tools/run_scenario.cjs scenarios/hall-b-coolant-leak.json      # real calls
 ```

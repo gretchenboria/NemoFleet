@@ -21,7 +21,7 @@ function validate(d) {
   return errs;
 }
 
-const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet servicing a hyperscale data center hall. Decide what the robot or fleet should do next. ' +
+const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet. Decide what the robot or fleet should do next. ' +
   'Never output coordinates or paths: a deterministic planner owns motion. Reply with only one JSON object: ' +
   '{"actions": [ {"type": "proceed", "robot": "R07"} | {"type": "reroute", "robot": "R14", "via": "aisle 3"} | {"type": "halt", "robot": "R03"} | ' +
   '{"type": "quarantine_zone", "cells": ["41,7"], "ttl_s": 600} | {"type": "goto", "robot": "R05", "target": "dock 2"} | ' +
@@ -45,10 +45,10 @@ const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet servicin
 
   // 1. perception: real Cosmos calls through the existing tool (writes site/assets/perception/*.json)
   const frames = [...new Set(sc.events.filter(e => e.frame).map(e => e.frame))];
-  if (!dry) { try { execFileSync('node', [path.join(__dirname, 'cosmos_perceive.cjs'), ...frames], { stdio: 'inherit' }); } catch { console.error('Some Cosmos calls failed; continuing with the frames that succeeded.'); } }
+  if (!dry) { try { execFileSync('node', [path.join(__dirname, 'cosmos_perceive.cjs'), '--scene', sc.scene, ...frames], { stdio: 'inherit' }); } catch { console.error('Some Cosmos calls failed; continuing with the frames that succeeded.'); } }
   const perception = {};
   for (const f of frames) {
-    const p = path.join(ROOT, 'site', 'assets', 'perception', f + '.json');
+    const p = path.join(ROOT, 'site', 'assets', 'perception', sc.scene, f + '.json');
     if (fs.existsSync(p)) { perception[f] = JSON.parse(fs.readFileSync(p, 'utf8')); if (!dry) log({ tier: 'perception', model: perception[f].model, robot: perception[f].robot, frame: f, latency_ms: perception[f].latency_ms, usage: perception[f].usage, output: perception[f].raw }); }
   }
 
@@ -62,7 +62,7 @@ const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet servicin
       continue;
     }
     const seen = ev.frame && perception[ev.frame] ? perception[ev.frame].result : null;
-    const context = `Robot ${ev.robot} at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : '') +
+    const context = `Site: ${sc.site}. Robot ${ev.robot} at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : '') +
       (precedents[ev.robot] ? `\nPeer precedent: hop ${precedents[ev.robot].hops} from ${precedents[ev.robot].from}.` : '');
     const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
     let tier = safety ? 'ultra' : 'nano', decision = null, errors = [], calls = 0;

@@ -13,7 +13,7 @@
 *.jpeg
 *.jpg
 !site/assets/img/*.jpg
-!site/assets/frames/*.jpg
+!site/assets/scenes/**/*.jpg
 
 # Python
 __pycache__/

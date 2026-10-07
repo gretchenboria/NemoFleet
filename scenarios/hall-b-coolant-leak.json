@@ -1,6 +1,7 @@
 {
   "id": "hall-b-coolant-leak",
   "title": "The hall B coolant leak (Day 1)",
+  "scene": "datacenter",
   "site": "DC-04 hall B",
   "tau": 0.62,
   "notes": "Day 1 of the demo in a data center hall. Frames are simulation renders; every model call is real.",
