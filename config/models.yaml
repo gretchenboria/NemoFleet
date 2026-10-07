@@ -8,7 +8,7 @@ token_factory:
 
 models:
   perception:
-    id: dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm
+    id: dedicated/nvidia/Cosmos3-Super-Reasoner-ohhtIl
     kind: dedicated endpoint      # 4x H200, us-central1, $0.37/min while running
     modalities: [text, image]
     status: listed in console     # smoke test pending: first real call not yet made
