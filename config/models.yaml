@@ -15,13 +15,13 @@ models:
     cost_control: stop or scale to 0 replicas outside test/recording sessions
 
   deliberator:      # Nemotron Ultra: choose on day 1 from GET /v1/models + latency test
-    id: null
+    id: nvidia/Nemotron-3-Ultra-550b-a55b
     status: to verify
 
   reflex:           # Nemotron Nano: decided by the day-1-3 LoRA + vLLM smoke test
-    id: null
+    id: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
     status: to verify
 
   scenario_generator:   # Nemotron Super
-    id: null
+    id: nvidia/nemotron-3-super-120b-a12b
     status: to verify

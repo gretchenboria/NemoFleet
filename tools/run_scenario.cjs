@@ -62,7 +62,7 @@ const SYSTEM = 'You are the decision module of NemoFleet, a robot fleet. Decide 
       continue;
     }
     const seen = ev.frame && perception[ev.frame] ? perception[ev.frame].result : null;
-    const context = `Site: ${sc.site}. Robot ${ev.robot} at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : '') +
+    const context = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : '') +
       (precedents[ev.robot] ? `\nPeer precedent: hop ${precedents[ev.robot].hops} from ${precedents[ev.robot].from}.` : '');
     const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
     let tier = safety ? 'ultra' : 'nano', decision = null, errors = [], calls = 0;

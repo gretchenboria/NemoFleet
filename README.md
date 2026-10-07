@@ -1,5 +1,7 @@
 # NemoFleet
 
+> **Start here:** [PROJECT_BRIEFING.md](PROJECT_BRIEFING.md) (what it is, ids, infrastructure, status) · [HANDOFF.md](HANDOFF.md) (next steps) · live site https://nemofleet.pages.dev
+
 System 1 / System 2 cognition for robot fleets, built for the Nebius x NVIDIA Global AI Hackathon (Physical AI track).
 
 - **Reflex (System 1):** Nemotron Nano makes fast per-robot decisions and reports confidence.
