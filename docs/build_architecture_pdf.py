@@ -104,8 +104,8 @@ def colored_defs():
 
 
 def text(x, y, s, cls="s", anchor="middle", fill=None):
-    f = f' fill="{fill}"' if fill else ""
-    return f'<text x="{x}" y="{y}" class="{cls}" style="text-anchor:{anchor}"{f}>{e(s)}</text>'
+    f = f";fill:{fill}" if fill else ""
+    return f'<text x="{x}" y="{y}" class="{cls}" style="text-anchor:{anchor}{f}">{e(s)}</text>'
 
 
 def svg(vb_h, body, vb_w=1000):
@@ -159,14 +159,16 @@ def system_map():
 
     # Serverless jobs band
     b.append(f'<rect x="8" y="492" width="984" height="120" rx="12" fill="#fffbf5" stroke="{C["batch"][0]}" stroke-width="1.5" stroke-dasharray="5 5"/>')
-    b.append('<text x="22" y="514" class="band">NEBIUS SERVERLESS JOBS · red-team at scale</text>')
-    b.append(box(20, 528, 230, 70, "s2", "Scenario generator", ["Nemotron Super", "adversarial cases"]))
-    b.append(box(310, 528, 230, 70, "batch", "Parallel headless runs", ["same runtime · sweep τ"]))
-    b.append(box(600, 528, 200, 70, "batch", "Metrics", ["success · latency · $/task"]))
-    b.append(box(860, 528, 120, 70, "ui", "Frontier chart", ["→ dashboard"]))
-    b.append(arrow([(250, 563), (308, 563)]))
-    b.append(arrow([(540, 563), (598, 563)]))
-    b.append(arrow([(800, 563), (858, 563)]))
+    b.append('<text x="22" y="514" class="band">NEBIUS SERVERLESS JOBS + GPUs · the warm core</text>')
+    b.append(box(20, 528, 160, 70, "s2", "Scenario gen", ["Nemotron Super", "adversarial cases"]))
+    b.append(box(210, 528, 160, 70, "batch", "Parallel runs", ["sweep τ + pairing"]))
+    b.append(box(400, 528, 165, 70, "batch", "Metrics", ["success · latency", "$ per task"]))
+    b.append(box(595, 528, 115, 70, "ui", "Frontier", ["→ dashboard"]))
+    b.append(arrow([(180, 563), (208, 563)]))
+    b.append(arrow([(370, 563), (398, 563)]))
+    b.append(arrow([(565, 563), (593, 563)]))
+    b.append('<line x1="732" y1="526" x2="732" y2="600" stroke="#e2c9a8" stroke-width="1.5" stroke-dasharray="4 4"/>')
+    b.append(box(752, 528, 228, 70, "s2", "Night Shift", ["replay · dream · thymus", "→ new Nano weights"], tag="EVERY NIGHT"))
     return svg(620, "".join(b))
 
 
@@ -216,7 +218,50 @@ def peer_layer():
     return svg(345, "".join(b))
 
 
-# ---------- Page 3: escalation sequence ----------
+# ---------- Page 3: warm core / distillation ----------
+def warm_core():
+    b = []
+    b.append('<ellipse cx="300" cy="186" rx="118" ry="62" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>')
+    b.append(text(300, 182, "WARM CORE", "band", "middle", "#b91c1c"))
+    b.append(text(300, 202, "Nebius compute", "s"))
+    b.append(box(200, 22, 200, 64, "s2", "Ultra decides", ["novel events only"], tag="TOKEN FACTORY"))
+    b.append(box(430, 151, 165, 70, "runtime", "Precedent library", ["Ultra + peer-validated"], title_size=14))
+    b.append(box(200, 284, 200, 70, "s2", "Night Shift", ["replay · dream · thymus · train"], tag="SERVERLESS JOBS"))
+    b.append(box(5, 151, 165, 70, "s1", "Fleet", ["settles known", "problems locally"]))
+    b.append(arrow([(400, 54), (512, 54), (512, 149)], "new precedent", 456, 46))
+    b.append(arrow([(512, 221), (512, 319), (402, 319)], "library", 520, 274, anchor="start"))
+    b.append(arrow([(200, 319), (88, 319), (88, 223)], "new weights", 144, 311))
+    b.append(arrow([(88, 151), (88, 54), (198, 54)], "only what’s new", 143, 46))
+    return svg(362, "".join(b), vb_w=600)
+
+
+# ---------- Page 4: Night Shift ----------
+def night_shift():
+    b = []
+    b.append('<rect x="140" y="10" width="720" height="270" rx="16" fill="#0f172a"/>')
+    b.append(text(162, 42, "NIGHT SHIFT · the fleet dreams on Nebius", "band", "start", "#e2e8f0"))
+    b.append('<circle cx="828" cy="40" r="15" fill="#fde68a"/><circle cx="836" cy="35" r="13" fill="#0f172a"/>')
+    for i in range(14):
+        b.append(f'<circle cx="{420 + (i * 97) % 400}" cy="{24 + (i * 37) % 30}" r="1.6" fill="#e2e8f0" opacity=".7"/>')
+    b.append(box(0, 95, 120, 110, "runtime", "Day shift", ["Ultra calls", "logged", "automatically"], title_size=14))
+    stages = [("1 Replay", ["Ultra batch", "re-judges every", "Nano decision"], "TOKEN FACTORY BATCH", "sharp-wave replay"),
+              ("2 Dream", ["Ultra variants", "× Serverless Jobs", "simulations"], "SERVERLESS JOBS", "paths never taken"),
+              ("3 Thymus", ["fix it without", "paranoia ·", "most lessons die"], "SERVERLESS JOBS", "thymic selection"),
+              ("4 Consolidate", ["LoRA Nano ·", "MLflow lineage ·", "promote if better"], "SERVERLESS GPU", "memory consolidation")]
+    for k, (t, sub, tag, bio) in enumerate(stages):
+        x = 160 + k * 175
+        b.append(box(x, 95, 155, 110, "s2", t, sub, tag=tag, title_size=14))
+        b.append(text(x + 77, 232, bio, "s", "middle", "#cbd5e1"))
+        if k < 3:
+            b.append(arrow([(x + 155, 150), (x + 173, 150)]))
+    b.append(arrow([(120, 150), (158, 150)]))
+    b.append(arrow([(840, 150), (878, 150)]))
+    b.append(box(880, 95, 120, 110, "s1", "Morning", ["fleet wakes", "warmer", "+ changelog"], title_size=14))
+    b.append(text(500, 266, "The edge lived it once. Nebius lived it 300 times.", "s", "middle", "#fde68a"))
+    return svg(290, "".join(b))
+
+
+# ---------- Page 5: escalation sequence ----------
 def sequence():
     parts = [
         ("Simulator", "runtime"), ("Cosmos Reason", "s2"), ("Nano reflex", "s1"),
@@ -352,6 +397,7 @@ td:first-child { font-weight: 650; white-space: nowrap; }
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
 .c { border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 9px 12px; font-size: 12px; line-height: 1.45; color: #334155; }
 .c b { display: block; color: #0f172a; font-size: 12.5px; margin-bottom: 3px; }
+.split { display: grid; grid-template-columns: 1fr 1.1fr; gap: 26px; align-items: center; }
 .principle { background: #f8fafc; border-left: 4px solid #0f172a; padding: 10px 14px; font-size: 13.5px;
   line-height: 1.45; margin-bottom: 14px; }
 """
@@ -373,7 +419,7 @@ def legend(dashed=False, items_list=None):
     return f'<div class="legend">{items}{"<span>- - - dashed arrow = response / return</span>" if dashed else ""}</div>'
 
 
-def page(n, kicker, title, body, show_legend=True, dashed=False, footer="NemoFleet Architecture", total=6, legend_items=None):
+def page(n, kicker, title, body, show_legend=True, dashed=False, footer="NemoFleet Architecture", total=8, legend_items=None):
     return f"""<section class="page"><header><h1>{e(title)}</h1><div class="kicker">{e(kicker)}</div></header>
 {body}{legend(dashed, legend_items) if show_legend else ""}<footer>{e(footer)} · {n} / {total}</footer></section>"""
 
@@ -384,10 +430,11 @@ def chip(kind):
 
 resp_rows = [
     ("s2", "Perception", "Cosmos Reason", "What the camera sees, on first sighting", "~1 s", "Plan actions"),
-    ("s1", "Reflex", "Nemotron Nano", "Routine responses + a confidence score", "< 1 s", "Handle safety-critical novel events alone"),
-    ("peer", "Peer exchange", "Handshake + fading tags + pairing", "What the fleet already knows reaches this robot", "< 50 ms", "Override a safety escalation"),
+    ("s1", "Reflex", "Nemotron Nano", "Routine responses + confidence", "< 1 s", "Handle novel safety events alone"),
+    ("peer", "Peer exchange", "Handshakes, tags, pairing", "What the fleet already knows, shared", "< 50 ms", "Override a safety escalation"),
     ("s1", "Escalation gate", "Rules + threshold τ", "Settled locally, or System 2 needed", "~0", "Generate content"),
-    ("s2", "Deliberation", "Nemotron Ultra", "Novel, high-stakes decisions; task re-prioritization", "5–30 s", "Produce raw coordinates"),
+    ("s2", "Deliberation", "Nemotron Ultra", "Novel, high-stakes decisions", "5–30 s", "Produce raw coordinates"),
+    ("s2", "Night Shift", "Ultra batch + Jobs + LoRA Nano", "What the fleet learns overnight", "Offline", "Promote a model that fails"),
     ("motion", "Motion", "A* + CBS", "Collision-free paths + pass-by waypoints", "< 10 ms", "Interpret semantics"),
     ("runtime", "Executor", "Pydantic schemas", "Whether an action is valid", "~0", "Accept malformed LLM output"),
 ]
@@ -401,6 +448,8 @@ usage_rows = [
     ("s2", "Perception", "Cosmos Reason", "Token Factory or AI Cloud endpoint"),
     ("s2", "Scenario generator", "Nemotron Super", "Token Factory"),
     ("peer", "Peer exchange", "None: no model call is the point", "—"),
+    ("s2", "Night Shift: replay + dream", "Nemotron Ultra", "Token Factory batch inference · Data Lab"),
+    ("s2", "Night Shift: train", "Nemotron Nano (LoRA)", "Serverless Jobs (GPU) · MLflow · Serverless Endpoints"),
     ("batch", "Red-team + pairing sweeps", "—", "Serverless Jobs"),
 ]
 usage_table = "<table><tr><th>Component</th><th>NVIDIA model</th><th>Nebius service</th></tr>" + "".join(
@@ -415,8 +464,10 @@ modules = [
                           ("peers.py", "payloads, provenance, TTL (B)"), ("pairing.py", "countercurrent scheduler (A)"),
                           ("deliberator.py", "Ultra · System 2"), ("gate.py", "escalation + safety overrides"),
                           ("perception.py", "Cosmos Reason"), ("memory.py", "precedent store")]),
+    ("s2", "nightshift/", [("replay.py", "batch hindsight review, τ"), ("dream.py", "counterfactual variants + sims"),
+                           ("thymus.py", "positive / negative selection"), ("consolidate.py", "LoRA Nano, gate, promote")]),
     ("runtime", "api/", [("server.py", "/state /command /inject /tick /log")]),
-    ("batch", "jobs/", [("redteam.py", "τ sweep + pairing sweep"), ("frontier.py", "aggregation + charts")]),
+    ("batch", "jobs/", [("redteam.py", "τ sweep + pairing sweep"), ("nightshift.py", "Night Shift pipeline entry"), ("frontier.py", "aggregation + charts")]),
 ]
 
 
@@ -430,6 +481,13 @@ def module_cards():
 
 
 def main(out_html):
+    wl = [("s2", "Deliberation on novel events", "Token Factory · Ultra", "new sites, new hazards, fleet size"),
+          ("s1", "Reflex inference", "Token Factory · Nano", "robots × events"),
+          ("s2", "Perception, first sighting", "Token Factory · Cosmos", "new hazards"),
+          ("batch", "Red-team + pairing sweeps", "Serverless Jobs", "scenarios × τ × strategies"),
+          ("s2", "Night Shift", "Batch + Serverless Jobs", "incidents × dreams × fleets")]
+    workload_table = ("<table><tr><th>Workload</th><th>Runs on</th><th>Grows with</th></tr>" + "".join(
+        f"<tr><td>{chip(k)}{e(a)}</td><td>{e(b)}</td><td>{e(c)}</td></tr>" for k, a, b, c in wl) + "</table>")
     safety = '<div class="cards">' + "".join(f'<div class="c"><b>{e(t)}</b>{e(d)}</div>' for t, d in [
         ("Peers never override safety", "A human present, an unknown hazard class or a blocked exit always escalates to Ultra."),
         ("Provenance on every precedent", "Who decided it (Ultra or a peer), when, and how many hops. Confidence decays per hop."),
@@ -444,19 +502,38 @@ def main(out_html):
              '<p class="lead">Two designs from the countercurrent options work together. <b>B</b> moves knowledge at runtime: robots swap a small payload whenever they pass. '
              '<b>A</b> shapes who passes whom, so each robot meets peers only slightly ahead of it. Most already-seen problems get settled without a cloud call.</p>'
              + peer_layer() + safety),
-        page(3, "Escalation sequence", "A person enters a robot lane",
+        page(3, "The warm core · where Nebius compute goes", "We don’t cut compute. We move it.",
+             '<p class="lead">A duck keeps heat in its core and lets its feet run cheap. NemoFleet does the same: edge robots settle known problems cheaply, '
+             'and Nebius compute goes to what only the core can do: deliberating on new problems, stress-testing the fleet at scale, and learning from experience.</p>'
+             f'<div class="split"><div>{warm_core()}</div><div>{workload_table}</div></div>'
+             '<div class="cards" style="grid-template-columns:repeat(3,1fr);margin-top:16px">'
+             '<div class="c"><b>Knowledge moves into weights</b>Precedents start in the context window; distillation fine-tunes them into Nano, so every new robot starts warm.</div>'
+             '<div class="c"><b>Gate before rollout</b>A distilled Nano ships only if it beats the current one on the red-team suite, run on Serverless Jobs.</div>'
+             '<div class="c"><b>Bigger fleets, same budget</b>Cheaper decisions per robot let operators deploy more robots, so total usage grows with the business.</div></div>'),
+        page(4, "Night Shift · the cherry on top", "The fleet dreams on Nebius",
+             '<p class="lead">Animals consolidate memory in sleep: the hippocampus replays the day’s key moments, including paths never taken, '
+             'and the thymus deletes cells that would attack the body. Every night NemoFleet does the same on Nebius. The edge experiences an incident once; '
+             'the core lives through hundreds of versions of it.</p>' + night_shift() +
+             '<div class="cards" style="grid-template-columns:repeat(3,1fr);margin-top:14px">'
+             '<div class="c"><b>Day 1 · the incident</b>A robot nearly hits a spill at a blind corner and escalates to Ultra. Every Ultra call is already logged.</div>'
+             '<div class="c"><b>Night · on screen</b>Live counters: decisions re-judged, dreams simulated, lessons through the thymus, fine-tune, promotion gate. Real runs only.</div>'
+             '<div class="c"><b>Day 2 · the payoff</b>A different robot meets a variant it never saw (spill plus forklift) and handles it with Nano alone: “learned in dream #217”.</div></div>'
+             '<div class="cards" style="grid-template-columns:1fr 1fr;margin-top:12px">'
+             '<div class="c"><b>Verify in week 1</b>Nemotron models live in the catalog; batch inference for Ultra; Data Lab logging. Nemotron is not on Token Factory’s fine-tune list, so training runs in our own container on Serverless Jobs.</div>'
+             '<div class="c"><b>Stretch: physical trigger</b>A real Jetson Orin Nano spots a labeled spill and stops locally; Ultra + Tavily pull the Safety Data Sheet. That incident becomes tonight’s dream.</div></div>'),
+        page(5, "Escalation sequence", "A person enters a robot lane",
              '<p class="lead">Humans are always safety-critical, so this escalates to Ultra; the decision then spreads robot to robot by handshake.</p>'
              + sequence(), dashed=True),
-        page(4, "Responsibilities and safety boundary", "Who decides what",
+        page(6, "Responsibilities and safety boundary", "Who decides what",
              '<div class="principle"><b>Principle:</b> models decide <i>what</i> should happen; the planner decides <i>how</i> to move. '
              'Every model output must pass schema validation before anything moves.</div>' + resp_table +
-             '<h2>Action schema boundary</h2>' + schema()),
-        page(5, "Red-team frontier", "Measuring when to escalate",
+             '<h2>Action schema boundary</h2><div style="width:88%;margin:0 auto">' + schema() + '</div>'),
+        page(7, "Red-team frontier", "Measuring when to escalate",
              '<p class="lead">Serverless Jobs run adversarial scenarios in parallel across escalation thresholds τ and pairing strategies: '
              'the escalation frontier, plus countercurrent vs. concurrent vs. no-peer warm-up and hazard-spread curves.</p>'
              + pipeline() + '<h2>Where NVIDIA and Nebius are used</h2>' + usage_table +
              '<p class="lead" style="margin-top:8px;font-size:12px;color:#64748b">Model IDs to be confirmed against the Token Factory catalog.</p>'),
-        page(6, "Planned module layout", "Code map: nemofleet/", module_cards()),
+        page(8, "Planned module layout", "Code map: nemofleet/", module_cards()),
     ]
 
     with open(out_html, "w") as f:
