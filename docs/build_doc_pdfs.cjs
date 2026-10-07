@@ -11,6 +11,7 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const DOCS = [
   ['NEBIUS_PLAN.md', 'NemoFleet-Nebius-Plan.pdf', 'Implementation plan'],
   ['FEEDBACK.md', 'NemoFleet-Nebius-Feedback.pdf', 'Platform feedback'],
+  ['DEMO.md', 'NemoFleet-Demo-Use-Case.pdf', 'Demo use case'],
 ];
 
 const CSS = `

@@ -1,0 +1,104 @@
+<header class="hero grid-tex">
+  <div class="overlay-img" aria-hidden="true"></div>
+  <div class="wrap">
+    <span class="eyebrow">Physical AI · warehouse robot fleets · Nebius Token Factory + NVIDIA Nemotron</span>
+    <h1 class="display">Robot fleets that stop paying for the same decision twice.</h1>
+    <p class="lead">Nemotron Nano on every robot. Peer handshakes in the aisle. Nemotron Ultra on Nebius Token Factory only for what's genuinely new. Every night, the day's incidents become tomorrow's weights.</p>
+    <div class="cta"><a class="btn primary" href="video.html">Watch the explainer</a><a class="btn ghost" href="console.html">Open the console</a><a class="btn ghost" href="demo.html">Read the demo</a></div>
+  </div>
+</header>
+
+<section class="band" id="tiers">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">FIG 01 · Decision tiers</span><h2>Three speeds of fleet cognition</h2>
+      <p class="lead">Known problems are settled on the robot in under a second. Peers spread what one robot learned. Nebius compute goes where only the core can help.</p></div>
+    <div class="tiers">
+      <div class="tier t1"><span class="k">SYSTEM 1 · REFLEX</span><h3>Nemotron Nano</h3><p class="small">Returns an action and a confidence score for every event.</p>
+        <dl><dt>Runs on</dt><dd>vLLM Serverless Endpoint</dd><dt>Latency</dt><dd>under 1 s</dd><dt>Settles</dt><dd>routine events</dd></dl></div>
+      <div class="tier t15"><span class="k">SYSTEM 1.5 · PEER EXCHANGE</span><h3>Handshakes + pairing</h3><p class="small">Robots swap bounded payloads when they pass. No model call.</p>
+        <dl><dt>Runs on</dt><dd>the robots</dd><dt>Latency</dt><dd>under 50 ms</dd><dt>Settles</dt><dd>problems another robot already solved</dd></dl></div>
+      <div class="tier t2"><span class="k">SYSTEM 2 · DELIBERATION</span><h3>Nemotron Ultra + Cosmos</h3><p class="small">Novel or safety-critical events, and first-sighting perception.</p>
+        <dl><dt>Runs on</dt><dd>Nebius Token Factory</dd><dt>Latency</dt><dd>5–30 s</dd><dt>Settles</dt><dd>new situations, people in lanes</dd></dl></div>
+    </div>
+    <p class="small">Every model output is validated against a typed schema, and a deterministic A* + CBS planner owns every trajectory.</p>
+  </div>
+</section>
+
+<section class="band grid-tex" id="peer-exchange">
+  <div class="wrap fig">
+    <figure><canvas id="anim-antennation" width="720" height="400" aria-label="Animation: robot B, which saw a spill, passes robot A and hands over the hazard; A later passes robot C; A then stops before the spill using the peer precedent, with zero Ultra calls."></canvas>
+      <figcaption><span class="tag">FIG 02 · Antennation handshake</span>Robots swap a small, bounded payload as they pass. Confidence decays with every hop, tags expire, and safety events always escalate.</figcaption></figure>
+    <div class="side">
+      <span class="eyebrow">System 1.5 · runtime</span>
+      <h2>Peer exchange: knowledge moves at walking speed</h2>
+      <p>When two robots pass, each hands the other what it knows about the aisle behind it. Only the first robot to see a hazard pays for a perception call.</p>
+      <ul><li>Payload: hazard precedent, source, hop count, time to live</li><li>Confidence decays per hop; tags expire on their own</li><li>Conflicting precedents trigger an escalation</li></ul>
+      <p class="small">Named after how ants exchange information on contact.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="pairing">
+  <div class="wrap fig">
+    <figure><canvas id="anim-countercurrent" width="720" height="400" aria-label="Animation: naive robots in lane A pass trained robots moving the other way in lane B; at each pass a small precedent delta transfers and the naive robot's competence rises."></canvas>
+      <figcaption><span class="tag">FIG 03 · Pairing scheduler</span>Each robot meets a peer slightly ahead of it, so every pass carries a small, usable difference. Random pairing plateaus.</figcaption></figure>
+    <div class="side">
+      <span class="eyebrow">System 1.5 · learning</span>
+      <h2>Pairing scheduler: learn from the robot just ahead</h2>
+      <p>The scheduler adds pass-by waypoints so a new robot meets peers in order of competence, keeping each exchange small enough to absorb within one pass.</p>
+      <ul><li>Competence score per robot: precedent coverage and recent escalation rate</li><li>Evaluated against random pairing and no peers on Serverless Jobs</li></ul>
+      <p class="small">Named after countercurrent exchange: in a duck's leg, opposite flows keep a small gradient along the whole length.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band ns" id="night-shift">
+  <div class="overlay-img" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">FIG 04 · Night Shift</span><h2>Night Shift: replay, dream, gate, consolidate</h2>
+      <p class="lead">One Serverless Jobs pipeline per night. The edge experiences an incident once; Nebius lives through hundreds of versions of it, then fine-tunes the fleet's reflex model before the morning shift.</p></div>
+    <div class="pipeline">
+      <div class="stage"><span class="n">01 REPLAY</span><h3>Re-judge the day</h3><span class="svc">Token Factory batch · Data Lab</span><p class="small">Ultra re-judges every Nano decision and flags confident mistakes. The disagreement rate sets tomorrow's threshold τ.</p></div>
+      <div class="stage"><span class="n">02 DREAM</span><h3>Simulate variants</h3><span class="svc">Serverless Jobs fan-out</span><p class="small">Ultra writes counterfactual variants of the hardest episodes; dozens of jobs run them through the simulator and planner.</p></div>
+      <div class="stage"><span class="n">03 GATE</span><h3>Keep only safe lessons</h3><span class="svc">Serverless Jobs</span><p class="small">A lesson must fix its variants without regressing normal operations. Most are rejected.</p></div>
+      <div class="stage"><span class="n">04 CONSOLIDATE</span><h3>Train and promote</h3><span class="svc">H200 job · MLflow · vLLM endpoint</span><p class="small">LoRA fine-tune of Nano, tracked in MLflow, promoted only if it beats today's model.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="compute">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">FIG 05 · Workloads</span><h2>Where the compute goes</h2>
+      <p class="lead">We don't cut compute. We move it from repeating answers to deliberating, stress-testing and learning.</p></div>
+    <div class="tbl"><table>
+      <thead><tr><th>Workload</th><th>Runs on</th><th>Model</th><th>Grows with</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip" style="background:var(--s2)"></span>Deliberation on novel events</td><td>Token Factory</td><td>Nemotron Ultra</td><td>new sites, new hazards, fleet size</td></tr>
+        <tr><td><span class="chip" style="background:var(--s2)"></span>First-sighting perception</td><td>Token Factory dedicated endpoint</td><td>Cosmos3 Super Reasoner</td><td>new hazards</td></tr>
+        <tr><td><span class="chip" style="background:var(--s1)"></span>Reflex inference</td><td>Serverless Endpoint (vLLM)</td><td>Nemotron Nano + nightly adapter</td><td>robots × events</td></tr>
+        <tr><td><span class="chip" style="background:var(--s15)"></span>Peer exchange</td><td>the robots</td><td>none</td><td>passes per hour</td></tr>
+        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift</td><td>Token Factory batch + Serverless Jobs + MLflow</td><td>Ultra, Nano (LoRA)</td><td>incidents × variants × fleets</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section class="band grid-tex" id="safety">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">FIG 06 · Invariants</span><h2>Safety is never delegated</h2></div>
+    <div class="inv">
+      <div><b>People escalate</b><p class="small">A person in a lane always goes to Ultra, whatever the peers say.</p></div>
+      <div><b>Schema first</b><p class="small">Every model output is validated; malformed actions are retried, never executed.</p></div>
+      <div><b>Planner owns motion</b><p class="small">A* + CBS computes every trajectory, collision-free by construction.</p></div>
+      <div><b>Gated learning</b><p class="small">No adapter ships without passing the red-team and normal-operations suites.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="run">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Source</span><h2>Run it yourself</h2>
+      <p class="lead">Architecture, implementation plan, demo script and platform feedback are in the repository.</p></div>
+    <div class="cta"><a class="btn primary" href="https://github.com/gretchenboria/NemoFleet">View the repository</a><a class="btn ghost" href="docs.html">Read the docs</a></div>
+  </div>
+</section>

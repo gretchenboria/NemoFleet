@@ -1,0 +1,524 @@
+<title>NemoFleet Ops Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: control-room grid. Summary strip on top, live floor + alarms + services in the middle, learning/cost/log below. */
+:root {
+  color-scheme: light;
+  --bg: #f3f5f1; --panel: #ffffff; --panel-2: #f4f6f1; --ink: #121a14; --muted: #5d685f; --line: #dfe4dc;
+  --nvidia: #76B900; --nvidia-ink: #4a7500; --nebius: #D4F24A; --nebius-ink: #6f8700;
+  --accent: #4a7500;
+  --s1: #3f7d1e; --s15: #0e8579; --s2: #6a3fd0; --plan: #46536a;
+  --ok: #1d8f4e; --warn: #b7700c; --crit: #cc3434; --info: #2f6fd1;
+  --ok-bg: #e5f5ec; --warn-bg: #fdf1dc; --crit-bg: #fbe6e6; --info-bg: #e5eefc;
+  --map-floor: #f6f8f4; --map-shelf: #d5dbd2;
+  --f-display: "Barlow Semi Condensed", "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap { padding-inline: 20px; padding-block: 16px 28px; max-width: 1600px; margin: 0 auto; display: grid; gap: 14px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+.mono, code { font-family: var(--f-mono); font-size: 0.86em; }
+.num { font-variant-numeric: tabular-nums; }
+.label { font-family: var(--f-display); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; justify-content: space-between; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+.site { color: var(--muted); font-weight: 500; }
+.example { font-family: var(--f-display); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--warn); background: var(--warn-bg); border-radius: 999px; padding: 3px 10px; }
+.top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn.danger { color: var(--crit); }
+.btn.confirming { background: var(--crit); border-color: var(--crit); color: var(--panel); }
+.btn.sm { padding: 4px 9px; font-size: 13px; }
+
+/* kpis */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.kpi .v { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 13px; color: var(--muted); }
+.d .good { color: var(--ok); font-weight: 600; } .d .bad { color: var(--crit); font-weight: 600; }
+
+/* panels */
+.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.col { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; display: grid; gap: 12px; }
+.ph { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ph h2 { font-size: 19px; font-weight: 700; }
+.ph .sub { color: var(--muted); font-size: 13px; }
+
+/* map */
+.map-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--map-floor); }
+canvas#floor { display: block; width: 100%; aspect-ratio: 16 / 8.4; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+/* tier funnel */
+.funnel { display: grid; gap: 8px; }
+.frow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
+.track { height: 14px; background: var(--panel-2); border-radius: 7px; overflow: hidden; }
+.track b { display: block; height: 100%; border-radius: 7px; }
+.frow .num { text-align: right; font-weight: 600; }
+
+/* alarms */
+.alarms { display: grid; gap: 8px; }
+.alarm { display: grid; grid-template-columns: 4px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.alarm .stripe { background: var(--info); }
+.alarm[data-sev="crit"] .stripe { background: var(--crit); }
+.alarm[data-sev="warn"] .stripe { background: var(--warn); }
+.alarm .body { padding: 9px 12px; display: grid; gap: 4px; min-width: 0; }
+.alarm .row1 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sev { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; }
+.sev.crit { color: var(--crit); background: var(--crit-bg); } .sev.warn { color: var(--warn); background: var(--warn-bg); } .sev.info { color: var(--info); background: var(--info-bg); }
+.alarm .t { font-weight: 600; }
+.alarm .meta { font-size: 13px; color: var(--muted); }
+.alarm .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.alarm.acked { opacity: .55; }
+.alarm.acked .stripe { background: var(--line); }
+
+/* services */
+.svc { display: grid; gap: 0; }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.srow:first-child { border-top: 0; padding-top: 0; }
+.srow .n { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.srow .id { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.srow .m { text-align: right; font-size: 13px; color: var(--muted); }
+.srow .m b { color: var(--ink); font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
+.tier { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid; }
+.tier.s1 { color: var(--s1); } .tier.s15 { color: var(--s15); } .tier.s2 { color: var(--s2); } .tier.job { color: var(--warn); } .tier.ops { color: var(--plan); }
+.pill { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.idle { color: var(--muted); background: var(--panel-2); }
+
+/* night shift */
+.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stage { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel-2); }
+.stage h3 { font-size: 16px; }
+.stage .svcn { font-size: 12px; color: var(--s2); font-weight: 600; }
+.stage .big { font-family: var(--f-display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stage .note { font-size: 13px; color: var(--muted); }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; } .bar b { display: block; height: 100%; background: var(--s2); }
+.ns-foot { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 14px; }
+.tau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tau input { width: 160px; accent-color: var(--accent); }
+
+/* charts */
+.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart text { font-family: var(--f-body); font-size: 12px; fill: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.stat .v { font-family: var(--f-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: 13px; color: var(--muted); }
+.costbar { display: flex; height: 18px; border-radius: 6px; overflow: hidden; }
+.costbar b { display: block; height: 100%; }
+.costlegend { display: grid; gap: 4px; font-size: 13px; }
+.costlegend div { display: flex; justify-content: space-between; gap: 10px; }
+.costlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
+
+/* log */
+.logbox { overflow-x: auto; }
+table.log { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+table.log th { text-align: left; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.log td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.log tr.new td { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: var(--info-bg); } to { background: transparent; } }
+
+/* rules */
+details.rules { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+details.rules summary { cursor: pointer; font-family: var(--f-display); font-size: 18px; font-weight: 700; }
+.rulebox { overflow-x: auto; margin-top: 10px; }
+table.rt { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+table.rt th { text-align: left; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.rt td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--panel);
+  padding: 10px 16px; border-radius: 9px; font-weight: 600; font-size: 14px; max-width: calc(100% - 32px); }
+
+/* compact light console: NVIDIA green = NVIDIA models and primary actions; Nebius lime = Nebius services and Night Shift */
+body { font-size: 14px; }
+.wrap { padding-inline: 14px; padding-block: 10px 18px; gap: 10px; max-width: 1480px; }
+.top { padding-bottom: 8px; border-bottom: 3px solid; border-image: linear-gradient(90deg, var(--nvidia) 0 50%, var(--nebius) 50% 100%) 1; }
+.brand h1 { font-size: 22px; }
+.site { font-size: 13px; }
+.btn { padding: 5px 10px; font-size: 13px; border-radius: 6px; }
+.btn.primary { background: var(--nvidia); border-color: var(--nvidia); color: #0b1400; }
+.btn.sm { padding: 3px 8px; font-size: 12.5px; }
+.kpis { gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.kpi { padding: 7px 10px; border-radius: 8px; gap: 0; }
+.kpi .v { font-size: 23px; }
+.kpi .d { font-size: 12px; }
+.label { font-size: 11px; }
+.grid, .col, .charts { gap: 10px; }
+.charts { align-items: start; }
+.panel { padding: 9px 12px; gap: 8px; border-radius: 8px; }
+.ph h2 { font-size: 16px; }
+.ph .sub { font-size: 12px; }
+canvas#floor { aspect-ratio: 16 / 7; }
+.legend { font-size: 12px; gap: 4px 12px; }
+.funnel { gap: 5px; }
+.frow { grid-template-columns: 112px minmax(0, 1fr) 50px; font-size: 13px; gap: 8px; }
+.track { height: 10px; }
+.alarms { gap: 6px; }
+.alarm .body { padding: 6px 10px; gap: 2px; }
+.alarm .t { font-size: 13.5px; }
+.alarm .meta { font-size: 12px; }
+.srow { padding: 6px 0; }
+.srow .n { font-size: 13.5px; }
+.srow .id { font-size: 11px; }
+.srow .m { font-size: 11.5px; }
+.srow .n::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--line); flex: none; }
+.svc .srow:nth-child(1) .n::before, .svc .srow:nth-child(3) .n::before, .svc .srow:nth-child(4) .n::before { background: var(--nvidia); }
+.svc .srow:nth-child(5) .n::before, .svc .srow:nth-child(6) .n::before, .svc .srow:nth-child(7) .n::before { background: var(--nebius); box-shadow: inset 0 0 0 1px var(--nebius-ink); }
+.brandkey { display: flex; gap: 10px; font-size: 11.5px; color: var(--muted); }
+.brandkey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.stages { gap: 8px; }
+.stage { padding: 7px 10px; gap: 2px; border-radius: 8px; background: var(--panel); border-top: 3px solid var(--nebius); }
+.stage h3 { font-size: 14px; }
+.stage .svcn { color: var(--nebius-ink); font-size: 11.5px; }
+.stage .big { font-size: 19px; }
+.stage .note { font-size: 12px; }
+.bar { height: 4px; } .bar b { background: var(--nebius-ink); }
+.ns-foot { font-size: 13px; }
+.tau input { accent-color: var(--nvidia); }
+.stats { gap: 6px 12px; }
+.stat .v { font-size: 20px; }
+.stat .k { font-size: 12px; }
+.costbar { height: 13px; }
+.costlegend { font-size: 12px; gap: 2px; }
+table.log { font-size: 12.5px; }
+table.log th, table.log td { padding: 4px 6px; }
+details.rules { padding: 8px 12px; border-radius: 8px; }
+details.rules summary { font-size: 15px; }
+table.rt { font-size: 12.5px; }
+table.rt td, table.rt th { padding: 5px 6px; }
+
+@media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid .col:first-child { grid-column: 1 / -1; } .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 760px) { .wrap { padding-inline: 16px; } .grid, .charts { grid-template-columns: minmax(0, 1fr); } .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frow { grid-template-columns: 110px minmax(0, 1fr) 54px; } }
+@media (prefers-reduced-motion: reduce) { table.log tr.new td { animation: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>NemoFleet Ops</h1>
+      <span class="site">DC-04 Reno · Shift A · <span id="clock" class="num">09:41:07</span></span>
+      <span class="example" title="Numbers on this page are examples until the first real runs are recorded">Example data</span>
+    </div>
+    <div class="top-actions">
+      <button class="btn primary" id="act-night" data-toast="Night Shift run queued on Serverless Jobs (example only, not connected)">Run Night Shift now</button>
+      <button class="btn" id="act-cosmos" data-toast="Stop requested for the Cosmos endpoint (example only, not connected)">Stop Cosmos endpoint</button>
+      <button class="btn danger" id="act-pause" data-confirm="Confirm: pause all 24 robots?" data-toast="Fleet paused at safe stops (example only, not connected)">Pause fleet</button>
+    </div>
+  </header>
+
+  <section class="kpis" aria-label="Fleet summary">
+    <div class="kpi"><span class="label">Robots</span><span class="v num">24</span><span class="d">21 moving · 2 charging · <span class="bad">1 halted</span></span></div>
+    <div class="kpi"><span class="label">Settled on the fleet</span><span class="v num">94.1%</span><span class="d">Nano + peers, no cloud call · <span class="good">+2.3 pts</span></span></div>
+    <div class="kpi"><span class="label">Ultra calls / 100 events</span><span class="v num">5.9</span><span class="d">was 6.8 before night-07 · <span class="good">−13%</span></span></div>
+    <div class="kpi"><span class="label">p50 decision latency</span><span class="v num">290 ms</span><span class="d">Nano on vLLM endpoint · p95 1.9 s</span></div>
+    <div class="kpi"><span class="label">Cost per 1k tasks</span><span class="v num">$1.84</span><span class="d">all Nebius services · <span class="good">−$0.21</span></span></div>
+    <div class="kpi"><span class="label">Safety escalations</span><span class="v num">3</span><span class="d">all resolved by Ultra · 0 overrides</span></div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel" aria-labelledby="h-floor">
+        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub">Zone B · aisles 1–6 · peer handshakes shown as rings</span></div>
+        <div class="map-wrap"><canvas id="floor" width="1120" height="588" aria-label="Animated warehouse floor map with robots, a spill, hazard tags and a halted robot near a person"></canvas></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>Moving</span>
+          <span><i style="background:var(--warn)"></i>Knows a hazard (peer)</span>
+          <span><i style="background:var(--crit)"></i>Halted by Ultra</span>
+          <span><i style="background:var(--s15)"></i>Handshake</span>
+          <span><i style="background:var(--warn);border-radius:2px"></i>Hazard tag (fades)</span>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="h-tier">
+        <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub">last 60 min · 1,862 events</span></div>
+        <div class="funnel">
+          <div class="frow"><span>Nano reflex</span><span class="track"><b style="width:81.4%;background:var(--s1)"></b></span><span class="num">81.4%</span></div>
+          <div class="frow"><span>Peer precedent</span><span class="track"><b style="width:12.7%;background:var(--s15)"></b></span><span class="num">12.7%</span></div>
+          <div class="frow"><span>Ultra (novel)</span><span class="track"><b style="width:4.3%;background:var(--s2)"></b></span><span class="num">4.3%</span></div>
+          <div class="frow"><span>Ultra (safety)</span><span class="track"><b style="width:1.6%;background:var(--crit)"></b></span><span class="num">1.6%</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="h-alarms">
+        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">5</span> open</span></div>
+        <div class="alarms" id="alarms"></div>
+      </section>
+      <section class="panel" aria-labelledby="h-quick">
+        <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">schema-checked before anything moves</span></div>
+        <div class="top-actions">
+          <button class="btn sm" data-toast="Zone A4 quarantined for 10 min; planner rerouting 3 robots (example only)">Quarantine zone A4</button>
+          <button class="btn sm" data-toast="R07 halted at next safe stop (example only)">Halt robot R07</button>
+          <button class="btn sm" data-toast="Event sent to Ultra for deliberation (example only)">Escalate to Ultra</button>
+          <button class="btn sm" data-toast="Hazard broadcast to all robots, bypassing handshakes (example only)">Broadcast hazard</button>
+          <button class="btn sm danger" data-confirm="Confirm: roll back to night-06?" data-toast="Nano rolled back to adapter night-06 (example only)">Roll back Nano</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="h-svc">
+        <div class="ph"><h2 id="h-svc">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
+        <div class="svc">
+          <div class="srow"><div><div class="n">Nemotron Nano <span class="tier s1">SYSTEM 1</span></div><div class="id mono">nano + adapter night-07 · Serverless Endpoint (vLLM)</div></div><div class="m"><span class="pill ok">Healthy</span><b>p50 280 ms</b>1,515 calls/h</div></div>
+          <div class="srow"><div><div class="n">Peer exchange <span class="tier s15">SYSTEM 1.5</span></div><div class="id">handshakes · fading tags · no model call</div></div><div class="m"><span class="pill ok">Active</span><b>1,284 /h</b>handshakes</div></div>
+          <div class="srow"><div><div class="n">Nemotron Ultra <span class="tier s2">SYSTEM 2</span></div><div class="id mono">Token Factory · id set in models.yaml</div></div><div class="m"><span class="pill ok">Healthy</span><b>p95 22 s</b>110 calls today</div></div>
+          <div class="srow"><div><div class="n">Cosmos3 Super Reasoner <span class="tier s2">PERCEPTION</span></div><div class="id mono">dedicated/nvidia/Cosmos3-Super-Reasoner-g_EjNm · 4× H200</div></div><div class="m"><span class="pill warn">Running</span><b>$0.37 / min</b>32 min today</div></div>
+          <div class="srow"><div><div class="n">Serverless Jobs <span class="tier job">NIGHT SHIFT</span></div><div class="id">48 dream shards · 1 gate · 1 H200 LoRA</div></div><div class="m"><span class="pill ok">0 failed</span><b>50 / 50</b>last night</div></div>
+          <div class="srow"><div><div class="n">Managed MLflow <span class="tier ops">LINEAGE</span></div><div class="id mono">run 3f9a1c · production = night-07</div></div><div class="m"><span class="pill ok">Synced</span><b>night-07</b>promoted 04:12</div></div>
+          <div class="srow"><div><div class="n">Token Factory Data Lab <span class="tier ops">LOGS</span></div><div class="id">Ultra calls → tonight's replay dataset</div></div><div class="m"><span class="pill ok">Logging</span><b>110</b>calls captured</div></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="h-ns">
+    <div class="ph"><h2 id="h-ns">Night Shift · last run night-07</h2><span class="sub">02:00–04:12 · next run 02:00 · one Serverless Jobs pipeline</span></div>
+    <div class="stages">
+      <div class="stage"><h3>1 Replay</h3><span class="svcn">Token Factory batch</span><span class="big">2,140</span><span class="note">decisions re-judged · 5 confident mistakes</span><span class="bar"><b style="width:100%"></b></span></div>
+      <div class="stage"><h3>2 Dream</h3><span class="svcn">Serverless Jobs · 48 shards</span><span class="big">312</span><span class="note">variants simulated · 47 failures found</span><span class="bar"><b style="width:100%"></b></span></div>
+      <div class="stage"><h3>3 Gate</h3><span class="svcn">Serverless Jobs</span><span class="big">7 / 60</span><span class="note">lessons pass · fix variants, no regressions</span><span class="bar"><b style="width:100%"></b></span></div>
+      <div class="stage"><h3>4 Consolidate</h3><span class="svcn">H200 job · MLflow</span><span class="big">41 min</span><span class="note">LoRA trained · beat night-06 on held-out set · promoted</span><span class="bar"><b style="width:100%"></b></span></div>
+    </div>
+    <div class="ns-foot">
+      <div class="tau"><label for="tau" class="label">Escalation threshold τ for next shift</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">recommended by replay disagreement rate</span></div>
+      <button class="btn sm" data-toast="τ = value saved for next shift (example only)" id="tau-save">Apply τ</button>
+    </div>
+  </section>
+
+  <div class="charts">
+    <section class="panel" aria-labelledby="h-learn">
+      <div class="ph"><h2 id="h-learn">Learning curve</h2><span class="sub">Ultra calls per 100 events, by night</span></div>
+      <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra calls per 100 events falling from 14.2 to 5.9 over seven nights"></svg>
+    </section>
+    <section class="panel" aria-labelledby="h-peer">
+      <div class="ph"><h2 id="h-peer">Peer exchange</h2><span class="sub">last 60 min</span></div>
+      <div class="stats">
+        <div class="stat"><div class="v">94 s</div><div class="k">p50 time for a hazard to reach the fleet</div></div>
+        <div class="stat"><div class="v">1.0</div><div class="k">perception calls per hazard</div></div>
+        <div class="stat"><div class="v">3,412</div><div class="k">precedents in fleet memory</div></div>
+        <div class="stat"><div class="v">57</div><div class="k">hazard tags expired on schedule</div></div>
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="h-cost">
+      <div class="ph"><h2 id="h-cost">Spend today</h2><span class="sub num">$31.64 of $60.00 budget</span></div>
+      <div class="costbar" id="costbar" role="img" aria-label="Spend today split by service"></div>
+      <div class="costlegend" id="costlegend"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-log">
+    <div class="ph"><h2 id="h-log">Model call log</h2><span class="sub">every Token Factory and endpoint call · newest first</span></div>
+    <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Cost</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
+  </section>
+
+  <details class="rules">
+    <summary>Alarm rules and thresholds</summary>
+    <div class="rulebox"><table class="rt">
+      <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
+      <tbody>
+        <tr><td>Person in lane</td><td><span class="sev crit">Critical</span></td><td>Perception or sensors detect a person in a robot lane</td><td>Nearest robots halt; always escalates to Ultra</td><td>Confirm zone clear, release</td></tr>
+        <tr><td>Collision risk</td><td><span class="sev crit">Critical</span></td><td>Planner cannot find a conflict-free path within 2 s</td><td>Affected robots hold position</td><td>Quarantine zone, reassign tasks</td></tr>
+        <tr><td>Schema rejects</td><td><span class="sev warn">Warning</span></td><td>More than 2% of model outputs fail validation in 10 min</td><td>Retries, then falls back to safe stop</td><td>Inspect the call log</td></tr>
+        <tr><td>Ultra latency</td><td><span class="sev warn">Warning</span></td><td>Ultra p95 above 30 s for 5 min</td><td>Live escalations route to Nemotron Super</td><td>Check Token Factory status</td></tr>
+        <tr><td>Escalation storm</td><td><span class="sev warn">Warning</span></td><td>Ultra calls per 100 events double versus the 7-night average</td><td>None</td><td>Review τ, check for a new hazard type</td></tr>
+        <tr><td>Confident mistakes</td><td><span class="sev warn">Warning</span></td><td>Replay finds Nano wrong at confidence ≥ 0.9 on more than 0.3% of decisions</td><td>Lower τ for next shift</td><td>Review flagged episodes</td></tr>
+        <tr><td>Promotion gate failed</td><td><span class="sev info">Info</span></td><td>Candidate Nano regresses normal operations</td><td>Production adapter stays in place</td><td>Read the MLflow run</td></tr>
+        <tr><td>Night Shift stalled</td><td><span class="sev warn">Warning</span></td><td>Any stage exceeds its time budget or a job fails twice</td><td>Pipeline pauses, keeps current adapter</td><td>Retry stage</td></tr>
+        <tr><td>Idle dedicated endpoint</td><td><span class="sev warn">Warning</span></td><td>Cosmos endpoint running with no calls for 15 min</td><td>None</td><td>Stop endpoint</td></tr>
+        <tr><td>Budget</td><td><span class="sev warn">Warning</span></td><td>Daily spend passes 80% of budget</td><td>None</td><td>Stop idle endpoints, defer dreams</td></tr>
+        <tr><td>Stale hazard tag</td><td><span class="sev info">Info</span></td><td>A tag expires while robots are still inbound to that cell</td><td>Re-request perception on next sighting</td><td>None needed</td></tr>
+        <tr><td>Robot offline</td><td><span class="sev warn">Warning</span></td><td>No heartbeat for 10 s</td><td>Planner reserves its last cell</td><td>Dispatch technician</td></tr>
+      </tbody>
+    </table></div>
+  </details>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- toast + two-step confirm for every action button ----
+  const toast = document.getElementById('toast');
+  let tt;
+  function say(msg) { toast.textContent = msg; toast.hidden = false; clearTimeout(tt); tt = setTimeout(() => toast.hidden = true, 3200); }
+  function wire(btn) {
+    btn.addEventListener('click', () => {
+      const conf = btn.dataset.confirm;
+      if (conf && !btn.classList.contains('confirming')) {
+        btn.dataset.label = btn.textContent; btn.textContent = conf; btn.classList.add('confirming');
+        setTimeout(() => { if (btn.classList.contains('confirming')) { btn.textContent = btn.dataset.label; btn.classList.remove('confirming'); } }, 4000);
+        return;
+      }
+      if (conf) { btn.textContent = btn.dataset.label; btn.classList.remove('confirming'); }
+      let m = btn.dataset.toast || 'Done';
+      if (btn.id === 'tau-save') m = m.replace('value', document.getElementById('tau').value);
+      say(m);
+    });
+  }
+  document.querySelectorAll('button[data-toast]').forEach(wire);
+
+  // ---- clock ----
+  const clock = document.getElementById('clock');
+  let t0 = new Date(); t0.setHours(9, 41, 7);
+  const start = performance.now();
+  setInterval(() => { const d = new Date(t0.getTime() + (performance.now() - start)); clock.textContent = d.toTimeString().slice(0, 8); }, 1000);
+
+  // ---- alarms ----
+  const alarms = [
+    { sev: 'crit', t: 'Person in lane · aisle 4', meta: 'R03 halted · zone A4 quarantined · Ultra decided in 6.2 s', acts: ['Acknowledge', 'Release zone'] },
+    { sev: 'warn', t: 'Cosmos endpoint idle 18 min', meta: '4× H200 dedicated · $6.66 spent while idle', acts: ['Acknowledge', 'Stop endpoint'] },
+    { sev: 'warn', t: 'Ultra p95 latency 31 s', meta: 'above 30 s for 5 min · live escalations routed to Nemotron Super', acts: ['Acknowledge'] },
+    { sev: 'warn', t: 'Confident mistakes 0.4%', meta: 'replay flagged 5 decisions at confidence ≥ 0.9 · τ lowered to 0.62', acts: ['Acknowledge', 'Review episodes'] },
+    { sev: 'info', t: 'Hazard tag expired early', meta: 'spill at cell 41,7 · 2 robots inbound · perception re-requested', acts: ['Acknowledge'] },
+  ];
+  const box = document.getElementById('alarms'), open = document.getElementById('open-count');
+  const sevName = { crit: 'Critical', warn: 'Warning', info: 'Info' };
+  alarms.forEach((a, i) => {
+    const el = document.createElement('div'); el.className = 'alarm'; el.dataset.sev = a.sev;
+    el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${a.t}</span></div><div class="meta">${a.meta}</div><div class="acts"></div></div>`;
+    a.acts.forEach(label => {
+      const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.id = `al-${i}-${label.replace(/\W+/g, '').toLowerCase()}`;
+      b.addEventListener('click', () => {
+        if (label === 'Acknowledge') { el.classList.toggle('acked'); b.textContent = el.classList.contains('acked') ? 'Reopen' : 'Acknowledge'; open.textContent = box.querySelectorAll('.alarm:not(.acked)').length; }
+        else say(`${label}: example only, not connected`);
+      });
+      el.querySelector('.acts').appendChild(b);
+    });
+    box.appendChild(el);
+  });
+
+  // ---- tau slider ----
+  const tau = document.getElementById('tau'), tauV = document.getElementById('tau-v'), tauN = document.getElementById('tau-note');
+  tau.addEventListener('input', () => { tauV.textContent = Number(tau.value).toFixed(2); tauN.textContent = tau.value < 0.5 ? 'fewer escalations, more risk' : tau.value > 0.75 ? 'more escalations, higher cost' : 'recommended by replay disagreement rate'; });
+
+  // ---- learning curve ----
+  function drawLearn() {
+    const svg = document.getElementById('learn');
+    const vals = [14.2, 11.8, 10.1, 8.9, 7.6, 6.8, 5.9], W = 360, H = 190, L = 34, R = 12, T = 14, B = 30, max = 15;
+    const x = i => L + i * (W - L - R) / (vals.length - 1), y = v => T + (1 - v / max) * (H - T - B);
+    const line = css('--nvidia-ink'), grid = css('--line');
+    let s = '';
+    [0, 5, 10, 15].forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`; });
+    vals.forEach((v, i) => s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">n0${i + 1}</text>`);
+    const pts = vals.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+    s += `<polygon points="${x(0)},${y(0)} ${pts} ${x(vals.length - 1)},${y(0)}" fill="${line}" fill-opacity=".14"/>`;
+    s += `<polyline points="${pts}" fill="none" stroke="${line}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const lx = x(vals.length - 1), ly = y(vals[vals.length - 1]);
+    s += `<circle cx="${lx}" cy="${ly}" r="5" fill="${line}"/><text x="${lx - 8}" y="${ly - 10}" text-anchor="end" style="fill:${css('--ink')};font-weight:600">5.9</text>`;
+    svg.innerHTML = s;
+  }
+
+  // ---- cost ----
+  function drawCost() {
+    const items = [['Cosmos endpoint', 11.84, '--nvidia-ink'], ['Nemotron Ultra', 9.40, '--nvidia'], ['Nano endpoint', 6.10, '--s15'], ['Serverless Jobs', 3.20, '--nebius-ink'], ['Batch replay', 1.10, '--nebius']];
+    const budget = 60;
+    document.getElementById('costbar').innerHTML = items.map(([, v, c]) => `<b style="width:${(v / budget * 100).toFixed(2)}%;background:var(${c})"></b>`).join('') + `<b style="flex:1;background:var(--panel-2)"></b>`;
+    document.getElementById('costlegend').innerHTML = items.map(([n, v, c]) => `<div><span><i style="background:var(${c})"></i>${n}</span><span class="num">$${v.toFixed(2)}</span></div>`).join('');
+  }
+
+  // ---- call log ----
+  const tmpl = [
+    ['s1', 'nano · night-07', 'R12', 'pallet in aisle 2', 240, 410, 0.0001, 'settled · reroute'],
+    ['s15', 'peer cache', 'R09', 'spill ahead (hop 2)', 3, 0, 0, 'settled · no call'],
+    ['s1', 'nano · night-07', 'R05', 'congestion at dock', 310, 388, 0.0001, 'settled · wait 4 s'],
+    ['s2', 'nemotron-ultra', 'R03', 'person in lane', 6200, 2140, 0.0049, 'halt + quarantine A4'],
+    ['s2', 'Cosmos3-Super-Reasoner', 'R14', 'first sighting · liquid', 1800, 1290, 0.0062, 'spill · tag cell 41,7'],
+    ['s1', 'nano · night-07', 'R21', 'blocked exit B', 270, 402, 0.0001, 'settled · reroute'],
+    ['s15', 'peer cache', 'R17', 'forklift crossing (hop 1)', 2, 0, 0, 'settled · no call'],
+  ];
+  const tierLabel = { s1: 'S1', s15: 'S1.5', s2: 'S2' };
+  const logEl = document.getElementById('log');
+  let n = 0;
+  function addRow(initial) {
+    const [tier, model, robot, ev, lat, tok, cost, res] = tmpl[n % tmpl.length]; n++;
+    const tr = document.createElement('tr'); if (!initial) tr.className = 'new';
+    tr.innerHTML = `<td class="mono">${clock.textContent}</td><td><span class="tier ${tier}">${tierLabel[tier]}</span></td><td class="mono">${model}</td><td>${robot}</td><td>${ev}</td>` +
+      `<td class="num">${lat >= 1000 ? (lat / 1000).toFixed(1) + ' s' : lat + ' ms'}</td><td class="num">${tok ? tok.toLocaleString('en-US') : '—'}</td><td class="num">${cost ? '$' + cost.toFixed(4) : '$0'}</td><td>${res}</td>`;
+    logEl.prepend(tr);
+    while (logEl.children.length > 8) logEl.lastChild.remove();
+  }
+  for (let i = 0; i < 6; i++) addRow(true);
+  if (!reduce) setInterval(() => addRow(false), 2600);
+
+  // ---- live floor (canvas) ----
+  const cv = document.getElementById('floor'), cx = cv.getContext('2d');
+  const CW = cv.width, CH = cv.height;
+  const lanes = [70, 168, 266, 364, 462, 548];
+  const robots = [];
+  for (let i = 0; i < 14; i++) robots.push({ lane: i % 6, x: 60 + (i * 157) % 1000, dir: i % 2 ? -1 : 1, v: 38 + (i * 13) % 24, knows: false, id: 'R' + String(i + 1).padStart(2, '0') });
+  const halted = { x: 690, y: lanes[3] };
+  const spill = { x: 860, lane: 1 };
+  const rings = [], passed = new Map();
+  let last = performance.now(), tagAge = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const C = { floor: css('--map-floor'), shelf: css('--map-shelf'), ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: css('--ink'), muted: css('--muted'), panel: css('--panel') };
+    cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH);
+    cx.fillStyle = C.shelf;
+    for (let r = 0; r < lanes.length - 1; r++) { const y = (lanes[r] + lanes[r + 1]) / 2 - 15; cx.fillRect(40, y, 420, 30); cx.fillRect(560, y, 520, 30); }
+    cx.fillStyle = C.muted; cx.font = '600 15px Barlow, Arial, sans-serif';
+    lanes.forEach((y, i) => cx.fillText('aisle ' + (i + 1), 8, y - 12 < 14 ? y + 30 : y - 12));
+    // zone A4 quarantine
+    cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2; cx.strokeRect(610, lanes[3] - 36, 170, 72); cx.restore();
+    cx.fillStyle = C.crit; cx.fillText('zone A4 · quarantined', 614, lanes[3] - 42);
+    // person
+    cx.strokeStyle = C.crit; cx.fillStyle = C.crit; cx.lineWidth = 4; cx.beginPath(); cx.arc(745, lanes[3] - 18, 7, 0, 7); cx.fill();
+    cx.beginPath(); cx.moveTo(745, lanes[3] - 10); cx.lineTo(745, lanes[3] + 10); cx.moveTo(745, lanes[3] + 10); cx.lineTo(737, lanes[3] + 24); cx.moveTo(745, lanes[3] + 10); cx.lineTo(753, lanes[3] + 24); cx.moveTo(735, lanes[3] - 2); cx.lineTo(755, lanes[3] - 2); cx.stroke();
+    // spill + fading tags
+    tagAge = (tagAge + dt) % 12;
+    cx.fillStyle = C.warn; cx.globalAlpha = .85; cx.beginPath(); cx.ellipse(spill.x, lanes[spill.lane], 26, 11, 0, 0, 7); cx.fill();
+    for (let k = 0; k < 3; k++) { cx.globalAlpha = Math.max(0, 1 - tagAge / 12) * (1 - k * .28); const x = spill.x - 60 - k * 36, y = lanes[spill.lane] - 26; cx.beginPath(); cx.moveTo(x, y - 9); cx.lineTo(x + 9, y + 7); cx.lineTo(x - 9, y + 7); cx.closePath(); cx.fill(); }
+    cx.globalAlpha = 1;
+    // robots
+    robots.forEach(r => {
+      if (!reduce) { r.x += r.dir * r.v * dt; if (r.x > CW - 30) r.dir = -1; if (r.x < 70) { r.dir = 1; r.knows = false; } }
+      if (r.lane === spill.lane && Math.abs(r.x - spill.x) < 30) r.knows = true;
+    });
+    for (let i = 0; i < robots.length; i++) for (let j = i + 1; j < robots.length; j++) {
+      const a = robots[i], b = robots[j];
+      if (Math.abs(a.lane - b.lane) === 1 && a.dir !== b.dir && Math.abs(a.x - b.x) < 6) {
+        const key = i + ':' + j;
+        if (now - (passed.get(key) || -1e9) < 1500) continue;
+        passed.set(key, now);
+        if (a.knows !== b.knows) { a.knows = b.knows = true; }
+        rings.push({ x: (a.x + b.x) / 2, y: (lanes[a.lane] + lanes[b.lane]) / 2, age: 0 });
+      }
+    }
+    for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 14 + g.age * 50, 0, 7); cx.stroke(); }
+    cx.globalAlpha = 1;
+    robots.forEach(r => {
+      const y = lanes[r.lane];
+      if (r.lane === 3 && r.x > 600 && r.x < 790) { r.x = r.dir > 0 ? 599 : 791; r.dir *= -1; }
+      cx.fillStyle = r.knows ? C.warn : C.ok; cx.beginPath(); cx.arc(r.x, y, 13, 0, 7); cx.fill();
+      cx.strokeStyle = C.panel; cx.lineWidth = 3; cx.stroke();
+    });
+    cx.fillStyle = C.crit; cx.beginPath(); cx.arc(halted.x, halted.y, 14, 0, 7); cx.fill(); cx.strokeStyle = C.panel; cx.lineWidth = 3; cx.stroke();
+    cx.fillStyle = C.ink; cx.font = '600 14px "JetBrains Mono", Menlo, monospace'; cx.fillText('R03 halted', halted.x - 40, halted.y + 34);
+    if (!reduce) requestAnimationFrame(frame);
+  }
+
+  function redraw() { drawLearn(); drawCost(); if (reduce) frame(performance.now()); }
+  redraw();
+  requestAnimationFrame(frame);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>

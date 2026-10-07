@@ -7,6 +7,7 @@
 !docs/NemoFleet-Countercurrent-Options.pdf
 !docs/NemoFleet-Nebius-Plan.pdf
 !docs/NemoFleet-Nebius-Feedback.pdf
+!docs/NemoFleet-Demo-Use-Case.pdf
 
 # Third-party reference images
 *.jpeg
@@ -27,3 +28,6 @@ venv/
 # Video build artifacts
 node_modules
 docs/video/build/
+
+# Site build output
+site/dist/
