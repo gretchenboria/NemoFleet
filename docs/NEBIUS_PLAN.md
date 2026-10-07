@@ -23,6 +23,7 @@ This document is the result, with every accepted amendment folded in. Where it d
 | 3 Thymus | Serverless Jobs | One gate job, two suites: variants must improve, normal operations must not regress. Shown on screen as the thymus funnel. |
 | 4 Consolidate | Serverless Jobs (GPU, H200) + Managed MLflow | LoRA on Nano; MLflow lineage; promote only if it beats today's Nano. |
 | Serving | Serverless Endpoint (vLLM) | One endpoint serves production and candidate Nano on the same base. |
+| Perception | Token Factory dedicated endpoint (`nvidia/Cosmos3-Super-Reasoner`) | Cosmos describes a hazard on first sighting; peers spread it with no further calls. |
 | Plumbing | MysteryBox, Container Registry, one bucket | Secrets, one image for every job, all artifacts. |
 
 ## Decisions
@@ -59,10 +60,11 @@ This document is the result, with every accepted amendment folded in. Where it d
     - Countercurrent pairing (Option A) as a headline; at most one sweep row.
     - Cosmos-rendered hero clips.
     - Any dependence on custom weights.
-12. **Cosmos Reason is out of the core loop:**
-    - It isn't on Token Factory, and the 2D sim has no real camera frames.
-    - The README says why, and it's feedback item #1.
-    - *Optional, half a day:* Nemotron 3 Nano Omni on Token Factory (if verified) describes a sim-rendered frame on first sighting. This was the architect's amendment, not majority-backed.
+12. **Cosmos is back in the core loop (updated Oct 6 after the round-2 vote):**
+    - Verified in the Token Factory console: `nvidia/Cosmos3-Super-Reasoner` runs as a **dedicated endpoint** (us-central1, 4× H200, vision, $0.37 per minute). This overturns the round-2 premise that Cosmos wasn't on Token Factory.
+    - Use it for first-sighting perception: Cosmos describes the hazard once, and peer handshakes spread it. That is the Option B story with a real NVIDIA Physical AI model behind it.
+    - The builder's objection still applies: the 2D sim has no camera frames. So perception runs on rendered top-down frames of the sim plus a small set of real warehouse-hazard photos, and the README states which is which.
+    - **Cost control is mandatory:** about $22/hour while running. Min replicas 0 (or stop the endpoint) outside test and recording sessions, batch perception requests together, and log spend in the cost table.
 13. **Stretch goals, gated:**
     - Tavily safety-data-sheet lookup (sim-only, about 1 day) if the core loop works by day 14.
     - Jetson only if a board is on hand by day 10.
@@ -81,7 +83,7 @@ This document is the result, with every accepted amendment folded in. Where it d
 
 | Day (date) | Must be true |
 |---|---|
-| 1 (Oct 7) | Model IDs, Ultra latency test, headroom test, GPU quota confirmed, test batch submitted, custom-weights access requested |
+| 1 (Oct 7) | Model IDs, Ultra latency test, headroom test, GPU quota confirmed, test batch submitted, custom-weights access requested, Cosmos endpoint smoke test then stopped |
 | 2 (Oct 8) | LoRA adapter vs. merged-weights serving paths both tried |
 | 3 (Oct 9) | **Checkpoint:** 30B LoRA smoke test green, or switch to 9B/12B now |
 | 7 (Oct 13) | Day loop working end to end (sim, planner, Nano, gate, Ultra, peers); one manual LoRA run proven |
@@ -92,6 +94,9 @@ This document is the result, with every accepted amendment folded in. Where it d
 | 22–23 (Oct 28–30) | Video, README, cost table from real billing, submit |
 
 ## Vote record (round 2)
+
+Decision 12 was amended after the vote, based on the verified Cosmos endpoint; the votes below are as cast.
+
 
 | # | Architect | Judge advocate | Builder |
 |---|---|---|---|

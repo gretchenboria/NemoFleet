@@ -5,6 +5,8 @@
 *.pdf
 !docs/NemoFleet-Architecture.pdf
 !docs/NemoFleet-Countercurrent-Options.pdf
+!docs/NemoFleet-Nebius-Plan.pdf
+!docs/NemoFleet-Nebius-Feedback.pdf
 
 # Third-party reference images
 *.jpeg

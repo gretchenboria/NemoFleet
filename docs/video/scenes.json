@@ -1,62 +1,12 @@
 [
-  {
-    "id": "title",
-    "min": 6,
-    "text": "NemoFleet. How a robot fleet can teach itself in passing, using two ideas from nature: duck feet and ant trails."
-  },
-  {
-    "id": "problem",
-    "min": 9,
-    "text": "Today, when a robot is unsure, it asks the big model in the cloud. Every robot, every time, even when another robot solved the same problem a minute ago. So Ultra spends its time repeating answers instead of solving new problems."
-  },
-  {
-    "id": "duck",
-    "min": 14,
-    "text": "A duck standing on ice has a similar problem with heat. Its trick is countercurrent exchange. Warm blood flowing down to the foot runs right beside cold blood flowing back up. At every point the warm side is a little warmer, so heat keeps crossing over the whole way. The foot stays cold, the body stays warm, and very little heat is wasted."
-  },
-  {
-    "id": "charts",
-    "min": 10,
-    "text": "If the two flows ran in the same direction, they would simply meet in the middle. Running them in opposite directions keeps a small gap everywhere, so the cold side ends up nearly as warm as the hot side."
-  },
-  {
-    "id": "mapping",
-    "min": 9,
-    "text": "Now swap heat for knowledge. Trained robots are hot. New robots are cold. And the heat we don't want to lose is cloud compute spent re-solving problems the fleet has already solved."
-  },
-  {
-    "id": "optionA",
-    "min": 18,
-    "text": "Option A is the countercurrent curriculum. A scheduler routes trained robots out toward the edge, and new robots in toward the core. Each new robot first passes peers only slightly ahead of it, then progressively more expert ones. Every pass carries a small difference that is easy to absorb. New robots warm up quickly, and only what no peer can answer goes to Ultra."
-  },
-  {
-    "id": "ants",
-    "min": 9,
-    "text": "Ants solve a different part of the problem. Every time two ants pass on a trail, they touch antennae and swap news. Outbound ants learn what is ahead. Returning ants carry status home."
-  },
-  {
-    "id": "optionB",
-    "min": 22,
-    "text": "Option B is ant-trail antennation. Robots do a quick handshake whenever they pass. Here, a spill appears near the frontier. Only the first robot to see it calls Cosmos to understand it. After that, the news travels robot to robot. Hazard tags on the map fade over time, and the depot sends Ultra a short digest instead of a raw stream."
-  },
-  {
-    "id": "together",
-    "min": 10,
-    "text": "Together, A decides who passes whom, and B decides what they say. One rule never bends. If a person is in the lane, the robot always escalates to Ultra, whatever its peers say."
-  },
-  {
-    "id": "warmcore",
-    "min": 18,
-    "text": "So where does the compute go? Into the warm core. Ultra handles what is genuinely new, and every decision it makes teaches the whole fleet. Serverless Jobs stress-test the fleet at scale. And the fleet's growing library of decisions is distilled back into Nano on Nebius GPUs, so every new robot starts warmer. We don't cut compute. We move it, from repeating answers to learning new ones."
-  },
-  {
-    "id": "nightshift",
-    "min": 30,
-    "text": "And here is the cherry on top: Night Shift. Every night, the fleet dreams on Nebius. First, Ultra replays every decision the robots made that day, and finds the ones they were confidently wrong about. Then it imagines hundreds of variations of the day's hardest moments, and Serverless Jobs live through every one in simulation. Like an immune system, each new lesson must fix the problem without making robots overcautious. Most lessons don't survive. The ones that do are trained into Nano, and by morning, the fleet wakes up warmer. The edge lived it once. Nebius lived it hundreds of times."
-  },
-  {
-    "id": "outro",
-    "min": 13,
-    "text": "We will test this on Nebius Serverless Jobs, comparing countercurrent pairing with random pairing and with no peers at all. We will count Ultra calls per new problem, and how fast a hazard reaches the whole fleet. Cold feet, warm core. That is NemoFleet."
-  }
+  {"id": "title", "min": 6, "text": "NemoFleet: a robot fleet that learns from itself, built on Nebius Token Factory and NVIDIA Nemotron."},
+  {"id": "problem", "min": 10, "text": "In a warehouse robot fleet, every uncertain robot calls a large model in the cloud, even for problems another robot solved minutes ago. Ultra spends its time repeating answers instead of solving new ones."},
+  {"id": "arch", "min": 18, "text": "Each robot runs Nemotron Nano as a fast reflex that returns an action and a confidence score. Robots also share precedents with the peers they pass, with no model call. If Nano is unsure, or the event is safety-critical, the gate escalates to Nemotron Ultra on Nebius Token Factory. Every output is validated against a typed schema, and a deterministic planner owns every trajectory, so paths are collision-free by construction."},
+  {"id": "biology", "min": 10, "text": "The peer layer borrows two ideas from biology. A duck's leg runs warm and cold blood side by side in opposite directions, so heat transfers along its whole length. And ants on a trail swap information every time they pass."},
+  {"id": "optionB", "min": 18, "text": "When two robots pass, they swap a small, bounded payload: hazard precedents with their source, hop count, and time to live. Only the first robot to see a spill pays for a perception call. Everyone else learns it by handshake, and hazard tags on the map expire on their own."},
+  {"id": "optionA", "min": 10, "text": "A pairing scheduler adds pass-by waypoints, so a new robot meets peers only slightly ahead of it first. Each exchange stays small enough to absorb, and we test this against random pairing before claiming it."},
+  {"id": "safety", "min": 12, "text": "Safety is never left to the model. A person in the lane always escalates to Ultra, whatever the peers say. Every model output is checked against a typed schema, and malformed actions are retried, never executed. And the planner, not the model, owns every trajectory."},
+  {"id": "nightshift", "min": 30, "text": "Every night, NemoFleet runs one pipeline on Nebius. Replay: a Token Factory batch job has Ultra re-judge every decision Nano made that day, and flags the confident mistakes. Dream: Ultra writes counterfactual variants of the hardest episodes, and dozens of Serverless Jobs simulate them in parallel. Gate: each candidate lesson must fix its variants without regressing normal operations, so most are rejected. Consolidate: the survivors become a LoRA fine-tune of Nano on an H200 Serverless Job, tracked in MLflow. The new adapter is promoted on a vLLM endpoint only if it beats today's model."},
+  {"id": "day2", "min": 14, "text": "The next morning, a different robot meets a variant it has never seen: a spill with a forklift at the same blind corner. It runs the promoted Nano, recognizes the situation with high confidence, and reroutes on its own. No call to Ultra."},
+  {"id": "outro", "min": 16, "text": "We measure all of it on Serverless Jobs: Ultra calls per hundred events, cost per task, latency, and success on held-out variants, for Nano only, Ultra only, the hybrid, and the hybrid with Night Shift. The edge lives it once. Nebius lives it hundreds of times."}
 ]

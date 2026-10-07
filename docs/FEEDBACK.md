@@ -2,11 +2,11 @@
 
 Kept from day 1 of the build. Every item has the same four parts: **problem**, **measured** (a real number from our runs), **workaround**, and **suggested fix**. Items marked *to measure* are known issues we haven't put a number on yet.
 
-## 1. Cosmos Reason is not available on Token Factory
-- **Problem:** NVIDIA's Physical AI reasoning model isn't in the Token Factory catalog, so a Physical AI track project can't use it without hosting it ourselves.
-- **Measured:** *to measure:* time and cost to stand it up on a Serverless Endpoint.
-- **Workaround:** keep it out of the core loop; optionally use Nemotron 3 Nano Omni for vision.
-- **Suggested fix:** host Cosmos Reason on Token Factory, at least for Physical AI hackathon participants.
+## 1. Cosmos is available only as a dedicated endpoint
+- **Problem:** `nvidia/Cosmos3-Super-Reasoner` is offered on Token Factory as a dedicated endpoint only, sized at 4× H200. Physical AI perception is bursty (in our design one call per new hazard), so paying for a whole always-on endpoint is a poor fit. Earlier research couldn't find Cosmos on Token Factory at all, so it's also hard to discover.
+- **Measured:** $0.37 per minute (about $22.20 per hour) while running, us-central1, from the console. *To measure:* cold-start time from stopped to Ready, and calls per demo run.
+- **Workaround:** run the endpoint only during test and recording sessions, with min replicas at 0 or the endpoint stopped otherwise, and batch perception requests.
+- **Suggested fix:** offer Cosmos Reasoner per token (serverless), or a smaller single-GPU configuration with scale-to-zero, and list it in the model catalog next to Nemotron.
 
 ## 2. Nemotron models are not fine-tunable on Token Factory
 - **Problem:** the fine-tunable list doesn't include Nemotron, so the hackathon's headline model family can't be post-trained on Token Factory.
