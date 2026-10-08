@@ -40,10 +40,10 @@ async function models(env, req) { return (await asset(env, req, '/config/models.
 async function scenario(env, req, scene) { return (await asset(env, req, `/scenarios/${SCENARIOS[scene]}.json`)).json(); }
 function needKey(env) { if (!env.NEBIUS_API_KEY) throw Object.assign(new Error('Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project. Run: npx wrangler pages secret put NEBIUS_API_KEY --project-name nemofleet'), { status: 503 }); }
 
-async function chat(env, base, model, messages, max_tokens = 800) {
+async function chat(env, base, model, messages, max_tokens = 800, timeout_ms = 0) {
   needKey(env);
   const t0 = Date.now();
-  const r = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${env.NEBIUS_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens }) });
+  const r = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${env.NEBIUS_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens }), signal: timeout_ms ? AbortSignal.timeout(timeout_ms) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(`${model}: HTTP ${r.status} ${JSON.stringify(j).slice(0, 240)}`), { status: 502 });
   return { latency_ms: Date.now() - t0, usage: j.usage || {}, content: j.choices?.[0]?.message?.content ?? '' };
@@ -82,12 +82,12 @@ async function decide(env, m, scene, run_id, robot, event, tier, context) {
   return { decision: null, model, errors: errs };
 }
 async function perceive(env, req, m, scene, run_id, robot, frame) {
-  if (!m.perception) throw Object.assign(new Error('No perception (Cosmos) model id in config/models.yaml.'), { status: 503 });
+  if (!m.perception) throw Object.assign(new Error('No perception model id: set one with node tools/use_perception.cjs and redeploy.'), { status: 503 });
   const buf = new Uint8Array(await (await asset(env, req, `/assets/scenes/${scene}/frames/${frame}.jpg`)).arrayBuffer());
   let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   const prompt = 'Analyze this robot camera frame for the planner. Return JSON with keys "scene" (one sentence), "hazards" (array of {"type","description","severity"}), "person_present" (boolean), "path_clear" (boolean), "recommended_action" ("proceed"|"slow"|"reroute"|"halt"|"escalate"), "confidence" (0-1). A person in the robot\'s lane always means "escalate".';
   const r = await chat(env, m.base, m.perception, [{ role: 'system', content: `You are the perception module of an autonomous robot in a ${scene === 'warehouse' ? 'fulfillment warehouse' : 'hyperscale data center hall'}. Report only what is visible. Answer with one JSON object.` },
-    { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${btoa(bin)}` } }, { type: 'text', text: prompt }] }], 700);
+    { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${btoa(bin)}` } }, { type: 'text', text: prompt }] }], 700, 15000);  // a slow frame must not stall the step: it continues as 'perception unavailable'
   const result = parseJSON(r.content), ts = now(), key = `perception/${scene}/${frame}/${ts}.json`;
   await env.RUNS.put(key, JSON.stringify({ scene, frame, robot, model: m.perception, ts, latency_ms: r.latency_ms, usage: r.usage, raw: r.content, result }));
   await env.MEMORY.prepare('INSERT INTO perception (id, scene, frame, robot, model, called_at, latency_ms, result_json, raw_r2_key) VALUES (?,?,?,?,?,?,?,?,?)').bind(`${scene}/${frame}/${ts}`, scene, frame, robot, m.perception, ts, r.latency_ms, JSON.stringify(result), key).run();
@@ -125,7 +125,11 @@ const routes = {
     const tags = (await env.TAGS.list({ prefix: `${scene}:` })).keys.map(k => ({ name: k.name, expires: k.expiration ? new Date(k.expiration * 1000).toISOString() : null }));
     const peer_total = (await env.MEMORY.prepare("SELECT COUNT(*) n FROM precedents WHERE scene = ? AND source = 'peer'").bind(scene).first()).n;
     const sc = await scenario(env, req, scene), tau = await tauFor(env, scene, sc);
-    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, paused: !!(await env.TAGS.get(`${scene}:pause`)) });
+    // Fleet memory: Ultra calls avoided, and what an Ultra call costs on average (real calls only).
+    const memory = await env.MEMORY.prepare("SELECT SUM(type = 'memory_hit') hits, SUM(type = 'memory_override') overrides FROM actions WHERE scene = ?").bind(scene).first();
+    const ultra = await env.MEMORY.prepare("SELECT COUNT(*) n, AVG(latency_ms) ms, AVG(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)) tokens FROM calls WHERE scene = ? AND tier = 'ultra' AND valid = 1").bind(scene).first();
+    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, paused: !!(await env.TAGS.get(`${scene}:pause`)),
+      memory: { hits: memory?.hits || 0, overrides: memory?.overrides || 0, ultra_calls: ultra?.n || 0, ultra_avg_ms: ultra?.ms ?? null, ultra_avg_tokens: ultra?.tokens ?? null } });
   },
   'POST alarms/ack': async (env, req, url, body) => { await env.MEMORY.prepare("UPDATE alarms SET status = CASE status WHEN 'acked' THEN 'open' ELSE 'acked' END, updated_at = ? WHERE id = ?").bind(now(), body.id).run(); return J({ ok: true }); },
   'POST alarms/release': async (env, req, url, body) => {
@@ -167,8 +171,8 @@ const routes = {
     const tau = await tauFor(env, scene, sc);
     if (ev.kind === 'peer_handshake') {
       const prev = await env.MEMORY.prepare('SELECT * FROM precedents WHERE scene = ? AND run_id = ? ORDER BY created_at DESC LIMIT 1').bind(scene, run_id).first();
-      if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString()).run();
+      if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
       await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
       return J({ t: ev.t, robot: ev.robot, tier: 'peer', model_calls: 0, note: prev ? `received precedent (hop ${(prev.hops || 0) + 1})` : 'no precedent yet to pass on' });
     }
@@ -176,26 +180,32 @@ const routes = {
     let seen = null, perception_error = null;
     if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame).catch(e => { perception_error = e.message; return null; });
     const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
-    const ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (Cosmos): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
-    // ARCHITECTURE.md: an unknown hazard class always escalates. A hazard is unknown when this run has no live precedent yet.
-    const hazard = ev.kind === 'first_sighting' || !!(seen && (seen.hazards || []).length);
-    const known = hazard && await env.MEMORY.prepare('SELECT 1 FROM precedents WHERE scene = ? AND run_id = ? AND (expires_at IS NULL OR expires_at > ?) LIMIT 1').bind(scene, run_id, now()).first();
-    const novel = hazard && !known;
-    let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx);
+    let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
+    // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
+    // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
+    const hazard = ['first_sighting', 'repeat_sighting', 'variant'].includes(ev.kind) || !!(seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length);
+    const memo = hazard && ev.cell && !safety ? await env.MEMORY.prepare("SELECT * FROM precedents WHERE scene = ? AND hazard_key = ? AND safety = 0 AND source = 'ultra' AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1").bind(scene, ev.cell, now()).first() : null;
+    if (memo) ctx += `\nFleet memory: Ultra already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
+    const novel = hazard && !memo;
+    let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null;
     if (tier === 'nano' && (!out.decision || out.decision.confidence < tau)) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
+    if (memo) {
+      memory = { precedent: memo.id, cell: ev.cell, from: memo.created_at, ultra_avoided: tier === 'nano' && !!out.decision };
+      await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id);
+    }
     if (!out.decision) {  // invalid twice → safe stop (HANDOFF/ARCHITECTURE safety invariant)
       await env.TAGS.put(`${scene}:halt:${ev.robot}`, JSON.stringify({ by: 'safe_stop', run_id, at: now() }), { expirationTtl: 3600 });
       await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id);
     } else {
       await action(env, scene, 'decision', out.decision, tier, run_id);
-      if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString()).run();
+      if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
       await applyZones(env, scene, out.decision, tier, run_id);
     }
     if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id);
-    else if (seen && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${seen.hazards[0].type} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id);
+    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${seen.hazards[0].type} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id);
     else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id);
-    return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : 'settled', perception: seen, perception_error, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
+    return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
   },
   'POST scenario/finish': async (env, req, url, body) => {
     const t = await env.MEMORY.prepare('SELECT tier, COUNT(*) n FROM calls WHERE run_id = ? GROUP BY tier').bind(body.run_id).all();

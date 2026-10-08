@@ -42,7 +42,7 @@ function scanForSecrets(files, label) {
 scanForSecrets(tracked.map(f => path.join(ROOT, f)), 'git-tracked files');
 
 // ---------- 2. code checks ----------
-for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tools/tf.cjs', 'tools/preflight.cjs', 'tools/run_scenario.cjs', 'tests/qa.cjs']) {
+for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tools/tf.cjs', 'tools/preflight.cjs', 'tools/use_perception.cjs', 'tools/run_scenario.cjs', 'tests/qa.cjs']) {
   try { new vm.Script(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^#!.*/, ''), { filename: f }); check(`JS parses: ${f}`, true); }
   catch (e) { check(`JS parses: ${f}`, false, e.message); }
 }
@@ -68,7 +68,7 @@ for (const scen of ['aisle4-spill', 'hall-b-coolant-leak']) {
     const sum = JSON.parse(fs.readFileSync(path.join(ROOT, runDir, 'summary.json'), 'utf8'));
     fs.rmSync(path.join(ROOT, runDir), { recursive: true, force: true });
     const safety = sum.results.find(r => r.robot === 'R03');
-    check(`${scen} dry run: 6 events, person event routed to Ultra, handshakes make no model calls`, sum.totals.events === 6 && safety.tier === 'ultra' && sum.totals.peer === 2 && sum.totals.model_calls === 0, JSON.stringify(sum.totals));
+    check(`${scen} dry run: 7 events, person event routed to Ultra, handshakes make no model calls`, sum.totals.events === 7 && safety.tier === 'ultra' && sum.totals.peer === 2 && sum.totals.model_calls === 0, JSON.stringify(sum.totals));
   } catch (e) { check(`${scen} dry run`, false, String(e.message).slice(0, 200)); }
 }
 const models = fs.readFileSync(path.join(ROOT, 'config', 'models.yaml'), 'utf8');
@@ -212,7 +212,7 @@ const server = http.createServer((req, res) => {
       const rel = await post('alarms/release', { id: al.id }); st = await get('state?scene=datacenter');
       check('API: release clears the alarm and its zone tags', rel.ok && !st.alarms.some(a => a.id === al.id) && !st.tags.some(t => t.name.includes(':zone:')), JSON.stringify(rel));
       const s0 = await post('scenario/start', { scene: 'datacenter' }), peer = await post('scenario/step', { scene: 'datacenter', run_id: s0.run_id, i: 2 });
-      check('API: scenario start returns 6 events; a handshake step makes no model call', s0.events?.length === 6 && peer.tier === 'peer' && peer.model_calls === 0, JSON.stringify(peer));
+      check('API: scenario start returns 7 events; a handshake step makes no model call', s0.events?.length === 7 && peer.tier === 'peer' && peer.model_calls === 0, JSON.stringify(peer));
       errors = [];
       await page.goto(`http://127.0.0.1:${port}/console.html#datacenter`, { waitUntil: 'networkidle0' }); await new Promise(r => setTimeout(r, 1200));
       const live = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, text: document.body.innerText, svc: document.querySelectorAll('#svc .srow').length }));

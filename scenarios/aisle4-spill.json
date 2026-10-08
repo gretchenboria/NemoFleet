@@ -4,7 +4,7 @@
   "scene": "warehouse",
   "site": "DC-04 zone B",
   "tau": 0.62,
-  "notes": "Day 1 of docs/DEMO.md. Frames are simulation renders; every model call is real.",
+  "notes": "Day 1 of docs/DEMO.md. Frames are simulation renders; every model call is real. Hazard events carry a map cell: fleet memory reuses an Ultra decision for that cell instead of calling Ultra again (never for safety events).",
   "events": [
     {
       "t": 0,
@@ -22,7 +22,8 @@
       "where": "aisle 4, blind corner at cell 41,7",
       "text": "Forward camera shows something on the floor near the blind corner. Lidar shows no solid obstacle.",
       "frame": "cam-r14-spill",
-      "device": "picking AMR"
+      "device": "picking AMR",
+      "cell": "41,7"
     },
     {
       "t": 12,
@@ -52,13 +53,24 @@
       "device": "pallet mover"
     },
     {
+      "t": 26,
+      "robot": "R08",
+      "kind": "repeat_sighting",
+      "cell": "41,7",
+      "where": "aisle 4, blind corner at cell 41,7 (from the east)",
+      "text": "Approaching the blind corner from the other end of the aisle. Forward camera shows something on the floor. Lidar shows no solid obstacle.",
+      "frame": "cam-r14-spill",
+      "device": "picking AMR"
+    },
+    {
       "t": 30,
       "robot": "R12",
       "kind": "variant",
       "where": "aisle 4, blind corner at cell 41,7",
-      "text": "Approaching the blind corner. Peer precedent for cell 41,7 says: spill, avoid. Camera frame attached.",
+      "text": "Approaching the blind corner. Camera frame attached.",
       "frame": "cam-r12-forklift",
-      "device": "picking AMR"
+      "device": "picking AMR",
+      "cell": "41,7"
     }
   ]
 }

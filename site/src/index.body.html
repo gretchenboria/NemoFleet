@@ -1,39 +1,102 @@
 <header class="hero grid-tex">
   <div class="overlay-img" aria-hidden="true"></div>
   <div class="wrap">
-    <span class="eyebrow">Physical AI · warehouse and data center robot fleets · Nebius Token Factory + NVIDIA Nemotron</span>
-    <h1 class="display">Robot fleets that stop paying for the same decision twice.</h1>
-    <p class="lead">Nemotron Nano on every robot. Peer handshakes in the aisle. Nemotron Ultra on Nebius Token Factory only for what's genuinely new. Every night, the day's incidents become tomorrow's weights.</p>
-    <div class="cta"><a class="btn primary" href="video.html">Watch the explainer</a><a class="btn ghost" href="console.html#warehouse">Live demo: warehouse</a><a class="btn ghost" href="console.html#datacenter">Live demo: data center</a></div>
+    <span class="eyebrow">Physical AI · robot fleets in warehouses and data centers · NVIDIA Nemotron on Nebius Token Factory</span>
+    <h1 class="display">One hazard. One Ultra call. The whole fleet knows.</h1>
+    <p class="lead">When a robot meets something new, like a spill in aisle 4 or a coolant leak at the end of row C2, Nemotron Ultra works out what to do. NemoFleet stores that decision against the map cell. Every robot that reaches the cell afterwards reuses it through Nemotron Nano instead of paying for the same reasoning again. A person in the lane is never reused. That always goes back to Ultra.</p>
+    <div class="cta"><a class="btn primary" href="console.html#warehouse">Open the live console</a><a class="btn ghost" href="video.html">Watch the explainer</a><a class="btn ghost" href="https://github.com/gretchenboria/NemoFleet">Source code</a></div>
   </div>
 </header>
 
-<section class="band" id="tiers">
+<section class="band" id="proof" aria-labelledby="h-proof">
   <div class="wrap">
-    <div class="sec-head"><span class="eyebrow">FIG 01 · Decision tiers</span><h2>Three speeds of fleet cognition</h2>
-      <p class="lead">Known problems are settled on the robot in under a second. Peers spread what one robot learned. Nebius compute goes where only the core can help.</p></div>
-    <div class="tiers">
-      <div class="tier t1"><span class="k">SYSTEM 1 · REFLEX</span><h3>Nemotron Nano</h3><p class="small">Returns an action and a confidence score for every event.</p>
-        <dl><dt>Runs on</dt><dd>vLLM Serverless Endpoint</dd><dt>Latency</dt><dd>under 1 s</dd><dt>Settles</dt><dd>routine events</dd></dl></div>
-      <div class="tier t15"><span class="k">SYSTEM 1.5 · PEER EXCHANGE</span><h3>Handshakes + pairing</h3><p class="small">Robots swap bounded payloads when they pass. No model call.</p>
-        <dl><dt>Runs on</dt><dd>the robots</dd><dt>Latency</dt><dd>under 50 ms</dd><dt>Settles</dt><dd>problems another robot already solved</dd></dl></div>
-      <div class="tier t2"><span class="k">SYSTEM 2 · DELIBERATION</span><h3>Nemotron Ultra + Cosmos</h3><p class="small">Novel or safety-critical events, and first-sighting perception.</p>
-        <dl><dt>Runs on</dt><dd>Nebius Token Factory</dd><dt>Latency</dt><dd>5–30 s</dd><dt>Settles</dt><dd>new situations, people in lanes</dd></dl></div>
+    <div class="sec-head"><span class="eyebrow">Live · from the console's database</span><h2 id="h-proof">What the fleet has done so far</h2>
+      <p class="small">Real counts from real Token Factory calls, across both sites. Open the console and click <b>Run scenario</b> to add to them.</p></div>
+    <div class="proof">
+      <div><span class="v num" id="p-avoided">—</span><span class="k">Ultra calls avoided by fleet memory</span></div>
+      <div><span class="v num" id="p-ultra">—</span><span class="k">Ultra decisions made</span></div>
+      <div><span class="v num" id="p-ms">—</span><span class="k">average Ultra decision time</span></div>
+      <div><span class="v num" id="p-tok">—</span><span class="k">Ultra tokens not spent</span></div>
     </div>
-    <p class="small">Every model output is validated against a typed schema, and a deterministic A* + CBS planner owns every trajectory.</p>
   </div>
 </section>
 
-<section class="band grid-tex" id="peer-exchange">
+<section class="band grid-tex" id="problem">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">The problem</span><h2>Every robot meets the same hazard</h2>
+      <p class="lead">In a warehouse or a data-center hall, one spill is met by robot after robot. Today a fleet has two bad options. It can send every sighting to a frontier reasoning model, which is slow and costs more as the fleet grows. Or it can let a small model guess, which is fast but wrong on things it has never seen. In practice, operators halt the whole zone and wait.</p></div>
+  </div>
+</section>
+
+<section class="band" id="how">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">How it works</span><h2>See, decide, remember</h2>
+      <p class="lead">Each event goes through three steps. Ultra handles what is new, unsafe or uncertain. Fleet memory makes sure it only handles each hazard once.</p></div>
+    <div class="tiers">
+      <div class="tier t15"><span class="k">1 · SEE</span><h3>Perception</h3><p class="small">The robot's camera frame becomes structured JSON: hazards, whether a person is present, whether the path is clear, and a recommended action.</p>
+        <dl><dt>Model</dt><dd>Gemma 3 27B today · Cosmos3 Super Reasoner ready (one-command switch)</dd><dt>Runs on</dt><dd>Nebius Token Factory</dd></dl></div>
+      <div class="tier t1"><span class="k">2 · DECIDE</span><h3>Nano, then Ultra if needed</h3><p class="small">Nano returns typed fleet actions with a confidence score. New hazards, people in a lane and low confidence go to Ultra.</p>
+        <dl><dt>Models</dt><dd>Nemotron 3 Nano 30B · Nemotron 3 Ultra 550B</dd><dt>Runs on</dt><dd>Token Factory Responses API, strict JSON schema</dd></dl></div>
+      <div class="tier t2"><span class="k">3 · REMEMBER</span><h3>Fleet memory</h3><p class="small">Ultra's decision is stored against the map cell, with an expiry. The next robot at that cell gets it in Nano's prompt and no Ultra call is made. If the scene has changed, Nano lowers its confidence and Ultra decides again.</p>
+        <dl><dt>Stored in</dt><dd>D1 precedents · KV hazard tags · R2 raw calls</dd><dt>Never reused</dt><dd>safety events, people in a lane</dd></dl></div>
+    </div>
+    <p class="small">Every model output is checked against a schema before it runs, and a deterministic A* + CBS planner owns every trajectory. Models choose actions, never paths.</p>
+  </div>
+</section>
+
+<section class="band grid-tex" id="safety">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Invariants</span><h2>Safety is never delegated</h2></div>
+    <div class="inv">
+      <div><b>People escalate</b><p class="small">A person in a lane always goes to Ultra. Fleet memory and peers never settle it.</p></div>
+      <div><b>Schema first</b><p class="small">Outputs are constrained by a strict JSON schema and validated again. An invalid answer is retried once, then the robot stops.</p></div>
+      <div><b>Reuse is checked</b><p class="small">A precedent is context, not a command. If what the robot sees differs, the decision goes back to Ultra.</p></div>
+      <div><b>Planner owns motion</b><p class="small">A* + CBS computes every trajectory, collision-free by construction.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="peer-exchange">
   <div class="wrap fig">
     <figure><canvas id="anim-antennation" width="720" height="400" aria-label="Animation: robot B, which saw a spill, passes robot A and hands over the hazard; A later passes robot C; A then stops before the spill using the peer precedent, with zero Ultra calls."></canvas>
-      <figcaption><span class="tag">FIG 02 · Antennation handshake</span>Robots swap a small, bounded payload as they pass. Confidence decays with every hop, tags expire, and safety events always escalate.</figcaption></figure>
+      <figcaption><span class="tag">Peer handoff</span>Robots hand precedents to each other as they pass. Confidence decays with every hop, tags expire, and safety events always escalate.</figcaption></figure>
     <div class="side">
-      <span class="eyebrow">System 1.5 · runtime</span>
-      <h2>Peer exchange: knowledge moves at walking speed</h2>
-      <p>When two robots pass, each hands the other what it knows about the aisle behind it. Only the first robot to see a hazard pays for a perception call.</p>
-      <ul><li>Payload: hazard precedent, source, hop count, time to live</li><li>Confidence decays per hop; tags expire on their own</li><li>Conflicting precedents trigger an escalation</li></ul>
-      <p class="small">Named after how ants exchange information on contact.</p>
+      <span class="eyebrow">When the network drops</span>
+      <h2>Knowledge that still moves in a dead zone</h2>
+      <p>Wi-Fi fades between tall metal racks and at the end of cold aisles. When two robots pass, each hands the other the precedents it holds, with a hop count and an expiry. A robot that has lost its link still knows about the spill.</p>
+      <ul><li><b>Today:</b> handshakes copy precedents in fleet memory with hop counts and expiring tags</li><li><b>Next:</b> offline mode, where a robot knows only what its peers handed it, measured against the same run with no handshakes</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="band grid-tex" id="compute">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Built on Nebius and NVIDIA</span><h2>What runs where</h2>
+      <p class="lead">Every model call in the console is real and logged, with latency and tokens per call.</p></div>
+    <div class="tbl"><table>
+      <thead><tr><th>Role</th><th>Model</th><th>Runs on</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip" style="background:var(--s2)"></span>Deliberation on new or unsafe events</td><td>Nemotron 3 Ultra 550B</td><td>Token Factory · Responses API · strict schema</td><td>Live</td></tr>
+        <tr><td><span class="chip" style="background:var(--s1)"></span>Reflex decisions, reuse of precedents</td><td>Nemotron 3 Nano 30B</td><td>Token Factory · Responses API · strict schema</td><td>Live</td></tr>
+        <tr><td><span class="chip" style="background:var(--s15)"></span>Camera perception</td><td>Gemma 3 27B · Cosmos3 Super Reasoner</td><td>Token Factory · serverless / dedicated endpoint</td><td>Gemma live · Cosmos wired, waiting on its endpoint</td></tr>
+        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift replay: Ultra re-judges Nano</td><td>Nemotron 3 Ultra 550B</td><td>Token Factory</td><td>Live</td></tr>
+        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift dream, gate, LoRA consolidate</td><td>Ultra · Nano + LoRA</td><td>Nebius Serverless Jobs · MLflow</td><td>Planned</td></tr>
+        <tr><td><span class="chip" style="background:var(--ink-3)"></span>Fleet memory and call log</td><td>none</td><td>Cloudflare D1 · KV · R2</td><td>Live</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section class="band ns" id="night-shift">
+  <div class="overlay-img" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Night Shift</span><h2>The fleet learns overnight</h2>
+      <p class="lead">Fleet memory helps the next robot within minutes. Night Shift turns the day's decisions into a better reflex model for tomorrow.</p></div>
+    <div class="pipeline">
+      <div class="stage"><span class="n">01 REPLAY · LIVE</span><h3>Re-judge the day</h3><span class="svc">Token Factory</span><p class="small">Ultra re-judges Nano's decisions and flags disagreements. The disagreement rate guides tomorrow's threshold τ.</p></div>
+      <div class="stage"><span class="n">02 DREAM · PLANNED</span><h3>Simulate variants</h3><span class="svc">Serverless Jobs fan-out</span><p class="small">Ultra writes variants of the hardest episodes, and jobs run them through the planner.</p></div>
+      <div class="stage"><span class="n">03 GATE · PLANNED</span><h3>Keep only safe lessons</h3><span class="svc">Serverless Jobs</span><p class="small">A lesson must fix its variants without making normal operations worse.</p></div>
+      <div class="stage"><span class="n">04 CONSOLIDATE · PLANNED</span><h3>Train and promote</h3><span class="svc">H200 job · MLflow</span><p class="small">LoRA fine-tune of Nano, promoted only if it beats today's model.</p></div>
     </div>
   </div>
 </section>
@@ -41,64 +104,36 @@
 <section class="band" id="pairing">
   <div class="wrap fig">
     <figure><canvas id="anim-countercurrent" width="720" height="400" aria-label="Animation: naive robots in lane A pass trained robots moving the other way in lane B; at each pass a small precedent delta transfers and the naive robot's competence rises."></canvas>
-      <figcaption><span class="tag">FIG 03 · Pairing scheduler</span>Each robot meets a peer slightly ahead of it, so every pass carries a small, usable difference. Random pairing plateaus.</figcaption></figure>
+      <figcaption><span class="tag">Roadmap · pairing scheduler</span>Each robot meets a peer slightly ahead of it, so every pass carries a small, usable difference.</figcaption></figure>
     <div class="side">
-      <span class="eyebrow">System 1.5 · learning</span>
-      <h2>Pairing scheduler: learn from the robot just ahead</h2>
-      <p>The scheduler adds pass-by waypoints so a new robot meets peers in order of competence, keeping each exchange small enough to absorb within one pass.</p>
-      <ul><li>Competence score per robot: precedent coverage and recent escalation rate</li><li>Evaluated against random pairing and no peers on Serverless Jobs</li></ul>
-      <p class="small">Named after countercurrent exchange: in a duck's leg, opposite flows keep a small gradient along the whole length.</p>
+      <span class="eyebrow">Roadmap</span>
+      <h2>Pairing: learn from the robot just ahead</h2>
+      <p>A scheduler adds pass-by waypoints so a new robot meets peers in order of competence. Each exchange stays small enough to take in during one pass.</p>
+      <p class="small">Named after countercurrent exchange in a duck's leg, where opposite flows keep a small gradient along the whole length.</p>
     </div>
   </div>
 </section>
 
-<section class="band ns" id="night-shift">
-  <div class="overlay-img" aria-hidden="true"></div>
-  <div class="wrap">
-    <div class="sec-head"><span class="eyebrow">FIG 04 · Night Shift</span><h2>Night Shift: replay, dream, gate, consolidate</h2>
-      <p class="lead">One Serverless Jobs pipeline per night. The edge experiences an incident once; Nebius lives through hundreds of versions of it, then fine-tunes the fleet's reflex model before the morning shift.</p></div>
-    <div class="pipeline">
-      <div class="stage"><span class="n">01 REPLAY</span><h3>Re-judge the day</h3><span class="svc">Token Factory batch · Data Lab</span><p class="small">Ultra re-judges every Nano decision and flags confident mistakes. The disagreement rate sets tomorrow's threshold τ.</p></div>
-      <div class="stage"><span class="n">02 DREAM</span><h3>Simulate variants</h3><span class="svc">Serverless Jobs fan-out</span><p class="small">Ultra writes counterfactual variants of the hardest episodes; dozens of jobs run them through the simulator and planner.</p></div>
-      <div class="stage"><span class="n">03 GATE</span><h3>Keep only safe lessons</h3><span class="svc">Serverless Jobs</span><p class="small">A lesson must fix its variants without regressing normal operations. Most are rejected.</p></div>
-      <div class="stage"><span class="n">04 CONSOLIDATE</span><h3>Train and promote</h3><span class="svc">H200 job · MLflow · vLLM endpoint</span><p class="small">LoRA fine-tune of Nano, tracked in MLflow, promoted only if it beats today's model.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="band" id="compute">
-  <div class="wrap">
-    <div class="sec-head"><span class="eyebrow">FIG 05 · Workloads</span><h2>Where the compute goes</h2>
-      <p class="lead">We don't cut compute. We move it from repeating answers to deliberating, stress-testing and learning.</p></div>
-    <div class="tbl"><table>
-      <thead><tr><th>Workload</th><th>Runs on</th><th>Model</th><th>Grows with</th></tr></thead>
-      <tbody>
-        <tr><td><span class="chip" style="background:var(--s2)"></span>Deliberation on novel events</td><td>Token Factory</td><td>Nemotron Ultra</td><td>new sites, new hazards, fleet size</td></tr>
-        <tr><td><span class="chip" style="background:var(--s2)"></span>First-sighting perception</td><td>Token Factory dedicated endpoint</td><td>Cosmos3 Super Reasoner</td><td>new hazards</td></tr>
-        <tr><td><span class="chip" style="background:var(--s1)"></span>Reflex inference</td><td>Serverless Endpoint (vLLM)</td><td>Nemotron Nano + nightly adapter</td><td>robots × events</td></tr>
-        <tr><td><span class="chip" style="background:var(--s15)"></span>Peer exchange</td><td>the robots</td><td>none</td><td>passes per hour</td></tr>
-        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift</td><td>Token Factory batch + Serverless Jobs + MLflow</td><td>Ultra, Nano (LoRA)</td><td>incidents × variants × fleets</td></tr>
-      </tbody>
-    </table></div>
-  </div>
-</section>
-
-<section class="band grid-tex" id="safety">
-  <div class="wrap">
-    <div class="sec-head"><span class="eyebrow">FIG 06 · Invariants</span><h2>Safety is never delegated</h2></div>
-    <div class="inv">
-      <div><b>People escalate</b><p class="small">A person in a lane always goes to Ultra, whatever the peers say.</p></div>
-      <div><b>Schema first</b><p class="small">Every model output is validated; malformed actions are retried, never executed.</p></div>
-      <div><b>Planner owns motion</b><p class="small">A* + CBS computes every trajectory, collision-free by construction.</p></div>
-      <div><b>Gated learning</b><p class="small">No adapter ships without passing the red-team and normal-operations suites.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="band" id="run">
+<section class="band grid-tex" id="run">
   <div class="wrap">
     <div class="sec-head"><span class="eyebrow">Source</span><h2>Run it yourself</h2>
-      <p class="lead">Architecture, implementation plan, demo script and platform feedback are in the repository.</p></div>
+      <p class="lead">Apache 2.0. The repository has setup steps, the architecture, the QA suite and our platform feedback.</p></div>
     <div class="cta"><a class="btn primary" href="https://github.com/gretchenboria/NemoFleet">View the repository</a><a class="btn ghost" href="docs.html">Read the docs</a></div>
   </div>
 </section>
+
+<script>
+(async () => {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  try {
+    if (!(await fetch('/api/health')).ok) return;  // same offline probe as the console
+    const st = await Promise.all(['warehouse', 'datacenter'].map(s => fetch('/api/state?scene=' + s).then(r => r.ok ? r.json() : Promise.reject())));
+    const hits = st.reduce((a, s) => a + (s.memory?.hits || 0), 0), n = st.reduce((a, s) => a + (s.memory?.ultra_calls || 0), 0);
+    const ms = n ? st.reduce((a, s) => a + (s.memory?.ultra_avg_ms || 0) * (s.memory?.ultra_calls || 0), 0) / n : null;
+    const tok = n ? st.reduce((a, s) => a + (s.memory?.ultra_avg_tokens || 0) * (s.memory?.ultra_calls || 0), 0) / n : null;
+    set('p-avoided', String(hits)); set('p-ultra', String(n));
+    set('p-ms', ms == null ? '—' : (ms / 1000).toFixed(1) + ' s');
+    set('p-tok', tok == null ? '—' : Math.round(hits * tok).toLocaleString('en-US'));
+  } catch { /* API not reachable (static preview): the numbers stay "—" */ }
+})();
+</script>

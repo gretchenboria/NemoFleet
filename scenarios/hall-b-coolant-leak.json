@@ -4,7 +4,7 @@
   "scene": "datacenter",
   "site": "DC-04 hall B",
   "tau": 0.62,
-  "notes": "Day 1 of the demo in a data center hall. Frames are simulation renders; every model call is real.",
+  "notes": "Day 1 of the demo in a data center hall. Frames are simulation renders; every model call is real. Hazard events carry a map cell: fleet memory reuses an Ultra decision for that cell instead of calling Ultra again (never for safety events).",
   "events": [
     {
       "t": 0,
@@ -22,7 +22,8 @@
       "where": "cold aisle 2, row end at C2",
       "text": "Task SWAP-C2-11-psu-2: deliver a replacement PSU to rack C2-11. Forward camera shows something on the floor tiles near the end of the row. Lidar shows no solid obstacle.",
       "frame": "cam-r14-leak",
-      "device": "inspection rover (thermal + LED camera)"
+      "device": "inspection rover (thermal + LED camera)",
+      "cell": "C2-end"
     },
     {
       "t": 12,
@@ -52,13 +53,24 @@
       "device": "rack-mover lift"
     },
     {
+      "t": 26,
+      "robot": "R08",
+      "kind": "repeat_sighting",
+      "cell": "C2-end",
+      "where": "cold aisle 2, row end at C2 (from the far side)",
+      "text": "Task SCAN-C2-02: thermal sweep of rack C2-02. Forward camera shows something on the floor tiles near the end of the row. Lidar shows no solid obstacle.",
+      "frame": "cam-r14-leak",
+      "device": "inspection rover (thermal + LED camera)"
+    },
+    {
       "t": 30,
       "robot": "R12",
       "kind": "variant",
       "where": "cold aisle 2, row end at C2",
-      "text": "Task SCAN-C2: thermal sweep of row C2 after the leak. Approaching the row end. Peer precedent for row C2 end says: liquid leak, avoid. Camera frame attached.",
+      "text": "Task SCAN-C2: thermal sweep of row C2 after the leak. Approaching the row end. Camera frame attached.",
       "frame": "cam-r12-cart",
-      "device": "inspection rover (thermal + LED camera)"
+      "device": "inspection rover (thermal + LED camera)",
+      "cell": "C2-end"
     }
   ]
 }

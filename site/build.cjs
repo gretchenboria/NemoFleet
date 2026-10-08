@@ -23,7 +23,7 @@ const FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="3" fill="#12171C"/>' +
   '<text x="16" y="19" font-family="Arial" font-weight="700" font-size="14" fill="#E5E9ED" text-anchor="middle">NF</text>' +
   '<rect x="6" y="23" width="20" height="1.5" fill="#D9622B"/><rect x="6" y="26" width="20" height="1.5" fill="#3A6EA5"/></svg>');
-const NAV = [['index.html', 'Overview'], ['console.html', 'Console'], ['index.html#night-shift', 'Night Shift'], ['video.html', 'Video'], ['docs.html', 'Docs']];
+const NAV = [['index.html', 'Overview'], ['console.html', 'Console'], ['video.html', 'Video'], ['docs.html', 'Docs']];
 
 function layout(file, title, desc, body, extra = '') {
   const nav = NAV.map(([href, label]) => `<li><a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a></li>`).join('');
@@ -44,7 +44,7 @@ function layout(file, title, desc, body, extra = '') {
 <main>${body}</main>
 <footer class="foot"><div class="overlay-img" aria-hidden="true"></div><div class="wrap">
   <a class="wordmark" href="index.html"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
-  <p class="small">Built for the Nebius × NVIDIA Global AI Hackathon, Physical AI track. NVIDIA Nemotron and Cosmos on Nebius Token Factory, Serverless Jobs and Serverless Endpoints. Numbers marked as examples are placeholders until real runs are recorded.</p>
+  <p class="small">Built for the Nebius × NVIDIA Global AI Hackathon, Physical AI track. NVIDIA Nemotron on Nebius Token Factory. Every number in the console comes from a real model call.</p>
   <p class="small mono">The edge lives it once. Nebius lives it hundreds of times.</p>
 </div></footer>
 ${extra}
@@ -54,7 +54,7 @@ ${extra}
 const write = (f, html) => fs.writeFileSync(path.join(DIST, f), html);
 
 // overview
-write('index.html', layout('index.html', 'NemoFleet', 'Robot fleets that stop paying for the same decision twice: Nemotron on Nebius Token Factory, peer exchange, and nightly learning on Serverless Jobs.',
+write('index.html', layout('index.html', 'NemoFleet', 'One hazard, one Ultra call, and the whole fleet knows: Nemotron Ultra decides once on Nebius Token Factory, and fleet memory lets every robot reuse the decision through Nemotron Nano.',
   fs.readFileSync(path.join(SRC, 'index.body.html'), 'utf8'), '<script src="assets/anim.js" defer></script>'));
 
 // video

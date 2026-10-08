@@ -164,3 +164,11 @@ footer.foot .overlay-img { background-image: url(img/vessel-band.jpg); backgroun
 footer.foot .wrap { position: relative; display: grid; gap: 14px; }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* landing: live proof strip */
+.proof { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border: 1px solid var(--line); background: var(--surface); margin-top: 18px; }
+.proof div { padding: 18px 20px; display: grid; gap: 4px; border-left: 1px solid var(--line); }
+.proof div:first-child { border-left: 0; }
+.proof .v { font-family: var(--f-display); font-size: clamp(30px, 4vw, 42px); font-weight: 600; line-height: 1.05; }
+.proof .k { font-size: 14px; color: var(--ink-2); }
+@media (max-width: 700px) { .proof div { border-left: 0; border-top: 1px solid var(--line); } .proof div:first-child { border-top: 0; } }

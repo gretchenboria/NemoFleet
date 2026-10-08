@@ -262,7 +262,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     <div class="top-actions">
       <button class="btn primary" id="act-run">Run scenario</button>
       <button class="btn" id="act-night">Run Night Shift now</button>
-      <a class="btn" id="act-cosmos" href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
+      <a class="btn" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
       <button class="btn danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
     </div>
   </header>
@@ -271,7 +271,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   <section class="kpis" aria-label="Fleet summary" id="kpis"></section>
 
   <section class="panel" aria-labelledby="h-run">
-    <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: Cosmos on camera frames, then Nano or Ultra through the escalation gate.</span></div>
+    <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: perception on camera frames, fleet memory lookup, then Nano or Ultra through the escalation gate.</span></div>
     <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
   </section>
 
@@ -322,7 +322,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   </div>
 
   <section class="panel" aria-labelledby="h-cams">
-    <div class="ph"><h2 id="h-cams">Robot cameras · Cosmos perception</h2><span class="sub">Cosmos3 Super Reasoner · Token Factory dedicated endpoint · frames are simulation renders, results are stored real responses</span></div>
+    <div class="ph"><h2 id="h-cams">Robot cameras · perception</h2><span class="sub"><span id="cams-model">—</span> · frames are simulation renders, results are stored real responses</span></div>
     <div class="cams" id="cams"></div>
   </section>
 
@@ -348,7 +348,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
       <div class="ph"><h2 id="h-cost">Usage today</h2><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
       <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
       <div class="costlegend" id="costlegend"></div>
-      <div class="empty">Cosmos is billed per minute while its dedicated endpoint runs ($0.37/min), not per token.</div>
+      <div class="empty" id="perc-billing"></div>
     </section>
   </div>
 
@@ -461,6 +461,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   function renderKpis() {
     const d = derive(), tags = tagNames(), halted = tags.filter(t => t.includes(':halt:')).length, zones = tags.filter(t => t.includes(':zone:')).length;
     const k = [
+      ['Ultra calls avoided', ST ? String(ST.memory?.hits ?? 0) : DASH, ST?.memory?.hits && ST.memory.ultra_avg_tokens != null ? `fleet memory reuse · ≈ ${Math.round(ST.memory.hits * ST.memory.ultra_avg_tokens).toLocaleString('en-US')} Ultra tokens, ${fmtMs(ST.memory.hits * ST.memory.ultra_avg_ms)} saved` : 'fleet memory reuse · none yet'],
       ['Settled on the fleet', fmtPct(pct(d.nanoOnly + d.peer, d.total)), d.total ? `Nano + peers, no Ultra call · ${d.total} events` : 'no data yet'],
       ['Ultra calls / 100 events', d.total ? (100 * (d.ultraSafety + d.ultraOther) / d.total).toFixed(1) : DASH, d.total ? `${d.ultraSafety} safety · ${d.ultraOther} novel or unsure` : 'no data yet'],
       ['p50 Nano latency', fmtMs(quant(d.nanoLat, .5)), d.nanoLat.length ? `p95 ${fmtMs(quant(d.nanoLat, .95))} · ${d.nanoLat.length} calls` : 'no data yet'],
@@ -505,18 +506,21 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   function renderSvc() {
     const m = HEALTH?.models || {}, d = derive(), calls = d.calls;
     const n = t => calls.filter(c => c.tier === t).length;
-    const lastCosmos = (ST?.perception || [])[0];
+    const lastCosmos = (ST?.perception || [])[0], pl = m.perception_label || 'Perception', dedicated = m.perception_option === 'cosmos';
     const pill = (ok, yes, no) => `<span class="pill ${ok ? 'ok' : 'idle'}">${ok ? yes : no}</span>`;
     const key = !!HEALTH?.nebius_key;
     const rows = [
       ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
       ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'handshakes · fading KV tags · no model call', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
       ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
-      ['nv', 'Cosmos3 Super Reasoner', 's2', 'PERCEPTION', (m.perception || 'not connected') + ' · 4× H200', pill(lastCosmos, 'Responded', 'No response yet'), `<b>$0.37 / min</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'while running'}`],
+      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', (m.perception || 'not connected') + (dedicated ? ' · 4× H200' : ''), pill(lastCosmos, 'Responded', 'No response yet'), `<b>${dedicated ? '$0.37 / min' : 'per token'}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : dedicated ? 'while running' : 'serverless'}`],
       ['', 'Fleet memory', 'ops', 'CLOUDFLARE', 'D1 precedents + calls · KV tags · R2 raw bodies', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'D1 · KV · R2 up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>live precedents`],
       ['nb', 'Serverless Jobs', 'job', 'NIGHT SHIFT', 'Dream · Gate · Consolidate runner', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
       ['nb', 'Managed MLflow', 'ops', 'LINEAGE', 'adapter lineage and promotion', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
     ];
+    $('cams-model').textContent = m.perception ? `${pl} · ${m.perception_billing || ''}` : 'not connected';
+    $('perc-billing').textContent = dedicated ? 'Cosmos is billed per minute while its dedicated endpoint runs ($0.37/min), not per token.' : m.perception ? `${pl} is billed per token on Token Factory. Switch models with node tools/use_perception.cjs.` : '';
+    $('act-cosmos').hidden = !dedicated;
     $('svc').innerHTML = rows.map(([c, name, t, tl, id, p, met]) => `<div class="srow ${c}"><div><div class="n">${name} <span class="tier ${t}">${tl}</span></div><div class="id mono">${esc(id)}</div></div><div class="m">${p}${met}</div></div>`).join('');
   }
 
@@ -532,9 +536,9 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
       if (res) {
         const hz = (res.hazards || []).map(h => `<span>${esc(h.type)} · ${esc(h.severity)}</span>`).join('');
         cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
-          `<span class="meta">Cosmos · ${fmtMs(hit.latency_ms)} · conf ${res.confidence ?? DASH} · ${hhmmss(hit.called_at)}</span>`;
-      } else if (hit) cap = `<span class="await">Cosmos replied but the reply was not valid JSON; raw response stored in R2.</span><span class="meta">${hhmmss(hit.called_at)}</span>`;
-      else cap = `<span class="await">No Cosmos result yet.</span><span class="meta">${LIVE ? 'Run scenario calls Cosmos on this frame' : 'not connected'}</span>`;
+          `<span class="meta">${esc(shortModel(hit.model))} · ${fmtMs(hit.latency_ms)} · conf ${res.confidence ?? DASH} · ${hhmmss(hit.called_at)}</span>`;
+      } else if (hit) cap = `<span class="await">${esc(shortModel(hit.model))} replied but the reply was not valid JSON; raw response stored in R2.</span><span class="meta">${hhmmss(hit.called_at)}</span>`;
+      else cap = `<span class="await">No perception result yet.</span><span class="meta">${LIVE ? 'Run scenario sends this frame to the perception model' : 'not connected'}</span>`;
       return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${nm}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
     }).join('');
   }
@@ -580,7 +584,8 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   function renderStats() {
     const v = x => ST ? String(x) : DASH;
     const st = [[v(ST?.precedents?.n ?? 0), 'live precedents (Ultra + peer copies)'], [v(ST?.precedents?.peer_total ?? 0), 'peer copies made by handshakes'],
-      [v((ST?.tags || []).length), 'active KV tags (fade on TTL)'], [v((ST?.perception || []).length), 'stored Cosmos responses']];
+      [v((ST?.tags || []).length), 'active KV tags (fade on TTL)'], [v((ST?.perception || []).length), 'stored perception responses'],
+      [v(ST?.memory?.hits ?? 0), 'Ultra calls avoided by reuse'], [v(ST?.memory?.overrides ?? 0), 'reuse declined: situation differed → Ultra']];
     $('stats').innerHTML = st.map(([a, b]) => `<div class="stat"><div class="v">${a}</div><div class="k">${b}</div></div>`).join('');
   }
 
@@ -595,7 +600,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   }
 
   // ---- call log ----
-  const TIER = { nano: ['nano', 'S1 · Nano'], ultra: ['ultra', 'S2 · Ultra'], perception: ['cosmos', 'Cosmos'] };
+  const TIER = { nano: ['nano', 'S1 · Nano'], ultra: ['ultra', 'S2 · Ultra'], perception: ['cosmos', 'Perception'] };
   function resultOf(c) {
     if (c.tier === 'perception') return c.valid ? 'perception stored' : 'reply not JSON (raw in R2)';
     if (c.valid === 0) return '<span class="bad">schema reject</span>';
@@ -617,13 +622,14 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   }
 
   // ---- Run scenario: start → step each event → finish ----
-  const KIND = { routine: 'routine', first_sighting: 'first sighting', peer_handshake: 'peer handshake', safety: 'safety', variant: 'variant' };
+  const KIND = { routine: 'routine', first_sighting: 'first sighting', repeat_sighting: 'repeat sighting', peer_handshake: 'peer handshake', safety: 'safety', variant: 'variant' };
   function rrow(ev, r, err) {
     const tier = r ? (r.tier === 'peer' ? 'peer' : r.tier) : null;
     const what = err ? `<span class="err">${esc(err)}</span>` : !r ? esc(ev.text.slice(0, 110)) + (ev.text.length > 110 ? '…' : '') :
       r.tier === 'peer' || r.tier === 'paused' ? esc(r.note) :
       (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision after retry → safe stop</span>`) +
-      (r.perception ? ` · Cosmos: ${esc(r.perception.recommended_action || '?')}` : r.perception_error ? ` · <span class="err">Cosmos unavailable</span>` : '');
+      (r.memory ? (r.memory.ultra_avoided ? ` · <b>fleet memory: reused Ultra's decision for cell ${esc(r.memory.cell)}, no Ultra call</b>` : ` · fleet memory: precedent for cell ${esc(r.memory.cell)} did not fit, escalated`) : '') +
+      (r.perception ? ` · ${esc(r.perception_model || 'perception')}: ${esc(r.perception.recommended_action || '?')}` : r.perception_error ? ` · <span class="err">perception unavailable</span>` : '');
     return `<div class="rrow${r || err ? '' : ' pending'}"><span class="mono">t=${ev.t}s</span><span class="mono">${esc(ev.robot)}</span><span class="gate">${r ? `<span class="tier ${tier}">${esc(r.tier.toUpperCase())}</span> ${esc(r.gate || '')}` : esc(KIND[ev.kind] || ev.kind)}</span><span class="what">${what}</span><span class="num mono">${r && r.latency_ms ? fmtMs(r.latency_ms) : r ? '0 calls' : ''}</span></div>`;
   }
   async function runScenario() {
