@@ -11,12 +11,26 @@ function env(name) {
   return m ? m[1].trim() : null;
 }
 
-// Reads ids from config/models.yaml: models.<role>.id
+// Reads ids from config/models.yaml: models.<role>.id, plus the active perception option.
 function models() {
   const y = fs.readFileSync(MODELS_FILE, 'utf8');
   const out = { base: y.match(/base_url:\s*(\S+)/)[1] };
   for (const [, role, id] of y.matchAll(/\n  (\w+):\s*(?:#[^\n]*)?\n\s+id:\s*(\S+)/g)) out[role] = id === 'null' ? null : id;
+  const p = perceptionOptions(y), active = y.match(/\n    active:\s*(\w+)/)?.[1], opt = p[active] || {};
+  Object.assign(out, { perception: opt.id || null, perception_option: active || null, perception_label: opt.label || null, perception_billing: opt.billing || null,
+    perception_options: Object.fromEntries(Object.entries(p).map(([k, o]) => [k, { id: o.id || null, label: o.label || k }])) });
   return out;
+}
+// models.perception.options.<name>.{id,label,billing,...}
+function perceptionOptions(y = fs.readFileSync(MODELS_FILE, 'utf8')) {
+  const block = (y.match(/\n    options:\n([\s\S]*?)(?=\n  \w|\n\n  \w|$)/) || [])[1] || '', out = {};
+  for (const [, name, body] of block.matchAll(/^      (\w+):\n((?:        [^\n]*\n?)*)/gm))
+    out[name] = Object.fromEntries([...body.matchAll(/^        (\w+):\s*(.*?)\s*(?:#.*)?$/gm)].map(([, k, v]) => [k, v === 'null' ? null : v]));
+  return out;
+}
+function setPerception(name) {
+  const y = fs.readFileSync(MODELS_FILE, 'utf8');
+  fs.writeFileSync(MODELS_FILE, y.replace(/(\n    active:\s*)\w+/, `$1${name}`));
 }
 function setModelId(role, id) {
   const y = fs.readFileSync(MODELS_FILE, 'utf8');
@@ -45,4 +59,4 @@ function parseJSON(text) {
   try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
 }
 
-module.exports = { ROOT, env, models, setModelId, request, chat, parseJSON };
+module.exports = { ROOT, env, models, perceptionOptions, setPerception, setModelId, request, chat, parseJSON };

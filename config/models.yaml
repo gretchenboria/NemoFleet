@@ -7,12 +7,24 @@ token_factory:
   api_key_env: NEBIUS_API_KEY   # set in .env (gitignored) or MysteryBox
 
 models:
-  perception:
-    id: dedicated/nvidia/Cosmos3-Super-Reasoner-ohhtIl
-    kind: dedicated endpoint      # 4x H200, us-central1, $0.37/min while running
-    modalities: [text, image]
-    status: listed in console     # smoke test pending: first real call not yet made
-    cost_control: stop or scale to 0 replicas outside test/recording sessions
+  perception:       # camera frame -> hazard JSON. Switch with: node tools/use_perception.cjs <gemma3|gemma4|cosmos>
+    active: gemma3
+    options:
+      gemma3:
+        id: google/gemma-3-27b-it
+        label: Gemma 3 27B
+        billing: per token (Token Factory serverless)
+        status: verified 2026-10-08 (image call answered)
+      gemma4:
+        id: null          # not served on Token Factory as of 2026-10-08; put the id here when it is
+        label: Gemma 4
+        billing: per token (Token Factory serverless)
+      cosmos:
+        id: dedicated/nvidia/Cosmos3-Super-Reasoner-ohhtIl
+        label: Cosmos3 Super Reasoner
+        billing: $0.37/min while the dedicated endpoint runs (4x H200)
+        status: endpoint stuck "starting" (HTTP 429) as of 2026-10-08
+        cost_control: stop or scale to 0 replicas outside test/recording sessions
 
   deliberator:      # Nemotron Ultra: choose on day 1 from GET /v1/models + latency test
     id: nvidia/Nemotron-3-Ultra-550b-a55b
