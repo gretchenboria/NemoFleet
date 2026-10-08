@@ -13,6 +13,13 @@ const EXAMPLES = {
   datacenter: '{"type": "proceed", "robot": "R07"} | {"type": "reroute", "robot": "R14", "via": "cold aisle 3"} | {"type": "halt", "robot": "R03"} | {"type": "quarantine_zone", "cells": ["C2"], "ttl_s": 600} | {"type": "goto", "robot": "R05", "target": "staging bay 1"} | {"type": "reassign_task", "task": "SWAP-B4-17-drive-3", "robot": "R05"} | {"type": "alert_human", "severity": "high", "message": "..."}',
 };
 const systemFor = scene => SYSTEM_BASE.replace('__EXAMPLES__', EXAMPLES[scene] || EXAMPLES.warehouse);
+// Strict JSON schema for /v1/responses (text.format). It enforces shape only; validate() still runs as a second check.
+const FIELD = { robot: { type: 'string' }, target: { type: 'string' }, cells: { type: 'array', items: { type: 'string' } }, ttl_s: { type: 'integer' }, task: { type: 'string' }, severity: { type: 'string', enum: ['low', 'medium', 'high'] }, message: { type: 'string' }, via: { type: 'string' } };
+const obj = (properties, required = Object.keys(properties)) => ({ type: 'object', properties, required, additionalProperties: false });
+const DECISION_SCHEMA = obj({
+  actions: { type: 'array', minItems: 1, items: { anyOf: Object.entries(ACTIONS).map(([t, ks]) => obj({ type: { type: 'string', enum: [t] }, ...Object.fromEntries(ks.map(k => [k, FIELD[k]])) })) } },
+  confidence: { type: 'number' }, rationale: { type: 'string' } });
+const VERDICT_SCHEMA = obj({ agree: { type: 'boolean' }, better_action: { type: ['string', 'null'] }, reason: { type: 'string' } });
 
 function validate(d) {
   const e = [];
@@ -41,6 +48,20 @@ async function chat(env, base, model, messages, max_tokens = 800) {
   if (!r.ok) throw Object.assign(new Error(`${model}: HTTP ${r.status} ${JSON.stringify(j).slice(0, 240)}`), { status: 502 });
   return { latency_ms: Date.now() - t0, usage: j.usage || {}, content: j.choices?.[0]?.message?.content ?? '' };
 }
+// Nemotron calls go through the Responses API with a strict schema. Tested on Token Factory 2026-10-08:
+// response_format and max_completion_tokens are ignored there; max_output_tokens is enforced and includes reasoning.
+async function respond(env, base, model, instructions, input, schema, max_output_tokens = 4000) {
+  needKey(env);
+  const t0 = Date.now();
+  const r = await fetch(`${base}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${env.NEBIUS_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model, instructions, input, temperature: 0.2, max_output_tokens, text: { format: { type: 'json_schema', name: 'reply', strict: true, schema } } }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(`${model}: HTTP ${r.status} ${JSON.stringify(j).slice(0, 240)}`), { status: 502 });
+  const content = (j.output || []).filter(o => o.type === 'message').flatMap(o => o.content || []).filter(c => c.type === 'output_text').map(c => c.text).join('');
+  const u = j.usage || {};
+  return { latency_ms: Date.now() - t0, status: j.status, content,
+    usage: { prompt_tokens: u.input_tokens ?? null, completion_tokens: u.output_tokens ?? null, reasoning_tokens: u.output_tokens_details?.reasoning_tokens ?? null } };
+}
 async function logCall(env, rec) {
   const key = `calls/${rec.scene}/${rec.ts.slice(0, 10)}/${uid(rec.tier)}.json`;
   await env.RUNS.put(key, JSON.stringify(rec));
@@ -50,10 +71,10 @@ async function logCall(env, rec) {
 async function decide(env, m, scene, run_id, robot, event, tier, context) {
   const model = tier === 'ultra' ? m.deliberator : m.reflex;
   if (!model) throw Object.assign(new Error(`No ${tier === 'ultra' ? 'deliberator (Ultra)' : 'reflex (Nano)'} model id in config/models.yaml. Run node tools/preflight.cjs --write and redeploy.`), { status: 503 });
-  let msgs = [{ role: 'system', content: systemFor(scene) }, { role: 'user', content: context }], errs = [];
+  let msgs = [{ role: 'user', content: context }], errs = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const r = await chat(env, m.base, model, msgs, 2000);  // reasoning models spend 400+ tokens thinking first
-    const d = parseJSON(r.content); errs = validate(d);
+    const r = await respond(env, m.base, model, systemFor(scene), msgs, DECISION_SCHEMA);
+    const d = parseJSON(r.content); errs = r.status === 'incomplete' ? ['response incomplete: hit max_output_tokens'] : validate(d);
     await logCall(env, { scene, run_id, ts: now(), tier, model, robot, event, latency_ms: r.latency_ms, usage: r.usage, input: context, output: r.content, valid: !errs.length, errors: errs, decision: errs.length ? null : d });
     if (!errs.length) return { decision: d, model, latency_ms: r.latency_ms };
     msgs = [...msgs, { role: 'assistant', content: r.content }, { role: 'user', content: `Invalid: ${errs.join('; ')}. Reply again with only the corrected JSON object.` }];
@@ -193,8 +214,8 @@ const routes = {
     await env.MEMORY.prepare("INSERT OR REPLACE INTO night_shift (id, night, stage, status, started_at) VALUES (?,?,?,?,COALESCE((SELECT started_at FROM night_shift WHERE id = ?), ?))").bind(`${scene}/${night}/replay`, night, 'replay', 'running', `${scene}/${night}/replay`, now()).run();
     const verdicts = [];
     for (const r of rows) {
-      const out = await chat(env, m.base, m.deliberator, [{ role: 'system', content: 'You audit a robot reflex model. Reply with only JSON {"agree": boolean, "better_action": string|null, "reason": "one sentence"}.' },
-        { role: 'user', content: `Robot ${r.robot}, event ${r.event}. Reflex decision: ${r.decision_json}. Would you have made the same decision?` }], 300);
+      const out = await respond(env, m.base, m.deliberator, 'You audit a robot reflex model. Reply with only JSON {"agree": boolean, "better_action": string|null, "reason": "one sentence"}.',
+        `Robot ${r.robot}, event ${r.event}. Reflex decision: ${r.decision_json}. Would you have made the same decision?`, VERDICT_SCHEMA);
       const v = parseJSON(out.content) || { agree: null, reason: 'unparsed', raw: out.content };
       await env.MEMORY.prepare('UPDATE calls SET replay_json = ? WHERE id = ?').bind(JSON.stringify(v), r.id).run();
       verdicts.push({ id: r.id, ...v });
