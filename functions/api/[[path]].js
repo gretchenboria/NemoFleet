@@ -173,7 +173,7 @@ const routes = {
     if (await env.TAGS.get(`${scene}:pause`)) return J({ t: ev.t, robot: ev.robot, tier: 'paused', model_calls: 0, note: 'fleet paused by operator; no model call made' });
     const tau = await tauFor(env, scene, sc);
     if (ev.kind === 'peer_handshake') {
-      const prev = await env.MEMORY.prepare('SELECT * FROM precedents WHERE scene = ? AND run_id = ? ORDER BY created_at DESC LIMIT 1').bind(scene, run_id).first();
+      const prev = await env.MEMORY.prepare('SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1').bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
       if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
       await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
