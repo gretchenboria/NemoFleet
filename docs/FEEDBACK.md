@@ -31,3 +31,32 @@ Kept from day 1 of the build. Every item has the same four parts: **problem**, *
 - **Measured:** *to measure.*
 - **Workaround:** *to be determined.*
 - **Suggested fix:** *to be determined*; possibly a first-class fan-out or array-job primitive.
+
+## 6. Responses API silently ignores some familiar parameters
+- **Problem:** on `POST /v1/responses`, `response_format: {type: "json_object"}` and `max_completion_tokens` are accepted with HTTP 200 but have no effect. A prose prompt with `response_format` still returned prose; a 60-token `max_completion_tokens` cap returned 4,127 tokens.
+- **Measured (2026-10-08, us-central1, Nemotron 3 Ultra):** `text.format` with `type: "json_schema"` and `strict: true` is enforced (JSON returned even against a prose instruction). `max_output_tokens` is enforced.
+- **Workaround:** use `text.format` and `max_output_tokens`.
+- **Suggested fix:** reject unknown or Chat-Completions-only parameters with HTTP 400, or document them as ignored.
+
+## 7. `max_output_tokens` includes reasoning tokens, and a low cap returns nothing
+- **Problem:** with `max_output_tokens: 60`, Ultra spent all 60 tokens reasoning and returned `status: "incomplete"` with no message item at all.
+- **Measured:** our decision prompts use 190–380 reasoning tokens; a 4,000-token cap left plenty of headroom and every decision completed.
+- **Workaround:** set the cap well above typical reasoning use, and treat `incomplete` as invalid.
+- **Suggested fix:** document that the cap covers reasoning, or offer a separate reasoning budget.
+
+## 8. `reasoning.effort` had no measurable effect on Nemotron 3 Ultra
+- **Measured:** on one hard prompt, reasoning tokens were 4,594 with no setting, 5,934 with `low` and 6,747 with `high`; latency did not drop with `low`. Single samples, so indicative only.
+- **Suggested fix:** document whether `reasoning.effort` is supported per model.
+
+## 9. Cosmos3 dedicated endpoint stuck in "starting"
+- **Problem:** the `Cosmos3-Super-Reasoner` dedicated endpoint answered HTTP 429 "is starting, please retry" for more than a day.
+- **Workaround:** the perception model is a config switch (`tools/use_perception.cjs`); Gemma 4 on a Serverless Endpoint served perception meanwhile.
+- **Suggested fix:** show a start-up ETA or a failure reason instead of an indefinite "starting".
+
+## 10. No vision-capable NVIDIA model on serverless Token Factory; Gemma 4 not served
+- **Problem:** Nemotron Ultra, Super, Nano and Lightning all return "This model does not support image input". Gemma 4 is not in any region's catalog (only `gemma-3-27b-it`).
+- **Workaround:** Gemma 4 26B-A4B on vLLM v0.30.0 on a Nebius Serverless AI Endpoint (one H200). It worked on the first try: about 15 minutes from create to answering, then 0.7–1.2 s per frame.
+- **Suggested fix:** serve a vision model (Cosmos Reason or Gemma 4) serverless on Token Factory.
+
+## 11. Serverless Jobs: what worked
+- **Measured:** `nebius ai job create --dry-run` validated our job spec before spending anything, and logs streamed with `nebius ai job logs` while the job ran. Our first Cosmos-Predict2.5 job failed in setup because the upstream repo pins Python 3.13 while its CUDA 12.8 flash-attn wheels are Python 3.10 only. That one is not a Nebius issue, and the failure was easy to read in the job logs.

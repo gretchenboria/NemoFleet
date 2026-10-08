@@ -31,7 +31,8 @@ git lfs install
 curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH="$HOME/.local/bin:$PATH"
 git clone --depth 1 https://github.com/nvidia-cosmos/cosmos-predict2.5.git /work/cp
 cd /work/cp && git lfs pull
-uv python install && uv sync --extra=cu128
+# the repo pins 3.13, but the cu128 flash-attn wheels are cp310 only
+uv python install 3.10 && uv python pin 3.10 && uv sync --python 3.10 --extra=cu128
 source .venv/bin/activate && uv pip install -q huggingface_hub
 
 echo "== inputs $(date -u)"
