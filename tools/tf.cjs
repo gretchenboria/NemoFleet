@@ -18,6 +18,7 @@ function models() {
   for (const [, role, id] of y.matchAll(/\n  (\w+):\s*(?:#[^\n]*)?\n\s+id:\s*(\S+)/g)) out[role] = id === 'null' ? null : id;
   const p = perceptionOptions(y), active = y.match(/\n    active:\s*(\w+)/)?.[1], opt = p[active] || {};
   Object.assign(out, { perception: opt.id || null, perception_option: active || null, perception_label: opt.label || null, perception_billing: opt.billing || null,
+    perception_base: opt.base_url || out.base, perception_key_env: opt.api_key_env || 'NEBIUS_API_KEY',
     perception_options: Object.fromEntries(Object.entries(p).map(([k, o]) => [k, { id: o.id || null, label: o.label || k }])) });
   return out;
 }

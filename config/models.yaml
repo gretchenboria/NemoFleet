@@ -8,7 +8,7 @@ token_factory:
 
 models:
   perception:       # camera frame -> hazard JSON. Switch with: node tools/use_perception.cjs <gemma3|gemma4|cosmos>
-    active: gemma3
+    active: gemma4
     options:
       gemma3:
         id: google/gemma-3-27b-it
@@ -16,9 +16,11 @@ models:
         billing: per token (Token Factory serverless)
         status: verified 2026-10-08 (image call answered)
       gemma4:
-        id: null          # not served on Token Factory as of 2026-10-08; put the id here when it is
-        label: Gemma 4
-        billing: per token (Token Factory serverless)
+        id: google/gemma-4-26B-A4B-it
+        label: Gemma 4 26B-A4B
+        base_url: https://port8000-xhr7ksk67sfdjd3.tunnel.applications.us-central1.nebius.cloud/v1    # Nebius Serverless AI Endpoint (vLLM), e.g. https://<host>/v1. Not on Token Factory as of 2026-10-08
+        api_key_env: GEMMA4_ENDPOINT_TOKEN
+        billing: Nebius Serverless Endpoint, 1x H200, billed per hour while running
       cosmos:
         id: dedicated/nvidia/Cosmos3-Super-Reasoner-ohhtIl
         label: Cosmos3 Super Reasoner

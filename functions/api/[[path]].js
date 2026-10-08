@@ -40,10 +40,10 @@ async function models(env, req) { return (await asset(env, req, '/config/models.
 async function scenario(env, req, scene) { return (await asset(env, req, `/scenarios/${SCENARIOS[scene]}.json`)).json(); }
 function needKey(env) { if (!env.NEBIUS_API_KEY) throw Object.assign(new Error('Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project. Run: npx wrangler pages secret put NEBIUS_API_KEY --project-name nemofleet'), { status: 503 }); }
 
-async function chat(env, base, model, messages, max_tokens = 800, timeout_ms = 0) {
+async function chat(env, base, model, messages, max_tokens = 800, timeout_ms = 0, key = env.NEBIUS_API_KEY) {
   needKey(env);
   const t0 = Date.now();
-  const r = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${env.NEBIUS_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens }), signal: timeout_ms ? AbortSignal.timeout(timeout_ms) : undefined });
+  const r = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens }), signal: timeout_ms ? AbortSignal.timeout(timeout_ms) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(`${model}: HTTP ${r.status} ${JSON.stringify(j).slice(0, 240)}`), { status: 502 });
   return { latency_ms: Date.now() - t0, usage: j.usage || {}, content: j.choices?.[0]?.message?.content ?? '' };
@@ -86,8 +86,11 @@ async function perceive(env, req, m, scene, run_id, robot, frame) {
   const buf = new Uint8Array(await (await asset(env, req, `/assets/scenes/${scene}/frames/${frame}.jpg`)).arrayBuffer());
   let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   const prompt = 'Analyze this robot camera frame for the planner. Return JSON with keys "scene" (one sentence), "hazards" (array of {"type","description","severity"}), "person_present" (boolean), "path_clear" (boolean), "recommended_action" ("proceed"|"slow"|"reroute"|"halt"|"escalate"), "confidence" (0-1). A person in the robot\'s lane always means "escalate".';
-  const r = await chat(env, m.base, m.perception, [{ role: 'system', content: `You are the perception module of an autonomous robot in a ${scene === 'warehouse' ? 'fulfillment warehouse' : 'hyperscale data center hall'}. Report only what is visible. Answer with one JSON object.` },
-    { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${btoa(bin)}` } }, { type: 'text', text: prompt }] }], 700, 15000);  // a slow frame must not stall the step: it continues as 'perception unavailable'
+  // perception may live on Token Factory or on a self-hosted Nebius endpoint (Gemma 4 via vLLM) with its own token
+  const pkey = m.perception_key_env && m.perception_key_env !== 'NEBIUS_API_KEY' ? env[m.perception_key_env] : env.NEBIUS_API_KEY;
+  if (!pkey) throw Object.assign(new Error(`${m.perception_key_env} is not set on the Pages project (token for the ${m.perception_label} endpoint).`), { status: 503 });
+  const r = await chat(env, m.perception_base || m.base, m.perception, [{ role: 'system', content: `You are the perception module of an autonomous robot in a ${scene === 'warehouse' ? 'fulfillment warehouse' : 'hyperscale data center hall'}. Report only what is visible. Answer with one JSON object.` },
+    { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${btoa(bin)}` } }, { type: 'text', text: prompt }] }], 700, 15000, pkey);  // a slow frame must not stall the step: it continues as 'perception unavailable'
   const result = parseJSON(r.content), ts = now(), key = `perception/${scene}/${frame}/${ts}.json`;
   await env.RUNS.put(key, JSON.stringify({ scene, frame, robot, model: m.perception, ts, latency_ms: r.latency_ms, usage: r.usage, raw: r.content, result }));
   await env.MEMORY.prepare('INSERT INTO perception (id, scene, frame, robot, model, called_at, latency_ms, result_json, raw_r2_key) VALUES (?,?,?,?,?,?,?,?,?)').bind(`${scene}/${frame}/${ts}`, scene, frame, robot, m.perception, ts, r.latency_ms, JSON.stringify(result), key).run();
