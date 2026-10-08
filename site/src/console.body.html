@@ -158,6 +158,19 @@ body { font-size: 14px; }
 .kpi .v { font-size: 23px; }
 .kpi .d { font-size: 12px; }
 .label { font-size: 11px; }
+[hidden] { display: none !important; }
+
+/* alarms: compact rows, scroll inside the panel so the grid never grows a tall column */
+.alarms { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; gap: 6px; padding-right: 2px; align-content: start; }
+.alarm .body { padding: 6px 10px; gap: 2px; }
+.alarm .row1 { flex-wrap: nowrap; min-width: 0; }
+.alarm .t { font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm .when { font-family: var(--f-mono); font-size: 11px; color: var(--muted); flex: none; }
+.alarm .meta { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm .acts .btn { padding: 1px 8px; font-size: 12px; }
+details.older { border-top: 1px dashed var(--line); padding-top: 4px; }
+details.older summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 2px; }
+details.older .alarms-old { display: grid; gap: 6px; margin-top: 6px; }
 .grid, .col, .charts { gap: 10px; }
 .charts { align-items: start; }
 .panel { padding: 9px 12px; gap: 8px; border-radius: 8px; }
@@ -234,7 +247,7 @@ table.rt td, table.rt th { padding: 5px 6px; }
 a.btn { text-decoration: none; display: inline-block; }
 .empty { color: var(--muted); font-size: 13px; }
 .runlist { display: grid; gap: 4px; }
-.rrow { display: grid; grid-template-columns: 44px 52px 118px minmax(0, 1fr) 70px; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--line); }
+.rrow { display: grid; grid-template-columns: 64px 44px 150px minmax(0, 1fr) 56px; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--line); }
 .rrow:first-child { border-top: 0; }
 .rrow .num { text-align: right; }
 .rrow .what { min-width: 0; overflow-wrap: anywhere; }
@@ -296,7 +309,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
 
     <div class="col">
       <section class="panel" aria-labelledby="h-alarms">
-        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">0</span> open · <button class="btn sm" id="act-episodes">Review episodes</button></span></div>
+        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">0</span> open · <button class="btn sm" id="act-episodes">Review episodes</button> <button class="btn sm" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
@@ -394,7 +407,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DASH = '—';
   const LIVE_URL = 'https://nemofleet.pages.dev/console';
-  let LIVE = false, HEALTH = null, ST = null, BUSY = false;
+  let LIVE = false, HEALTH = null, ST = null, BUSY = false, RAN = false;
 
   // ---- toast ----
   const toast = $('toast'); let tt;
@@ -478,19 +491,30 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
 
   // ---- alarms ----
   const sevName = { crit: 'Critical', warn: 'Warning', info: 'Info' };
+  const human = t => String(t || '').replace(/\b([a-z]+(?:_[a-z]+)+)\b/g, w => w.replace(/_/g, ' ')).replace(/^\w/, c => c.toUpperCase());
+  function alarmEl(a) {
+    const el = document.createElement('div'); el.className = 'alarm' + (a.status === 'acked' ? ' acked' : ''); el.dataset.sev = a.sev;
+    el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t" title="${esc(human(a.title))}">${esc(human(a.title))}</span><span class="when">${hhmmss(a.created_at)}</span></div>` +
+      (a.meta ? `<div class="meta" title="${esc(a.meta)}">${esc(human(a.meta))}</div>` : '') + `<div class="acts"></div></div>`;
+    const acts = el.querySelector('.acts');
+    const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
+    add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
+    add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared from KV`; });
+    if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); });
+    return el;
+  }
   function renderAlarms() {
     const box = $('alarms'), al = ST?.alarms || [];
     box.innerHTML = al.length ? '' : `<div class="empty">${LIVE ? 'No open alarms. Alarms are raised by scenario runs and operator actions.' : 'Not connected: no alarm data.'}</div>`;
-    al.forEach(a => {
-      const el = document.createElement('div'); el.className = 'alarm' + (a.status === 'acked' ? ' acked' : ''); el.dataset.sev = a.sev;
-      el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t">${esc(a.title)}</span></div><div class="meta">${esc(a.meta || '')} · ${hhmmss(a.created_at)}</div><div class="acts"></div></div>`;
-      const acts = el.querySelector('.acts');
-      const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
-      add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
-      add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared from KV`; });
-      if (a.run_id) add('Review episodes', 'episodes', async () => { openEpisodes(); });
-      box.appendChild(el);
-    });
+    // the latest run's alarms (and operator alarms raised since) stay in view; earlier runs collapse
+    const latest = al.find(a => a.run_id)?.run_id, firstOfLatest = latest ? al.filter(a => a.run_id === latest).map(a => a.created_at).sort()[0] : null;
+    const current = al.filter(a => !latest || a.run_id === latest || (!a.run_id && a.created_at >= firstOfLatest)), older = al.filter(a => !current.includes(a));
+    current.forEach(a => box.appendChild(alarmEl(a)));
+    if (older.length) {
+      const d = document.createElement('details'); d.className = 'older';
+      d.innerHTML = `<summary>${older.length} earlier alarm${older.length === 1 ? '' : 's'} from previous runs</summary><div class="alarms-old"></div>`;
+      older.forEach(a => d.lastElementChild.appendChild(alarmEl(a))); box.appendChild(d);
+    }
     $('open-count').textContent = al.filter(a => a.status === 'open').length;
   }
 
@@ -499,7 +523,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     const tags = ST?.tags || [];
     $('tags').innerHTML = tags.length ? tags.map(t => `<span title="${t.expires ? 'expires ' + esc(t.expires) : 'no expiry'}">${esc(t.name.replace(SCENE + ':', ''))}</span>`).join('') : `<span>${ST ? 'none' : DASH}</span>`;
     const acts = ST?.actions || [];
-    $('actions-log').innerHTML = acts.length ? acts.slice(0, 5).map(a => `<div><span class="mono">${hhmmss(a.created_at)}</span> · ${esc(a.source)} · ${esc(a.type)}</div>`).join('') : (ST ? 'none yet' : DASH);
+    $('actions-log').innerHTML = acts.length ? acts.slice(0, 5).map(a => `<div><span class="mono">${hhmmss(a.created_at)}</span> · ${esc(a.source)} · ${esc(human(a.type))}</div>`).join('') : (ST ? 'none yet' : DASH);
   }
 
   // ---- services ----
@@ -513,14 +537,18 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
       ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
       ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'handshakes · fading KV tags · no model call', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
       ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
-      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', (m.perception || 'not connected') + (dedicated ? ' · 4× H200' : ''), pill(lastCosmos, 'Responded', 'No response yet'), `<b>${dedicated ? '$0.37 / min' : 'per token'}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : dedicated ? 'while running' : 'serverless'}`],
+      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', (m.perception || 'not connected') + (dedicated ? ' · 4× H200' : ''), pill(lastCosmos, 'Responded', 'No response yet'), `<b>${dedicated ? '$0.37 / min' : /per hour/.test(m.perception_billing || '') ? 'per hour' : 'per token'}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
       ['', 'Fleet memory', 'ops', 'CLOUDFLARE', 'D1 precedents + calls · KV tags · R2 raw bodies', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'D1 · KV · R2 up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>live precedents`],
       ['nb', 'Serverless Jobs', 'job', 'NIGHT SHIFT', 'Dream · Gate · Consolidate runner', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
       ['nb', 'Managed MLflow', 'ops', 'LINEAGE', 'adapter lineage and promotion', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
     ];
     $('cams-model').textContent = m.perception ? `${pl} · ${m.perception_billing || ''}` : 'not connected';
-    $('perc-billing').textContent = dedicated ? 'Cosmos is billed per minute while its dedicated endpoint runs ($0.37/min), not per token.' : m.perception ? `${pl} is billed per token on Token Factory. Switch models with node tools/use_perception.cjs.` : '';
-    $('act-cosmos').hidden = !dedicated;
+    $('perc-billing').textContent = m.perception ? `${pl}: ${m.perception_billing || 'billing not set'}. Switch models with node tools/use_perception.cjs.` : '';
+    // a GPU endpoint bills while it runs: offer the stop link for whichever one perception uses
+    const perHour = /per hour/.test(m.perception_billing || ''), ec = $('act-cosmos');
+    ec.hidden = !(dedicated || perHour);
+    if (dedicated) { ec.href = 'https://tokenfactory.nebius.com/'; ec.textContent = 'Stop Cosmos endpoint ↗'; }
+    else if (perHour) { ec.href = 'https://console.nebius.com/'; ec.textContent = `Stop ${pl.split(' ').slice(0, 2).join(' ')} endpoint ↗`; ec.title = `${pl} runs on a Nebius Serverless Endpoint billed per hour. Stop it in the Nebius console when you are done.`; }
     $('svc').innerHTML = rows.map(([c, name, t, tl, id, p, met]) => `<div class="srow ${c}"><div><div class="n">${name} <span class="tier ${t}">${tl}</span></div><div class="id mono">${esc(id)}</div></div><div class="m">${p}${met}</div></div>`).join('');
   }
 
@@ -613,7 +641,21 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
       : `<tr><td colspan="8" class="empty">${LIVE ? 'No model calls yet for this scene. Click Run scenario.' : 'Not connected: no call data.'}</td></tr>`;
   }
 
-  function renderAll() { renderKpis(); renderAlarms(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
+  // until a run starts in this session, show the latest stored run for this scene (real calls from D1)
+  function renderLastRun() {
+    if (RAN || BUSY) return;
+    const calls = (ST?.calls || []).filter(c => c.run_id && (c.tier === 'nano' || c.tier === 'ultra')), run = calls[0]?.run_id;
+    if (!run) { $('runlist').innerHTML = `<div class="empty">${LIVE ? 'No runs yet for this scene. Click Run scenario.' : 'Not connected.'}</div>`; return; }
+    const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
+    const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
+    const rows = [...byEv.values()];
+    $('run-sub').textContent = `Last run ${run} · ${rows.length} model decisions · click Run scenario for a new one`;
+    $('runlist').innerHTML = rows.map(e => { const f = e.final || e, d = parse(f.decision_json), tier = e.tiers.includes('ultra') ? 'ultra' : 'nano';
+      const mem = tier === 'nano' && /sighting|variant/.test(e.event) ? ' · <b>fleet memory, no Ultra call</b>' : '';
+      return `<div class="rrow"><span class="mono">${hhmmss(e.ts)}</span><span class="mono">${esc(e.robot || DASH)}</span><span class="gate"><span class="tier ${tier}">${tier.toUpperCase()}</span> ${esc(human(e.event))}</span>` +
+        `<span class="what">${d ? esc(d.actions.map(a => human(a.type) + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${d.confidence}` : '<span class="err">no valid decision</span>'}${mem}</span><span class="num mono">${fmtMs(f.latency_ms)}</span></div>`; }).join('');
+  }
+  function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
   async function refresh() {
     if (!LIVE) { renderAll(); return; }
     const want = SCENE;
@@ -634,7 +676,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   }
   async function runScenario() {
     if (BUSY) return 'A run is already in progress';
-    BUSY = true; const scene = SCENE, btn = $('act-run'); btn.textContent = 'Running…';
+    BUSY = true; RAN = true; const scene = SCENE, btn = $('act-run'); btn.textContent = 'Running…';
     try {
       const s = await api('scenario/start', { scene });
       const out = s.events.map(() => null), errs = s.events.map(() => null);
@@ -678,6 +720,10 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   wire($('act-run'), runScenario);
   wire($('act-night'), runNight);
   wire($('act-episodes'), async () => { await openEpisodes(); });
+  wire($('act-release-all'), async () => {
+    const al = ST?.alarms || []; for (const a of al) await api('alarms/release', { id: a.id });
+    return al.length ? `Released ${al.length} alarm${al.length === 1 ? '' : 's'} and cleared zone tags` : 'No alarms to release';
+  });
   wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused (KV flag): scenario steps make no model calls until you resume'; });
   const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined: KV tag with a 10 min TTL`, halt: () => 'R07 halted: KV tag with a 1 h TTL',
     broadcast_hazard: () => 'Hazard broadcast written as a KV tag (10 min TTL)', rollback_nano: () => 'Rollback flag written to KV. No LoRA adapter is deployed yet, so Nano itself is unchanged.' };
@@ -781,7 +827,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     $('site-label').textContent = SC.site;
     $('q-btn').textContent = `Quarantine zone ${SC.zoneName}`;
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
-    if (!BUSY) { $('runlist').innerHTML = '<div class="empty">No run in this session yet.</div>'; }
+    if (!BUSY) { RAN = false; renderLastRun(); }
     lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person; initRobots();
     floorImg.src = SC.dir + 'floor.jpg';
     renderAll();

@@ -206,7 +206,7 @@ const routes = {
       await applyZones(env, scene, out.decision, tier, run_id);
     }
     if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id);
-    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${seen.hazards[0].type} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id);
+    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id);
     else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id);
     return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
   },
