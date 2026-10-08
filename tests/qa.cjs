@@ -78,7 +78,7 @@ check('models.yaml names the Token Factory base URL and Cosmos endpoint', /base_
 let built = true;
 try { execFileSync('node', [path.join(ROOT, 'site', 'build.cjs')], { cwd: ROOT, stdio: 'pipe' }); } catch (e) { built = false; check('site builds', false, String(e.stderr).slice(0, 300)); }
 if (built) check('site builds', true);
-const pages = ['index.html', 'demo.html', 'console.html', 'video.html', 'docs.html'];
+const pages = ['index.html', 'console.html', 'video.html', 'docs.html'];
 pages.forEach(p => check(`page exists: ${p}`, fs.existsSync(path.join(DIST, p))));
 for (const f of fs.readdirSync(path.join(DIST, 'docs'))) {
   const b = fs.readFileSync(path.join(DIST, 'docs', f));

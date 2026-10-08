@@ -20,7 +20,7 @@ Fleet-learning design options inspired by countercurrent heat exchange and ant t
 
 ## Site and QA
 
-- `site/` holds the public site (overview, demo, console, video, docs). Build with `node site/build.cjs` (output in `site/dist/`, not committed).
+- `site/` holds the public site (overview, console, video, docs). Build with `node site/build.cjs` (output in `site/dist/`, not committed).
 - `tests/qa.cjs` is the QA suite: secret scan, syntax checks, build, link check, and browser checks of every page at three widths in light and dark. Deploy only when it exits 0:
 
 ```bash

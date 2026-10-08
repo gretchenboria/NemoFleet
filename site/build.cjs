@@ -1,10 +1,8 @@
 // Build the NemoFleet site into site/dist for Cloudflare Pages.
 //   node site/build.cjs && npx wrangler pages deploy   (from the repo root; wrangler.toml binds D1/KV/R2 for ./functions)
-// Uses marked from docs/video/node_modules (npm install there first).
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const { marked } = require(path.join(ROOT, 'docs', 'video', 'node_modules', 'marked'));
 const SRC = path.join(__dirname, 'src'), DIST = path.join(__dirname, 'dist');
 
 fs.rmSync(DIST, { recursive: true, force: true });
@@ -25,7 +23,7 @@ const FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="3" fill="#12171C"/>' +
   '<text x="16" y="19" font-family="Arial" font-weight="700" font-size="14" fill="#E5E9ED" text-anchor="middle">NF</text>' +
   '<rect x="6" y="23" width="20" height="1.5" fill="#D9622B"/><rect x="6" y="26" width="20" height="1.5" fill="#3A6EA5"/></svg>');
-const NAV = [['index.html', 'Overview'], ['demo.html', 'Demo'], ['console.html', 'Console'], ['index.html#night-shift', 'Night Shift'], ['video.html', 'Video'], ['docs.html', 'Docs']];
+const NAV = [['index.html', 'Overview'], ['console.html', 'Console'], ['index.html#night-shift', 'Night Shift'], ['video.html', 'Video'], ['docs.html', 'Docs']];
 
 function layout(file, title, desc, body, extra = '') {
   const nav = NAV.map(([href, label]) => `<li><a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a></li>`).join('');
@@ -58,14 +56,6 @@ const write = (f, html) => fs.writeFileSync(path.join(DIST, f), html);
 // overview
 write('index.html', layout('index.html', 'NemoFleet', 'Robot fleets that stop paying for the same decision twice: Nemotron on Nebius Token Factory, peer exchange, and nightly learning on Serverless Jobs.',
   fs.readFileSync(path.join(SRC, 'index.body.html'), 'utf8'), '<script src="assets/anim.js" defer></script>'));
-
-// demo (from docs/DEMO.md)
-let demo = marked.parse(fs.readFileSync(path.join(ROOT, 'docs', 'DEMO.md'), 'utf8'))
-  .replace(/<table>/g, '<div class="tbl"><table>').replace(/<\/table>/g, '</table></div>')
-  .replace(/<input (checked="" )?disabled="" type="checkbox">/g, '☐')
-  .replace(/href="([A-Z_]+\.md)(#[^"]*)?"/g, (m, f, h) => `href="https://github.com/gretchenboria/NemoFleet/blob/main/docs/${f}${h || ''}"`);
-write('demo.html', layout('demo.html', 'NemoFleet Demo', 'One hazard, two sites: a warehouse spill or a data center coolant leak, seen once by Cosmos, spread by handshake, made safe by Ultra, learned overnight on Nebius.',
-  `<section class="band grid-tex" style="border-top:0"><div class="wrap"><span class="eyebrow">Demo use case</span><article class="prose">${demo}</article></div></section>`));
 
 // video
 const chapters = [['0:00', 0, 'A fleet that learns from itself'], ['0:09', 9, 'The problem'], ['0:27', 27, 'Three speeds of thinking'], ['0:58', 58, 'Two ideas from biology'],
