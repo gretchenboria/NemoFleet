@@ -41,6 +41,25 @@ Each event a robot reports goes through three steps.
 - Today the handoff copies decisions in fleet memory.
 - Next: an offline mode, where a robot knows only what its peers handed it.
 
+## Architecture: today and next
+
+**Slide deck:** [docs/NemoFleet-Architecture-Today-vs-Next.pdf](docs/NemoFleet-Architecture-Today-vs-Next.pdf). It has five slides:
+1. Cover, with numbers measured on the live site
+2. Today's architecture, end to end
+3. The future state
+4. A component-by-component comparison
+5. The whole tech stack
+
+Every item on the slides is marked live, wired, in progress, planned or simulated. The deck is built with matplotlib from `docs/build_arch_compare_pdf.py`.
+
+**Today:** one scenario event, from the robot to a fleet action.
+
+![NemoFleet architecture today](docs/img/arch-today.png)
+
+**Next:** reflexes on the robot, smarter fleet memory, and the full Night Shift loop on Nebius.
+
+![NemoFleet architecture, future state](docs/img/arch-next.png)
+
 ## How we use NVIDIA models and Nebius
 
 | Role | Model | Runs on | Status |
@@ -81,7 +100,7 @@ The console and the landing page show these numbers live from the database.
 | `tools/cosmos_dream/dream.sh` | The Nebius Serverless Job that runs Cosmos-Predict2.5 on the camera frames |
 | `tools/run_scenario.cjs` | Command-line scenario runner, with a dry-run mode |
 | `tests/qa.cjs` | QA suite: secret scan, syntax checks, build, link check, browser checks of every page at three widths in light and dark, and a local API smoke test |
-| `docs/` | [Architecture](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
+| `docs/` | [Architecture slide deck (today vs. next)](docs/NemoFleet-Architecture-Today-vs-Next.pdf), [architecture notes](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
 
 ## Setup
 

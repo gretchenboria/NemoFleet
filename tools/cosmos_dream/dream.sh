@@ -50,7 +50,9 @@ S = [  # (name, scene, frame, what happens next)
 ]
 for name, scene, frame, what in S:
     img = f"/work/in/{name}.jpg"
-    urllib.request.urlretrieve(f"{site}/assets/scenes/{scene}/frames/{frame}.jpg", img)
+    # Cloudflare blocks the default Python-urllib user agent with 403
+    req = urllib.request.Request(f"{site}/assets/scenes/{scene}/frames/{frame}.jpg", headers={"User-Agent": "NemoFleet-Dream/1.0 (+https://nemofleet.pages.dev)"})
+    open(img, "wb").write(urllib.request.urlopen(req, timeout=60).read())
     json.dump({"inference_type": "image2world", "name": name, "prompt": f"{what} {style}", "input_path": img}, open(f"/work/in/{name}.json", "w"))
     print("input", name)
 PY

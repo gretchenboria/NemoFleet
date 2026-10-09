@@ -301,7 +301,7 @@ def main():
         for i, fn in enumerate([cover, today, future, compare, stack], 1):
             fig = fn(pdf)
             if png:
-                png.mkdir(parents=True, exist_ok=True); fig.savefig(png / f"page{i}.png", dpi=70)
+                png.mkdir(parents=True, exist_ok=True); fig.savefig(png / f"page{i}.png", dpi=int(sys.argv[sys.argv.index("--dpi") + 1]) if "--dpi" in sys.argv else 70)
             plt.close(fig)
         d = pdf.infodict(); d["Title"] = "NemoFleet architecture: today and next"; d["Author"] = "NemoFleet"
     print("wrote", out)
