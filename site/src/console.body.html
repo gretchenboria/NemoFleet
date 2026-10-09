@@ -3,298 +3,290 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: control-room grid. Summary strip on top, live floor + alarms + services in the middle, learning/cost/log below. */
+/* Ops console. Hierarchy: 1) live floor + run story, 2) KPIs led by "Ultra calls avoided", 3) alarms and actions,
+   4) system details (services, Night Shift, learning, call log, rules) in tabs below the fold.
+   Surfaces instead of borders; one accent (NVIDIA green) for the primary action and the fleet-memory win;
+   status colours only where they carry meaning. Type scale: 11 / 12.5 / 14 / 16 px, KPI 24 px, hero 40 px. */
 :root {
   color-scheme: light;
-  --bg: #f3f5f1; --panel: #ffffff; --panel-2: #f4f6f1; --ink: #121a14; --muted: #5d685f; --line: #dfe4dc;
-  --nvidia: #76B900; --nvidia-ink: #4a7500; --nebius: #D4F24A; --nebius-ink: #6f8700;
-  --accent: #4a7500;
-  --s1: #3f7d1e; --s15: #0e8579; --s2: #6a3fd0; --plan: #46536a;
-  --ok: #1d8f4e; --warn: #b7700c; --crit: #cc3434; --info: #2f6fd1;
-  --ok-bg: #e5f5ec; --warn-bg: #fdf1dc; --crit-bg: #fbe6e6; --info-bg: #e5eefc;
-  --map-floor: #f6f8f4; --map-shelf: #d5dbd2;
+  --bg: #eef1ec; --panel: #ffffff; --panel-2: #f3f5f1; --ink: #141b16; --ink-2: #3f4a42; --muted: #5f6a62; --line: #e1e6de;
+  --nvidia: #76B900; --nvidia-ink: #3f6600; --nebius: #D4F24A; --nebius-ink: #5f7400;
+  --accent: #76B900; --accent-ink: #3f6600; --on-accent: #0b1400;
+  --s1: #3f7d1e; --s15: #0b7a6f; --s2: #6a3fd0; --plan: #46536a;
+  --ok: #1d8049; --warn: #a3640a; --crit: #c42f2f; --info: #2f6fd1;
+  --map-floor: #f6f8f4; --map-ink: #121a14; --map-ok: #3f7d1e; --map-warn: #b7700c; --map-crit: #cc3434; --map-peer: #0e8579;
   --f-display: "Barlow Semi Condensed", "Barlow", "Helvetica Neue", Arial, sans-serif;
   --f-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
   --f-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --bg: #0d110e; --panel: #151a16; --panel-2: #1c221d; --ink: #e5eae5; --ink-2: #c0c9c1; --muted: #98a39a; --line: #29302a;
+  --nvidia-ink: #9fd545; --nebius-ink: #d4f24a; --accent-ink: #9fd545;
+  --s1: #86c75a; --s15: #3cc4b2; --s2: #ab92f7; --plan: #9aa7bd;
+  --ok: #55c67b; --warn: #e3b443; --crit: #f26b6b; --info: #79a8f2; } }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d110e; --panel: #151a16; --panel-2: #1c221d; --ink: #e5eae5; --ink-2: #c0c9c1; --muted: #98a39a; --line: #29302a;
+  --nvidia-ink: #9fd545; --nebius-ink: #d4f24a; --accent-ink: #9fd545;
+  --s1: #86c75a; --s15: #3cc4b2; --s2: #ab92f7; --plan: #9aa7bd;
+  --ok: #55c67b; --warn: #e3b443; --crit: #f26b6b; --info: #79a8f2; }
+:root {
+  --ok-bg: color-mix(in srgb, var(--ok) 13%, var(--panel)); --warn-bg: color-mix(in srgb, var(--warn) 14%, var(--panel));
+  --crit-bg: color-mix(in srgb, var(--crit) 12%, var(--panel)); --info-bg: color-mix(in srgb, var(--info) 12%, var(--panel));
+  --accent-bg: color-mix(in srgb, var(--accent) 16%, var(--panel));
 }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
-.wrap { padding-inline: 20px; padding-block: 16px 28px; max-width: 1600px; margin: 0 auto; display: grid; gap: 14px; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { padding: 10px 14px 24px; max-width: 1880px; margin: 0 auto; display: grid; gap: 12px; }
 h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
-.mono, code { font-family: var(--f-mono); font-size: 0.86em; }
+.mono, code { font-family: var(--f-mono); font-size: .9em; }
 .num { font-variant-numeric: tabular-nums; }
-.label { font-family: var(--f-display); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label { font-family: var(--f-display); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.empty { color: var(--muted); font-size: 12.5px; }
+.bad { color: var(--crit); font-weight: 600; }
+a { color: inherit; }
 button { font: inherit; cursor: pointer; }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: 4px; }
+
+/* buttons: quiet by default, one filled primary, danger as red text */
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 7px; padding: 5px 11px; font-weight: 600; font-size: 13px; line-height: 1.3; }
+.btn:hover { border-color: color-mix(in srgb, var(--ink) 30%, var(--line)); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn.danger { color: var(--crit); }
+.btn.confirming { background: var(--crit); border-color: var(--crit); color: #fff; }
+.btn.sm { padding: 3px 9px; font-size: 12.5px; }
+.btn.link { border-color: transparent; background: transparent; color: var(--muted); padding: 2px 6px; font-size: 12px; font-weight: 600; }
+.btn.link:hover { color: var(--ink); background: var(--panel-2); }
+.btn.link.confirming { color: #fff; background: var(--crit); }
+.btn:disabled { opacity: .55; cursor: progress; }
+a.btn { text-decoration: none; display: inline-block; }
 
 /* header */
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; justify-content: space-between; }
-.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.brand h1 { font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
-.site { color: var(--muted); font-weight: 500; }
-.example { font-family: var(--f-display); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--warn); background: var(--warn-bg); border-radius: 999px; padding: 3px 10px; }
-.top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 14px; }
-.btn:hover { border-color: var(--accent); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
-.btn.danger { color: var(--crit); }
-.btn.confirming { background: var(--crit); border-color: var(--crit); color: var(--panel); }
-.btn.sm { padding: 4px 9px; font-size: 13px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.brand h1 { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.site { color: var(--muted); font-size: 13px; }
+.mode { font-size: 12px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.mode::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.mode.live { color: var(--ok); } .mode.live::before { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+.scene-switch { display: inline-flex; background: var(--panel-2); border-radius: 8px; padding: 2px; gap: 2px; }
+.scene-switch button { border: 0; background: transparent; padding: 3px 11px; border-radius: 6px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.scene-switch button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.top-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.top-actions .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.banner { background: var(--warn-bg); color: var(--ink); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 
-/* kpis */
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
-.kpi .v { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.kpi .d { font-size: 13px; color: var(--muted); }
-.d .good { color: var(--ok); font-weight: 600; } .d .bad { color: var(--crit); font-weight: 600; }
+/* KPI strip: one hero number, the rest quiet */
+.kpis { display: grid; grid-template-columns: minmax(250px, 1.7fr) repeat(6, minmax(0, 1fr)); background: var(--panel); border-radius: var(--r); }
+.kpi { padding: 10px 14px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.kpi + .kpi { box-shadow: inset 1px 0 0 var(--line); }
+.kpi .v { font-family: var(--f-display); font-size: 24px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 12px; color: var(--muted); }
+.kpi.hero { background: var(--accent-bg); border-radius: var(--r) 0 0 var(--r); grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
+.kpi.hero .v { font-size: 40px; font-weight: 700; line-height: 1; color: var(--accent-ink); grid-row: 1 / 3; }
+.kpi.hero .label { color: var(--ink); align-self: end; }
+.kpi.hero .d { color: var(--ink-2); align-self: start; }
 
 /* panels */
-.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-.col { display: grid; gap: 14px; min-width: 0; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; display: grid; gap: 12px; }
-.ph { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.ph h2 { font-size: 19px; font-weight: 700; }
-.ph .sub { color: var(--muted); font-size: 13px; }
+.panel { background: var(--panel); border-radius: var(--r); padding: 12px 14px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.ph { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.ph h2 { font-size: 16px; font-weight: 700; }
+.ph h3 { font-size: 14px; font-weight: 700; }
+.ph .sub { color: var(--muted); font-size: 12px; }
 
-/* map */
-.map-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--map-floor); }
-canvas#floor { display: block; width: 100%; aspect-ratio: 16 / 8.4; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+/* stage: floor is the hero, rails sit compactly around it */
+.stage-grid { display: grid; grid-template-columns: minmax(0, 252px) minmax(0, 1fr) minmax(0, 276px); gap: 12px; align-items: start; }
+.rail { display: grid; gap: 12px; min-width: 0; }
+@media (min-width: 1700px) { .stage-grid { grid-template-columns: minmax(0, 310px) minmax(0, 1fr) minmax(0, 340px); } }
+.floor-panel { gap: 8px; }
+.map-wrap { position: relative; border-radius: 8px; overflow: hidden; background: var(--map-floor); }
+canvas#floor { display: block; width: 100%; aspect-ratio: 1120 / 475; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 
-/* tier funnel */
-.funnel { display: grid; gap: 8px; }
-.frow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
-.track { height: 14px; background: var(--panel-2); border-radius: 7px; overflow: hidden; }
-.track b { display: block; height: 100%; border-radius: 7px; }
-.frow .num { text-align: right; font-weight: 600; }
+/* run story */
+.runlist { display: grid; max-height: 470px; overflow-y: auto; overscroll-behavior: contain; margin-inline: -6px; }
+.rrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "who ev by" "what what lat"; gap: 1px 8px; padding: 7px 6px; border-radius: 7px; align-items: baseline; font-size: 13px; }
+.rrow + .rrow { box-shadow: 0 -1px 0 var(--line); }
+.rrow .who { grid-area: who; font-family: var(--f-mono); font-size: 12px; font-weight: 600; }
+.rrow .ev { grid-area: ev; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow .by { grid-area: by; }
+.rrow .what { grid-area: what; color: var(--muted); font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+.rrow .lat { grid-area: lat; color: var(--muted); font-size: 11.5px; font-family: var(--f-mono); text-align: right; align-self: end; }
+.rrow .when { display: block; font-size: 10.5px; opacity: .85; }
+.rrow .saved { color: var(--accent-ink); font-weight: 600; }
+.rrow .err { color: var(--crit); }
+.rrow.pending { opacity: .6; }
+.rrow.mem { background: var(--accent-bg); box-shadow: none; }
+.rrow.mem + .rrow { box-shadow: none; }
+/* settled-by chips (also used in the call log and episodes) */
+.by, .tier { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.by { padding: 1px 7px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2); }
+.by.nano, .tier.nano, .tier.s1 { color: var(--s1); }
+.by.ultra, .tier.ultra, .tier.s2 { color: var(--s2); }
+.by.peer, .tier.peer, .tier.s15 { color: var(--s15); }
+.by.mem { background: var(--accent); color: var(--on-accent); }
+.by.paused, .tier.paused, .tier.job { color: var(--warn); }
+.by.err { color: var(--crit); }
+.tier.cosmos { color: var(--nvidia-ink); } .tier.ops { color: var(--plan); }
+
+/* decision mix */
+.mixbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--panel-2); gap: 2px; }
+.mixbar b { display: block; height: 100%; }
+.funnel { display: grid; gap: 4px; }
+.frow { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.frow i { width: 9px; height: 9px; border-radius: 2px; }
+.frow .num { font-weight: 600; text-align: right; }
+
+/* cameras */
+.cam-strip { display: grid; gap: 6px; padding-top: 4px; }
+.cams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cam { margin: 0; border-radius: 8px; overflow: hidden; background: var(--panel-2); display: grid; align-content: start; }
+.cam .shot { position: relative; }
+.cam img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.cam .tagl { position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--f-mono); font-size: 10.5px; color: #fff; background: rgba(10,14,12,.68); padding: 1px 6px; border-radius: 4px; }
+.cam .rec { position: absolute; right: 6px; top: 6px; font-family: var(--f-mono); font-size: 10px; color: #fff; background: rgba(10,14,12,.55); padding: 1px 6px; border-radius: 4px; }
+.cam figcaption { padding: 6px 8px 8px; display: grid; gap: 3px; font-size: 12px; }
+.cam figcaption > span:not(.act):not(.meta):not(.await) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--ink-2); }
+.cam .await { color: var(--muted); }
+.cam .act { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); }
+.act.escalate, .act.halt { color: var(--crit); } .act.reroute, .act.slow { color: var(--warn); } .act.proceed { color: var(--ok); }
+.cam .hz { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 11.5px; color: var(--muted); }
+.cam .hz span + span::before { content: "· "; }
+.cam .meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
 
 /* alarms */
-.alarms { display: grid; gap: 8px; }
-.alarm { display: grid; grid-template-columns: 4px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
-.alarm .stripe { background: var(--info); }
-.alarm[data-sev="crit"] .stripe { background: var(--crit); }
-.alarm[data-sev="warn"] .stripe { background: var(--warn); }
-.alarm .body { padding: 9px 12px; display: grid; gap: 4px; min-width: 0; }
-.alarm .row1 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.sev { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; }
-.sev.crit { color: var(--crit); background: var(--crit-bg); } .sev.warn { color: var(--warn); background: var(--warn-bg); } .sev.info { color: var(--info); background: var(--info-bg); }
-.alarm .t { font-weight: 600; }
-.alarm .meta { font-size: 13px; color: var(--muted); }
-.alarm .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.alarms { display: grid; max-height: 400px; overflow-y: auto; overscroll-behavior: contain; align-content: start; grid-auto-rows: max-content; margin-inline: -6px; }
+.alarm { display: grid; gap: 1px; padding: 7px 6px 5px; border-radius: 7px; min-width: 0; }
+.alarm + .alarm { box-shadow: 0 -1px 0 var(--line); }
+.alarm .row1 { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.sev { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; flex: none; display: inline-flex; align-items: center; gap: 5px; }
+.sev::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.sev.crit { color: var(--crit); } .sev.warn { color: var(--warn); } .sev.info { color: var(--info); }
+.alarm .t { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm .when { font-family: var(--f-mono); font-size: 11px; color: var(--muted); flex: none; }
+.alarm .meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm .acts { display: flex; gap: 2px; flex-wrap: wrap; margin-left: -6px; }
 .alarm.acked { opacity: .55; }
-.alarm.acked .stripe { background: var(--line); }
+.alarm.acked .sev { color: var(--muted); }
+details.older { padding: 6px; }
+details.older summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+details.older .alarms-old { display: grid; margin-top: 4px; }
+.alarm-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.count { font-family: var(--f-display); font-weight: 700; font-size: 12px; padding: 0 7px; border-radius: 999px; background: var(--crit-bg); color: var(--crit); }
+
+/* actions */
+.act-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tags span { font-family: var(--f-mono); font-size: 11px; background: var(--panel-2); border-radius: 4px; padding: 1px 6px; color: var(--ink-2); }
+.kv { display: grid; gap: 4px; }
+#actions-log { font-size: 12px; }
+
+/* system details: tabs */
+.details { padding: 0; gap: 0; }
+.tablist { display: flex; gap: 2px; overflow-x: auto; padding: 6px 8px 0; box-shadow: inset 0 -1px 0 var(--line); scrollbar-width: none; }
+.tablist button { border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 13.5px; padding: 8px 12px 9px; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; }
+.tablist button:hover { color: var(--ink); }
+.tablist button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabpanel { padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.pane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.pane-head .sub { color: var(--muted); font-size: 12.5px; }
 
 /* services */
-.svc { display: grid; gap: 0; }
-.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
-.srow:first-child { border-top: 0; padding-top: 0; }
-.srow .n { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.srow .id { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
-.srow .m { text-align: right; font-size: 13px; color: var(--muted); }
-.srow .m b { color: var(--ink); font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
-.tier { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid; }
-.tier.s1 { color: var(--s1); } .tier.s15 { color: var(--s15); } .tier.s2 { color: var(--s2); } .tier.job { color: var(--warn); } .tier.ops { color: var(--plan); }
-.pill { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
-.pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.idle { color: var(--muted); background: var(--panel-2); }
+.svc { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 0 24px; }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 9px 0; box-shadow: 0 -1px 0 var(--line); align-items: start; }
+.srow .n { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13.5px; }
+.srow .n::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--line); flex: none; }
+.svc .srow.nv .n::before { background: var(--nvidia); }
+.svc .srow.nb .n::before { background: var(--nebius); box-shadow: inset 0 0 0 1px var(--nebius-ink); }
+.srow .n .tier { font-weight: 600; font-size: 10.5px; }
+.srow .id { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; margin-left: 16px; }
+.srow .m { text-align: right; font-size: 11.5px; color: var(--muted); display: grid; justify-items: end; gap: 1px; }
+.srow .m b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 13px; }
+.pill { font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.idle { color: var(--muted); }
+.brandkey { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
+.brandkey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
 
 /* night shift */
-.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.stage { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel-2); }
-.stage h3 { font-size: 16px; }
-.stage .svcn { font-size: 12px; color: var(--s2); font-weight: 600; }
-.stage .big { font-family: var(--f-display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stage .note { font-size: 13px; color: var(--muted); }
-.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; } .bar b { display: block; height: 100%; background: var(--s2); }
-.ns-foot { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 14px; }
+.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: st; }
+.stage { padding: 10px 12px; border-radius: 8px; background: var(--panel-2); display: grid; gap: 2px; align-content: start; }
+.stage h3 { font-size: 14px; }
+.stage .svcn { font-size: 11.5px; color: var(--muted); }
+.stage .big { font-family: var(--f-display); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stage .note { font-size: 12px; color: var(--muted); }
+.stage.off { background: transparent; outline: 1px dashed var(--line); outline-offset: -1px; }
+.stage.off .big { color: var(--muted); }
+.bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 4px; } .bar b { display: block; height: 100%; background: var(--accent); }
+.ns-foot { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 13px; }
 .tau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tau input { width: 160px; accent-color: var(--accent); }
+.tau input { width: 180px; max-width: 100%; accent-color: var(--accent); }
+.tau .sub { color: var(--muted); font-size: 12px; }
 
-/* charts */
-.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-svg.chart { width: 100%; height: auto; display: block; }
+/* learning, memory, usage */
+.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.charts > div { display: grid; gap: 10px; min-width: 0; }
+svg.chart { width: 100%; height: auto; display: block; max-height: 220px; }
 svg.chart text { font-family: var(--f-body); font-size: 12px; fill: var(--muted); }
-.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
-.stat .v { font-family: var(--f-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stat .k { font-size: 13px; color: var(--muted); }
-.costbar { display: flex; height: 18px; border-radius: 6px; overflow: hidden; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.stat .v { font-family: var(--f-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.costbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
 .costbar b { display: block; height: 100%; }
-.costlegend { display: grid; gap: 4px; font-size: 13px; }
+.costlegend { display: grid; gap: 3px; font-size: 12.5px; }
 .costlegend div { display: flex; justify-content: space-between; gap: 10px; }
-.costlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
+.costlegend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; }
 
-/* log */
-.logbox { overflow-x: auto; }
-table.log { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
-table.log th { text-align: left; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-table.log td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* tables */
+.logbox, .rulebox { overflow-x: auto; }
+table.log, table.rt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.log { min-width: 760px; } table.rt { min-width: 720px; }
+table.log th, table.rt th { text-align: left; font-family: var(--f-display); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.log td, table.rt td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.log td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.rt td { vertical-align: top; }
+table.log td.wrapc { white-space: normal; min-width: 220px; }
 table.log tr.new td { animation: flash 1.4s ease-out; }
 @keyframes flash { from { background: var(--info-bg); } to { background: transparent; } }
 
-/* rules */
-details.rules { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
-details.rules summary { cursor: pointer; font-family: var(--f-display); font-size: 18px; font-weight: 700; }
-.rulebox { overflow-x: auto; margin-top: 10px; }
-table.rt { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
-table.rt th { text-align: left; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
-table.rt td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--panel);
-  padding: 10px 16px; border-radius: 9px; font-weight: 600; font-size: 14px; max-width: calc(100% - 32px); }
+  padding: 10px 16px; border-radius: 9px; font-weight: 600; font-size: 14px; max-width: calc(100% - 32px); z-index: 20; }
+dialog.ep { border: 0; border-radius: 12px; padding: 0; width: min(1100px, calc(100% - 24px)); max-height: calc(100% - 40px); background: var(--panel); color: var(--ink); }
+dialog.ep::backdrop { background: rgba(10, 14, 12, .5); }
+dialog.ep .dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+dialog.ep .dh h2 { font-size: 17px; }
+dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
 
-/* compact light console: NVIDIA green = NVIDIA models and primary actions; Nebius lime = Nebius services and Night Shift */
-body { font-size: 14px; }
-.wrap { padding-inline: 14px; padding-block: 10px 18px; gap: 10px; max-width: 1480px; }
-.top { padding-bottom: 8px; border-bottom: 3px solid; border-image: linear-gradient(90deg, var(--nvidia) 0 50%, var(--nebius) 50% 100%) 1; }
-.brand h1 { font-size: 22px; }
-.site { font-size: 13px; }
-.btn { padding: 5px 10px; font-size: 13px; border-radius: 6px; }
-.btn.primary { background: var(--nvidia); border-color: var(--nvidia); color: #0b1400; }
-.btn.sm { padding: 3px 8px; font-size: 12.5px; }
-.kpis { gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-.kpi { padding: 7px 10px; border-radius: 8px; gap: 0; }
-.kpi .v { font-size: 23px; }
-.kpi .d { font-size: 12px; }
-.label { font-size: 11px; }
-[hidden] { display: none !important; }
-/* stage layout: the live floor owns the page; operator panels sit compactly around it */
-.wrap { max-width: 1880px; }
-.stage-grid { display: grid; grid-template-columns: minmax(250px, 290px) minmax(0, 1fr) minmax(270px, 310px); gap: 10px; align-items: start; }
-.rail { display: grid; gap: 10px; min-width: 0; }
-.rail .panel { padding: 10px 12px; gap: 8px; }
-.rail .ph h2 { font-size: 15px; }
-.rail .ph .sub { font-size: 11.5px; }
-.floor-panel { padding: 10px 12px; gap: 8px; }
-.floor-panel canvas#floor { aspect-ratio: 16 / 8.4; }
-.floor-panel .legend { font-size: 12px; }
-.cam-strip { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
-.cam-strip .ph h3 { font-size: 14px; font-weight: 700; }
-.cam-strip .cams { gap: 8px; }
-.cam-strip .cam .tagl { font-size: 10px; max-width: calc(100% - 54px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cam-strip .cam figcaption { padding: 5px 7px; gap: 3px; font-size: 11.5px; }
-.cam-strip .cam figcaption > span:not(.act):not(.meta):not(.await) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.rail .runlist { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; grid-auto-rows: max-content; }
-.rail .rrow { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: "r g n" "w w w"; gap: 2px 6px; font-size: 12px; padding: 5px 0; }
-.rail .rrow > span:nth-child(1) { display: none; }
-.rail .rrow > span:nth-child(2) { grid-area: r; font-weight: 600; }
-.rail .rrow > .gate { grid-area: g; display: block !important; }
-.rail .rrow > .what { grid-area: w; color: var(--muted); }
-.rail .rrow > .num { grid-area: n; }
-.rail .frow { grid-template-columns: 92px minmax(0, 1fr) 44px; font-size: 12.5px; gap: 6px; }
-.rail .alarms { max-height: 290px; }
-.rail .srow { padding: 7px 0; }
-.rail .srow .id { font-size: 11.5px; }
+/* responsive */
 @media (max-width: 1280px) {
   .stage-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .floor-panel { grid-column: 1 / -1; order: -1; }
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpi.hero { grid-column: 1 / -1; border-radius: var(--r) var(--r) 0 0; }
+  .kpi:nth-child(2), .kpi:nth-child(6) { box-shadow: none; }
+  .kpi:nth-child(n+2) { border-top: 1px solid var(--line); }
+  .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
-@media (max-width: 760px) { .stage-grid { grid-template-columns: minmax(0, 1fr); } }
-
-
-/* alarms: compact rows, scroll inside the panel so the grid never grows a tall column */
-.alarms { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; gap: 6px; padding-right: 2px; align-content: start; grid-auto-rows: max-content; }
-.alarm .body { padding: 6px 10px; gap: 2px; }
-.alarm .row1 { flex-wrap: nowrap; min-width: 0; }
-.alarm .t { font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.alarm .when { font-family: var(--f-mono); font-size: 11px; color: var(--muted); flex: none; }
-.alarm .meta { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.alarm .acts .btn { padding: 1px 8px; font-size: 12px; }
-details.older { border-top: 1px dashed var(--line); padding-top: 4px; }
-details.older summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 2px; }
-details.older .alarms-old { display: grid; gap: 6px; margin-top: 6px; }
-.grid, .col, .charts { gap: 10px; }
-.charts { align-items: start; }
-.panel { padding: 9px 12px; gap: 8px; border-radius: 8px; }
-.ph h2 { font-size: 16px; }
-.ph .sub { font-size: 12px; }
-canvas#floor { aspect-ratio: 1584 / 672; }
-.legend { font-size: 12px; gap: 4px 12px; }
-.funnel { gap: 5px; }
-.frow { grid-template-columns: 112px minmax(0, 1fr) 50px; font-size: 13px; gap: 8px; }
-.track { height: 10px; }
-.alarms { gap: 6px; }
-.alarm .body { padding: 6px 10px; gap: 2px; }
-.alarm .t { font-size: 13.5px; }
-.alarm .meta { font-size: 12px; }
-.srow { padding: 6px 0; }
-.srow .n { font-size: 13.5px; }
-.srow .id { font-size: 11px; }
-.srow .m { font-size: 11.5px; }
-.srow .n::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--line); flex: none; }
-.brandkey { display: flex; gap: 10px; font-size: 11.5px; color: var(--muted); }
-.brandkey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
-.stages { gap: 8px; }
-.stage { padding: 7px 10px; gap: 2px; border-radius: 8px; background: var(--panel); border-top: 3px solid var(--nebius); }
-.stage h3 { font-size: 14px; }
-.stage .svcn { color: var(--nebius-ink); font-size: 11.5px; }
-.stage .big { font-size: 19px; }
-.stage .note { font-size: 12px; }
-.bar { height: 4px; } .bar b { background: var(--nebius-ink); }
-.ns-foot { font-size: 13px; }
-.tau input { accent-color: var(--nvidia); }
-.stats { gap: 6px 12px; }
-.stat .v { font-size: 20px; }
-.stat .k { font-size: 12px; }
-.costbar { height: 13px; }
-.costlegend { font-size: 12px; gap: 2px; }
-table.log { font-size: 12.5px; }
-table.log th, table.log td { padding: 4px 6px; }
-details.rules { padding: 8px 12px; border-radius: 8px; }
-details.rules summary { font-size: 15px; }
-table.rt { font-size: 12.5px; }
-table.rt td, table.rt th { padding: 5px 6px; }
-
-.scene-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel); }
-.scene-switch button { border: 0; background: transparent; padding: 4px 11px; font-weight: 600; font-size: 13px; color: var(--muted); }
-.scene-switch button[aria-pressed="true"] { background: var(--nvidia); color: #0b1400; }
-.cams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.cam { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); display: grid; }
-.cam .shot { position: relative; }
-.cam img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
-.cam .tagl { position: absolute; left: 6px; top: 6px; font-family: var(--f-mono); font-size: 11px; color: #fff; background: rgba(10,14,12,.72); padding: 2px 6px; border-radius: 4px; }
-.cam .rec { position: absolute; right: 6px; top: 6px; font-family: var(--f-mono); font-size: 10.5px; color: #fff; background: rgba(204,52,52,.85); padding: 2px 6px; border-radius: 4px; }
-.cam figcaption { padding: 7px 9px; display: grid; gap: 4px; font-size: 12.5px; }
-.cam .await { color: var(--muted); }
-.cam .act { font-family: var(--f-display); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; justify-self: start; }
-.act.escalate, .act.halt { color: var(--crit); background: var(--crit-bg); } .act.reroute, .act.slow { color: var(--warn); background: var(--warn-bg); } .act.proceed { color: var(--ok); background: var(--ok-bg); }
-.cam .hz { display: flex; flex-wrap: wrap; gap: 4px; }
-.cam .hz span { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
-.cam .meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
-@media (max-width: 1180px) { .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .cams { grid-template-columns: minmax(0, 1fr); } }
-
-@media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid .col:first-child { grid-column: 1 / -1; } .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-@media (max-width: 760px) { .wrap { padding-inline: 16px; } .grid, .charts { grid-template-columns: minmax(0, 1fr); } .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frow { grid-template-columns: 110px minmax(0, 1fr) 54px; } }
+@media (max-width: 1100px) { .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .wrap { padding-inline: 12px; }
+  .stage-grid, .charts { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(n) { box-shadow: none; }
+  .kpi:nth-child(odd):not(.hero) { box-shadow: inset 1px 0 0 var(--line); }
+  .kpi.hero .v { font-size: 34px; }
+  .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .top-actions .sep { display: none; }
+}
+@media (max-width: 420px) { .cam figcaption > span:not(.act):not(.meta):not(.await) { -webkit-line-clamp: 3; } }
 @media (prefers-reduced-motion: reduce) { table.log tr.new td { animation: none; } }
-
-/* live wiring */
-.svc .srow.nv .n::before { background: var(--nvidia); }
-.svc .srow.nb .n::before { background: var(--nebius); box-shadow: inset 0 0 0 1px var(--nebius-ink); }
-.example.live { color: var(--ok); background: var(--ok-bg); }
-.example.off { color: var(--muted); background: var(--panel-2); }
-.banner { border: 1px solid var(--line); border-left: 4px solid var(--warn); background: var(--panel); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
-.banner[hidden] { display: none; }
-.btn:disabled { opacity: .55; cursor: progress; }
-a.btn { text-decoration: none; display: inline-block; }
-.empty { color: var(--muted); font-size: 13px; }
-.runlist { display: grid; gap: 4px; }
-.rrow { display: grid; grid-template-columns: 64px 44px 150px minmax(0, 1fr) 56px; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--line); }
-.rrow:first-child { border-top: 0; }
-.rrow .num { text-align: right; }
-.rrow .what { min-width: 0; overflow-wrap: anywhere; }
-.rrow .err { color: var(--crit); }
-.rrow.pending { color: var(--muted); }
-.tier.peer { color: var(--s15); } .tier.nano { color: var(--s1); } .tier.ultra { color: var(--s2); } .tier.cosmos { color: var(--nvidia-ink); } .tier.paused { color: var(--warn); }
-.tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.tags span { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--muted); }
-dialog.ep { border: 1px solid var(--line); border-radius: 10px; padding: 0; width: min(1100px, calc(100% - 24px)); max-height: calc(100% - 40px); background: var(--panel); color: var(--ink); }
-dialog.ep::backdrop { background: rgba(10, 14, 12, .45); }
-dialog.ep .dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
-dialog.ep .db { padding: 8px 14px 14px; overflow-x: auto; }
-table.log td.wrapc { white-space: normal; min-width: 220px; }
-@media (max-width: 560px) { .rrow { grid-template-columns: 40px 48px minmax(0, 1fr) 58px; } .rrow .gate { display: none; } }
 </style>
 
 <div class="wrap">
@@ -302,13 +294,14 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     <div class="brand">
       <h1>NemoFleet Ops</h1>
       <span class="site"><span id="site-label">—</span> · <span id="clock" class="num">--:--:--</span></span>
-      <span class="example off" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
+      <span class="mode" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
       <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button></div>
     </div>
     <div class="top-actions">
-      <button class="btn primary" id="act-run">Run scenario</button>
+      <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
       <button class="btn" id="act-night">Run Night Shift now</button>
-      <a class="btn" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
+      <button class="btn primary" id="act-run">Run scenario</button>
+      <span class="sep" aria-hidden="true"></span>
       <button class="btn danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
     </div>
   </header>
@@ -319,88 +312,96 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   <div class="stage-grid">
     <aside class="rail rail-left" aria-label="Run and decisions">
       <section class="panel" aria-labelledby="h-run">
-    <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: perception on camera frames, fleet memory lookup, then Nano or Ultra through the escalation gate.</span></div>
-    <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
-  </section>
+        <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: perception on camera frames, fleet memory lookup, then Nano or Ultra through the escalation gate.</span></div>
+        <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
+      </section>
       <section class="panel" aria-labelledby="h-tier">
         <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub" id="tier-sub">no data yet</span></div>
         <div class="funnel" id="funnel"></div>
       </section>
     </aside>
+
     <section class="panel floor-panel" aria-labelledby="h-floor">
-        <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulated motion · quarantine zones and halts from live KV tags</span></div>
-        <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
-        <div class="legend">
-          <span><i style="background:var(--s1)"></i>Moving (simulated)</span>
-          <span><i style="background:var(--warn)"></i>Knows a hazard (peer)</span>
-          <span><i style="background:var(--crit)"></i>Halted (KV tag)</span>
-          <span><i style="background:var(--s15)"></i>Handshake</span>
-          <span><i style="background:#f5d90a"></i>Person</span>
-        </div>
+      <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulated motion · quarantine zones and halts from live KV tags</span></div>
+      <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
+      <div class="legend">
+        <span><i style="background:var(--map-ok)"></i>Moving (simulated)</span>
+        <span><i style="background:var(--map-warn)"></i>Knows a hazard (peer)</span>
+        <span><i style="background:var(--map-crit)"></i>Halted (KV tag)</span>
+        <span><i style="background:var(--map-peer)"></i>Handshake</span>
+        <span><i style="background:#f5d90a"></i>Person</span>
+      </div>
       <div class="cam-strip" aria-labelledby="h-cams">
         <div class="ph"><h3 id="h-cams">Robot cameras · perception</h3><span class="sub"><span id="cams-model">—</span> · frames are simulation renders, results are stored real responses</span></div>
-    <div class="cams" id="cams"></div>
-  </div>
-      </section>
-    <aside class="rail rail-right" aria-label="Alarms, actions and services">
+        <div class="cams" id="cams"></div>
+      </div>
+    </section>
+
+    <aside class="rail rail-right" aria-label="Alarms and actions">
       <section class="panel" aria-labelledby="h-alarms">
-        <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">0</span> open · <button class="btn sm" id="act-episodes">Review episodes</button> <button class="btn sm" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
+        <div class="ph"><h2 id="h-alarms">Alarms <span class="count num"><span id="open-count">0</span> open</span></h2>
+          <span class="alarm-head"><button class="btn link" id="act-episodes">Review episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
         <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">written to D1 and KV</span></div>
-        <div class="top-actions">
+        <div class="act-grid">
           <button class="btn sm" id="q-btn" data-action="quarantine_zone">Quarantine zone</button>
           <button class="btn sm" id="halt-btn" data-action="halt" data-robot="R07">Halt robot R07</button>
           <button class="btn sm" id="esc-btn" data-action="escalate">Escalate to Ultra</button>
           <button class="btn sm" id="bc-btn" data-action="broadcast_hazard">Broadcast hazard</button>
           <button class="btn sm danger" id="rb-btn" data-action="rollback_nano" data-confirm="Confirm: roll back Nano?">Roll back Nano</button>
         </div>
-        <div><div class="label">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
-        <div><div class="label">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
-      </section>
-      <section class="panel" aria-labelledby="h-svc">
-        <div class="ph"><h2 id="h-svc">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
-        <div class="svc" id="svc"></div>
+        <div class="kv"><div class="label">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
+        <div class="kv"><div class="label">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
       </section>
     </aside>
   </div>
 
-  <section class="panel" aria-labelledby="h-ns">
-    <div class="ph"><h2 id="h-ns">Night Shift <span id="ns-night"></span></h2><span class="sub">Replay runs live on Token Factory. Dream, Gate and Consolidate need the Serverless Jobs runner, which is not built yet.</span></div>
-    <div class="stages" id="stages"></div>
-    <div class="ns-foot">
-      <div class="tau"><label for="tau" class="label">Escalation threshold τ for next run</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">—</span></div>
-      <button class="btn sm" id="tau-save">Apply τ</button>
+  <section class="panel details" aria-label="System details">
+    <div class="tablist" role="tablist" aria-label="System details">
+      <button role="tab" id="tab-svc" aria-controls="pane-svc" aria-selected="true">Models and services</button>
+      <button role="tab" id="tab-ns" aria-controls="pane-ns" aria-selected="false" tabindex="-1">Night Shift</button>
+      <button role="tab" id="tab-learn" aria-controls="pane-learn" aria-selected="false" tabindex="-1">Learning and usage</button>
+      <button role="tab" id="tab-log" aria-controls="pane-log" aria-selected="false" tabindex="-1">Model call log</button>
+      <button role="tab" id="tab-rules" aria-controls="pane-rules" aria-selected="false" tabindex="-1">Alarm rules</button>
     </div>
-  </section>
 
-  <div class="charts">
-    <section class="panel" aria-labelledby="h-learn">
-      <div class="ph"><h2 id="h-learn">Learning curve</h2><span class="sub">Ultra share of model decisions, % by run</span></div>
-      <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra share of model decisions by scenario run"></svg>
-    </section>
-    <section class="panel" aria-labelledby="h-peer">
-      <div class="ph"><h2 id="h-peer">Fleet memory</h2><span class="sub">D1 precedents · KV tags</span></div>
-      <div class="stats" id="stats"></div>
-    </section>
-    <section class="panel" aria-labelledby="h-cost">
-      <div class="ph"><h2 id="h-cost">Usage today</h2><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
-      <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
-      <div class="costlegend" id="costlegend"></div>
-      <div class="empty" id="perc-billing"></div>
-    </section>
-  </div>
+    <div class="tabpanel" role="tabpanel" id="pane-svc" aria-labelledby="tab-svc" tabindex="0">
+      <div class="pane-head"><h2 id="h-svc" class="sr-only">Models and services</h2><span class="sub">What runs where, its live status and measured latency</span><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
+      <div class="svc" id="svc"></div>
+    </div>
 
-  <section class="panel" aria-labelledby="h-log">
-    <div class="ph"><h2 id="h-log">Model call log</h2><span class="sub">every Token Factory call, from D1 · newest first</span></div>
-    <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
-  </section>
+    <div class="tabpanel" role="tabpanel" id="pane-ns" aria-labelledby="tab-ns" tabindex="0" hidden>
+      <div class="pane-head"><h2 id="h-ns" class="sr-only">Night Shift</h2><span class="sub">Replay runs live on Token Factory. Dream, Gate and Consolidate need the Serverless Jobs runner, which is not built yet. <span id="ns-night"></span></span></div>
+      <div class="stages" id="stages"></div>
+      <div class="ns-foot">
+        <div class="tau"><label for="tau" class="label">Escalation threshold τ for next run</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">—</span></div>
+        <button class="btn sm" id="tau-save">Apply τ</button>
+      </div>
+    </div>
 
-  <details class="rules">
-    <summary>Alarm rules and thresholds (design)</summary>
-    <p class="empty">Raised live today: person or safety event (critical), hazard sighting (warning), operator quarantine and pause (info). The other rules are the design for the full system.</p>
-    <div class="rulebox"><table class="rt">
+    <div class="tabpanel" role="tabpanel" id="pane-learn" aria-labelledby="tab-learn" tabindex="0" hidden>
+      <div class="charts">
+        <div><div class="ph"><h3 id="h-learn">Learning curve</h3><span class="sub">Ultra share of model decisions, % by run</span></div>
+          <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra share of model decisions by scenario run"></svg></div>
+        <div><div class="ph"><h3 id="h-peer">Fleet memory</h3><span class="sub">D1 precedents · KV tags</span></div>
+          <div class="stats" id="stats"></div></div>
+        <div><div class="ph"><h3 id="h-cost">Usage today</h3><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
+          <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
+          <div class="costlegend" id="costlegend"></div>
+          <div class="empty" id="perc-billing"></div></div>
+      </div>
+    </div>
+
+    <div class="tabpanel" role="tabpanel" id="pane-log" aria-labelledby="tab-log" tabindex="0" hidden>
+      <div class="pane-head"><h2 id="h-log" class="sr-only">Model call log</h2><span class="sub">Every Token Factory call, from D1 · newest first</span></div>
+      <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
+    </div>
+
+    <div class="tabpanel" role="tabpanel" id="pane-rules" aria-labelledby="tab-rules" tabindex="0" hidden>
+      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds (design)</h2><span class="sub">Raised live today: person or safety event (critical), hazard sighting (warning), operator quarantine and pause (info). The other rules are the design for the full system.</span></div>
+      <div class="rulebox"><table class="rt">
       <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
       <tbody>
         <tr><td>Person in lane</td><td><span class="sev crit">Critical</span></td><td>Perception or sensors detect a person in a robot lane</td><td>Nearest robots halt; always escalates to Ultra</td><td>Confirm zone clear, release</td></tr>
@@ -417,7 +418,8 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
         <tr><td>Robot offline</td><td><span class="sev warn">Warning</span></td><td>No heartbeat for 10 s</td><td>Planner reserves its last cell</td><td>Dispatch technician</td></tr>
       </tbody>
     </table></div>
-  </details>
+    </div>
+  </section>
 </div>
 <dialog class="ep" id="episodes" aria-labelledby="h-ep">
   <div class="dh"><h2 id="h-ep">Episodes · <span id="ep-scene"></span></h2><button class="btn sm" id="ep-close">Close</button></div>
@@ -509,9 +511,10 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
       ['Tokens used', d.calls.length ? d.tokens.toLocaleString('en-US') : DASH, d.calls.length ? `${d.calls.length} model calls (last 200)` : 'no data yet'],
       ['Halted robots', ST ? String(halted) : DASH, ST ? `${zones} zone${zones === 1 ? '' : 's'} quarantined${ST.paused ? ' · <span class="bad">fleet paused</span>' : ''}` : 'no data yet'],
     ];
-    $('kpis').innerHTML = k.map(([l, v, s]) => `<div class="kpi"><span class="label">${l}</span><span class="v num">${v}</span><span class="d">${s}</span></div>`).join('');
+    $('kpis').innerHTML = k.map(([l, v, s], i) => `<div class="kpi${i ? '' : ' hero'}"><span class="label">${l}</span><span class="v num">${v}</span><span class="d">${s}</span></div>`).join('');
     const rows = [['Nano reflex', d.nanoOnly, '--s1'], ['Peer precedent', d.peer, '--s15'], ['Ultra (novel / unsure)', d.ultraOther, '--s2'], ['Ultra (safety)', d.ultraSafety, '--crit']];
-    $('funnel').innerHTML = rows.map(([n, v, c]) => { const p = pct(v, d.total); return `<div class="frow"><span>${n}</span><span class="track"><b style="width:${p ?? 0}%;background:var(${c})"></b></span><span class="num">${fmtPct(p)}</span></div>`; }).join('');
+    $('funnel').innerHTML = `<div class="mixbar" role="img" aria-label="Share of decisions settled at each step">${d.total ? rows.filter(r => r[1]).map(([n, v, c]) => `<b style="flex:${v};background:var(${c})" title="${n}"></b>`).join('') : ''}</div>` +
+      rows.map(([n, v, c]) => `<div class="frow"><i style="background:var(${c})"></i><span>${n}</span><span class="num">${fmtPct(pct(v, d.total))}</span></div>`).join('');
     $('tier-sub').textContent = d.total ? `${d.total} events · last 200 calls` : 'no data yet';
     const pb = $('act-pause'); if (!pb.classList.contains('confirming')) { pb.textContent = ST?.paused ? 'Resume fleet' : 'Pause fleet'; pb.dataset.confirm = ST?.paused ? '' : 'Confirm: pause the fleet?'; }
   }
@@ -521,10 +524,10 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   const human = t => String(t || '').replace(/\b([a-z]+(?:_[a-z]+)+)\b/g, w => w.replace(/_/g, ' ')).replace(/^\w/, c => c.toUpperCase());
   function alarmEl(a) {
     const el = document.createElement('div'); el.className = 'alarm' + (a.status === 'acked' ? ' acked' : ''); el.dataset.sev = a.sev;
-    el.innerHTML = `<div class="stripe"></div><div class="body"><div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t" title="${esc(human(a.title))}">${esc(human(a.title))}</span><span class="when">${hhmmss(a.created_at)}</span></div>` +
-      (a.meta ? `<div class="meta" title="${esc(a.meta)}">${esc(human(a.meta))}</div>` : '') + `<div class="acts"></div></div>`;
+    el.innerHTML = `<div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t" title="${esc(human(a.title))}">${esc(human(a.title))}</span><span class="when">${hhmmss(a.created_at)}</span></div>` +
+      (a.meta ? `<div class="meta" title="${esc(a.meta)}">${esc(human(a.meta))}</div>` : '') + `<div class="acts"></div>`;
     const acts = el.querySelector('.acts');
-    const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
+    const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
     add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
     add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared from KV`; });
     if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); });
@@ -603,13 +606,13 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     const rows = ST?.night_shift || [], rep = rows.find(r => r.stage === 'replay'), met = parse(rep?.metrics_json) || {};
     const nano = (ST?.calls || []).filter(c => c.tier === 'nano' && c.valid === 1), done = nano.filter(c => c.replay_json).length;
     $('ns-night').textContent = rep ? `· last run ${rep.night}` : ST ? '· no run yet' : '';
-    const stage = (h, svc, big, note, w) => `<div class="stage"><h3>${h}</h3><span class="svcn">${svc}</span><span class="big">${big}</span><span class="note">${note}</span><span class="bar"><b style="width:${w}%"></b></span></div>`;
+    const stage = (h, svc, big, note, w, off) => `<div class="stage${off ? ' off' : ''}"><h3>${h}</h3><span class="svcn">${svc}</span><span class="big">${big}</span><span class="note">${note}</span><span class="bar"><b style="width:${w}%"></b></span></div>`;
     $('stages').innerHTML =
       stage('1 Replay', 'Token Factory · Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
         rep ? `decisions re-judged · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}` : 'no replay yet: Run Night Shift now', nano.length ? Math.round(100 * done / nano.length) : 0) +
-      stage('2 Dream', 'Serverless Jobs', DASH, 'Not built yet: needs the Serverless Jobs runner', 0) +
-      stage('3 Gate', 'Serverless Jobs', DASH, 'Not built yet', 0) +
-      stage('4 Consolidate', 'H200 job · MLflow', DASH, 'Not built yet: no LoRA adapter trained', 0);
+      stage('2 Dream', 'Serverless Jobs', DASH, 'Not built yet: needs the Serverless Jobs runner', 0, true) +
+      stage('3 Gate', 'Serverless Jobs', DASH, 'Not built yet', 0, true) +
+      stage('4 Consolidate', 'H200 job · MLflow', DASH, 'Not built yet: no LoRA adapter trained', 0, true);
     const tau = $('tau');
     if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }
     $('tau-note').textContent = ST ? `in use ${Number(ST.tau).toFixed(2)} · scenario default ${Number(ST.tau_default).toFixed(2)}` : DASH;
@@ -676,11 +679,21 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
     const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
     const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
     const rows = [...byEv.values()];
-    $('run-sub').textContent = `Last run ${run} · ${rows.length} model decisions · click Run scenario for a new one`;
+    $('run-sub').textContent = `Last run ${run} · ${rows.length} model decisions`;
+    // a hazard event (sighting / variant) that ends on Nano only happens when a stored Ultra precedent for the cell was reused (functions/api scenario/step)
     $('runlist').innerHTML = rows.map(e => { const f = e.final || e, d = parse(f.decision_json), tier = e.tiers.includes('ultra') ? 'ultra' : 'nano';
-      const mem = tier === 'nano' && /sighting|variant/.test(e.event) ? ' · <b>fleet memory, no Ultra call</b>' : '';
-      return `<div class="rrow"><span class="mono">${hhmmss(e.ts)}</span><span class="mono">${esc(e.robot || DASH)}</span><span class="gate"><span class="tier ${tier}">${tier.toUpperCase()}</span> ${esc(human(e.event))}</span>` +
-        `<span class="what">${d ? esc(d.actions.map(a => human(a.type) + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${d.confidence}` : '<span class="err">no valid decision</span>'}${mem}</span><span class="num mono">${fmtMs(f.latency_ms)}</span></div>`; }).join('');
+      const by = tier === 'nano' && /sighting|variant/.test(e.event) ? 'mem' : tier;
+      return runRow({ when: hhmmss(e.ts), robot: e.robot || DASH, event: esc(human(e.event)), by, lat: fmtMs(f.latency_ms),
+        what: (d ? esc(d.actions.map(a => human(a.type) + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${d.confidence}` : '<span class="err">no valid decision</span>') +
+          (by === 'mem' ? ' · <span class="saved">Ultra call avoided</span>' : '') }); }).join('');
+  }
+  // one row of the run story: robot · event · which step settled it, then what was decided and how long it took
+  const BY = { mem: ['Memory', 'Fleet memory: Nano applied a stored Ultra decision, no Ultra call'], nano: ['Nano', 'Settled by Nemotron Nano (reflex)'], ultra: ['Ultra', 'Escalated to Nemotron Ultra'],
+    peer: ['Peer', 'Peer handshake, no model call'], paused: ['Paused', 'Fleet paused, no model call'], err: ['Failed', 'This step returned an error'] };
+  function runRow({ when, robot, event, by, what, lat, pending }) {
+    const b = BY[by];
+    return `<div class="rrow${by === 'mem' ? ' mem' : ''}${pending ? ' pending' : ''}"><span class="who">${esc(robot)}</span><span class="ev">${event}</span>` +
+      (b ? `<span class="by ${by}" title="${b[1]}">${b[0]}</span>` : '<span class="by">waiting</span>') + `<span class="what">${what}</span><span class="lat">${lat || ''}<span class="when">${when}</span></span></div>`;
   }
   function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
   async function refresh() {
@@ -693,13 +706,14 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   // ---- Run scenario: start → step each event → finish ----
   const KIND = { routine: 'routine', first_sighting: 'first sighting', repeat_sighting: 'repeat sighting', peer_handshake: 'peer handshake', safety: 'safety', variant: 'variant' };
   function rrow(ev, r, err) {
-    const tier = r ? (r.tier === 'peer' ? 'peer' : r.tier) : null;
+    const by = err ? 'err' : !r ? null : r.memory?.ultra_avoided ? 'mem' : r.tier;
+    const gate = r && r.gate && !['settled', 'fleet_memory'].includes(r.gate) && r.tier !== 'peer' && r.tier !== 'paused' ? `Gate: ${esc(human(r.gate))} · ` : '';
     const what = err ? `<span class="err">${esc(err)}</span>` : !r ? esc(ev.text.slice(0, 110)) + (ev.text.length > 110 ? '…' : '') :
       r.tier === 'peer' || r.tier === 'paused' ? esc(r.note) :
-      (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision after retry → safe stop</span>`) +
-      (r.memory ? (r.memory.ultra_avoided ? ` · <b>fleet memory: reused Ultra's decision for cell ${esc(r.memory.cell)}, no Ultra call</b>` : ` · fleet memory: precedent for cell ${esc(r.memory.cell)} did not fit, escalated`) : '') +
+      gate + (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision after retry → safe stop</span>`) +
+      (r.memory ? (r.memory.ultra_avoided ? ` · <span class="saved">fleet memory: reused Ultra's decision for cell ${esc(r.memory.cell)}, no Ultra call</span>` : ` · fleet memory: precedent for cell ${esc(r.memory.cell)} did not fit, escalated`) : '') +
       (r.perception ? ` · ${esc(r.perception_model || 'perception')}: ${esc(r.perception.recommended_action || '?')}` : r.perception_error ? ` · <span class="err">perception unavailable</span>` : '');
-    return `<div class="rrow${r || err ? '' : ' pending'}"><span class="mono">t=${ev.t}s</span><span class="mono">${esc(ev.robot)}</span><span class="gate">${r ? `<span class="tier ${tier}">${esc(r.tier.toUpperCase())}</span> ${esc(r.gate || '')}` : esc(KIND[ev.kind] || ev.kind)}</span><span class="what">${what}</span><span class="num mono">${r && r.latency_ms ? fmtMs(r.latency_ms) : r ? '0 calls' : ''}</span></div>`;
+    return runRow({ when: `t=${ev.t}s`, robot: ev.robot, event: esc(human(KIND[ev.kind] || ev.kind)), by, what, pending: !r && !err, lat: r && r.latency_ms ? fmtMs(r.latency_ms) : r ? '0 calls' : '' });
   }
   async function runScenario() {
     if (BUSY) return 'A run is already in progress';
@@ -742,6 +756,25 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
         `<td class="wrapc">${d ? esc(d.actions.map(a => a.type).join(', ')) + ' · ' + esc(d.rationale || '') : DASH}</td><td class="wrapc">${v ? (v.agree === true ? 'agrees' : v.agree === false ? '<span class="bad">disagrees</span>' : 'unparsed') + ' · ' + esc(v.reason || '') + (v.better_action ? ' · better: ' + esc(v.better_action) : '') : e.tier === 'nano' && e.valid ? 'not replayed yet' : DASH}</td></tr>`; }).join('');
   }
   $('ep-close').addEventListener('click', () => dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+
+  // ---- system details tabs (WAI-ARIA tabs: arrow keys, Home/End; the choice is remembered per browser) ----
+  const tabs = [...document.querySelectorAll('.tablist [role="tab"]')];
+  function selectTab(t, focus) {
+    tabs.forEach(b => { const on = b === t; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; $(b.getAttribute('aria-controls')).hidden = !on; });
+    if (focus) t.focus();
+    if (t.id === 'tab-learn') drawLearn();
+    try { localStorage.setItem('nemofleet-tab', t.id); } catch (e) {}
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => selectTab(t));
+    t.addEventListener('keydown', e => {
+      const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (j == null) return; e.preventDefault(); selectTab(tabs[(j + tabs.length) % tabs.length], true);
+    });
+  });
+  try { const saved = $(localStorage.getItem('nemofleet-tab') || ''); if (saved && tabs.includes(saved)) selectTab(saved); } catch (e) {}
+  // Night Shift results land in its tab: show it when the run starts
+  $('act-night').addEventListener('click', () => { if (LIVE) selectTab($('tab-ns')); });
 
   // ---- buttons ----
   wire($('act-run'), runScenario);
@@ -813,7 +846,7 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   }
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const C = { ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: css('--ink'), floor: css('--map-floor') };
+    const C = { ok: css('--map-ok'), warn: css('--map-warn'), crit: css('--map-crit'), peer: css('--map-peer'), ink: css('--map-ink'), floor: css('--map-floor') };
     const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
     cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
@@ -892,10 +925,10 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
   function setMode() {
     const m = $('mode'), b = $('banner');
     if (LIVE) {
-      m.className = 'example live'; m.textContent = 'Live · D1 · KV · R2'; m.title = 'Connected to the NemoFleet API; every number comes from stored real calls';
+      m.className = 'mode live'; m.textContent = 'Live · D1 · KV · R2'; m.title = 'Connected to the NemoFleet API; every number comes from stored real calls';
       b.hidden = HEALTH.nebius_key; b.textContent = 'Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project.';
     } else {
-      m.className = 'example off'; m.textContent = 'Offline preview'; m.title = 'The NemoFleet API is not reachable from this page';
+      m.className = 'mode'; m.textContent = 'Offline preview'; m.title = 'The NemoFleet API is not reachable from this page';
       b.hidden = false; b.innerHTML = `Offline preview: this copy of the console is not connected to the NemoFleet API, so it shows no data. Open <a href="${LIVE_URL}">${LIVE_URL}</a> to run scenarios with real model calls.`;
     }
   }
