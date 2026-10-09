@@ -159,9 +159,42 @@ body { font-size: 14px; }
 .kpi .d { font-size: 12px; }
 .label { font-size: 11px; }
 [hidden] { display: none !important; }
+/* stage layout: the live floor owns the page; operator panels sit compactly around it */
+.wrap { max-width: 1880px; }
+.stage-grid { display: grid; grid-template-columns: minmax(250px, 290px) minmax(0, 1fr) minmax(270px, 310px); gap: 10px; align-items: start; }
+.rail { display: grid; gap: 10px; min-width: 0; }
+.rail .panel { padding: 10px 12px; gap: 8px; }
+.rail .ph h2 { font-size: 15px; }
+.rail .ph .sub { font-size: 11.5px; }
+.floor-panel { padding: 10px 12px; gap: 8px; }
+.floor-panel canvas#floor { aspect-ratio: 16 / 8.4; }
+.floor-panel .legend { font-size: 12px; }
+.cam-strip { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.cam-strip .ph h3 { font-size: 14px; font-weight: 700; }
+.cam-strip .cams { gap: 8px; }
+.cam-strip .cam .tagl { font-size: 10px; max-width: calc(100% - 54px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-strip .cam figcaption { padding: 5px 7px; gap: 3px; font-size: 11.5px; }
+.cam-strip .cam figcaption > span:not(.act):not(.meta):not(.await) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rail .runlist { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; grid-auto-rows: max-content; }
+.rail .rrow { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: "r g n" "w w w"; gap: 2px 6px; font-size: 12px; padding: 5px 0; }
+.rail .rrow > span:nth-child(1) { display: none; }
+.rail .rrow > span:nth-child(2) { grid-area: r; font-weight: 600; }
+.rail .rrow > .gate { grid-area: g; display: block !important; }
+.rail .rrow > .what { grid-area: w; color: var(--muted); }
+.rail .rrow > .num { grid-area: n; }
+.rail .frow { grid-template-columns: 92px minmax(0, 1fr) 44px; font-size: 12.5px; gap: 6px; }
+.rail .alarms { max-height: 290px; }
+.rail .srow { padding: 7px 0; }
+.rail .srow .id { font-size: 11.5px; }
+@media (max-width: 1280px) {
+  .stage-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .floor-panel { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 760px) { .stage-grid { grid-template-columns: minmax(0, 1fr); } }
+
 
 /* alarms: compact rows, scroll inside the panel so the grid never grows a tall column */
-.alarms { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; gap: 6px; padding-right: 2px; align-content: start; }
+.alarms { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; gap: 6px; padding-right: 2px; align-content: start; grid-auto-rows: max-content; }
 .alarm .body { padding: 6px 10px; gap: 2px; }
 .alarm .row1 { flex-wrap: nowrap; min-width: 0; }
 .alarm .t { font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -283,14 +316,18 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
 
   <section class="kpis" aria-label="Fleet summary" id="kpis"></section>
 
-  <section class="panel" aria-labelledby="h-run">
+  <div class="stage-grid">
+    <aside class="rail rail-left" aria-label="Run and decisions">
+      <section class="panel" aria-labelledby="h-run">
     <div class="ph"><h2 id="h-run">Scenario run</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: perception on camera frames, fleet memory lookup, then Nano or Ultra through the escalation gate.</span></div>
     <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
   </section>
-
-  <div class="grid">
-    <div class="col">
-      <section class="panel" aria-labelledby="h-floor">
+      <section class="panel" aria-labelledby="h-tier">
+        <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub" id="tier-sub">no data yet</span></div>
+        <div class="funnel" id="funnel"></div>
+      </section>
+    </aside>
+    <section class="panel floor-panel" aria-labelledby="h-floor">
         <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulated motion · quarantine zones and halts from live KV tags</span></div>
         <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
         <div class="legend">
@@ -300,14 +337,12 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
           <span><i style="background:var(--s15)"></i>Handshake</span>
           <span><i style="background:#f5d90a"></i>Person</span>
         </div>
+      <div class="cam-strip" aria-labelledby="h-cams">
+        <div class="ph"><h3 id="h-cams">Robot cameras · perception</h3><span class="sub"><span id="cams-model">—</span> · frames are simulation renders, results are stored real responses</span></div>
+    <div class="cams" id="cams"></div>
+  </div>
       </section>
-      <section class="panel" aria-labelledby="h-tier">
-        <div class="ph"><h2 id="h-tier">Where decisions are settled</h2><span class="sub" id="tier-sub">no data yet</span></div>
-        <div class="funnel" id="funnel"></div>
-      </section>
-    </div>
-
-    <div class="col">
+    <aside class="rail rail-right" aria-label="Alarms, actions and services">
       <section class="panel" aria-labelledby="h-alarms">
         <div class="ph"><h2 id="h-alarms">Alarms</h2><span class="sub"><span id="open-count" class="num">0</span> open · <button class="btn sm" id="act-episodes">Review episodes</button> <button class="btn sm" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
@@ -324,20 +359,12 @@ table.log td.wrapc { white-space: normal; min-width: 220px; }
         <div><div class="label">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
         <div><div class="label">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
       </section>
-    </div>
-
-    <div class="col">
       <section class="panel" aria-labelledby="h-svc">
         <div class="ph"><h2 id="h-svc">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
         <div class="svc" id="svc"></div>
       </section>
-    </div>
+    </aside>
   </div>
-
-  <section class="panel" aria-labelledby="h-cams">
-    <div class="ph"><h2 id="h-cams">Robot cameras · perception</h2><span class="sub"><span id="cams-model">—</span> · frames are simulation renders, results are stored real responses</span></div>
-    <div class="cams" id="cams"></div>
-  </section>
 
   <section class="panel" aria-labelledby="h-ns">
     <div class="ph"><h2 id="h-ns">Night Shift <span id="ns-night"></span></h2><span class="sub">Replay runs live on Token Factory. Dream, Gate and Consolidate need the Serverless Jobs runner, which is not built yet.</span></div>
