@@ -10,6 +10,7 @@ fs.mkdirSync(path.join(DIST, 'docs'), { recursive: true });
 fs.cpSync(path.join(__dirname, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
 const PDFS = [
+  ['NemoFleet-Architecture-Today-vs-Next.pdf', 'TODAY · NEXT', 'Architecture: today and next', 'What runs end to end today, the future state, a component-by-component comparison and the whole tech stack, with live/planned status.'],
   ['NemoFleet-Architecture.pdf', 'ARCHITECTURE', 'System architecture', 'System map, two sites and the live API, peer layer, warm core, Night Shift, escalation sequence, responsibilities, red-team pipeline, code map.'],
   ['NemoFleet-Nebius-Plan.pdf', 'PLAN', 'Implementation plan', 'Agreed by three review agents: decisions, schedule, cut lines and vote record.'],
   ['NemoFleet-Demo-Use-Case.pdf', 'DEMO', 'Demo use case', 'One hazard at two sites (warehouse spill, data center coolant leak): Day 1 → Night Shift → Day 2, with what is real and the fallbacks.'],
