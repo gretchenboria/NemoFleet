@@ -41,6 +41,25 @@ Each event a robot reports goes through three steps.
 - Today the handoff copies decisions in fleet memory.
 - Next: an offline mode, where a robot knows only what its peers handed it.
 
+## Experimental: robotaxis in San Francisco
+
+https://nemofleet.pages.dev/console#sanfrancisco runs the same decision pipeline for a robotaxi fleet on the real streets around Salesforce Tower.
+
+**What's real:**
+- The streets and buildings come from OpenStreetMap. One-way streets are respected.
+- Every model call is real.
+
+**What's simulated:** vehicle motion. The dashcam frames are synthetic, generated with NVIDIA **Cosmos-Predict2.5** (text2world) on a Nebius Serverless Job.
+
+**The scenario:**
+- A double-parked delivery truck blocks Fremont St between Mission and Howard. The first robotaxi to see it gets an Ultra decision, and the next robotaxi reuses that decision from fleet memory.
+- A pedestrian in the 1st & Mission crosswalk always goes to Ultra.
+- Later, a fire engine and a cyclist appear on the same block. Because a person is involved, the stored decision is not reused and the event goes to Ultra.
+
+**Rebuild the map and frames:**
+- Map: `tools/sf_map/build_sf_map.py`, which builds from `tools/sf_map/osm-soma.json` (© OpenStreetMap contributors, ODbL).
+- Frames: `tools/cosmos_dream/sf_frames.sh`.
+
 ## Architecture: today and next
 
 **Slide deck:** [docs/NemoFleet-Architecture-Today-vs-Next.pdf](docs/NemoFleet-Architecture-Today-vs-Next.pdf). It has five slides:

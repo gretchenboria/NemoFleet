@@ -5,13 +5,16 @@
 const J = (d, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
 const uid = p => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-const SCENARIOS = { warehouse: 'aisle4-spill', datacenter: 'hall-b-coolant-leak' };
+const SCENARIOS = { warehouse: 'aisle4-spill', datacenter: 'hall-b-coolant-leak', sanfrancisco: 'soma-robotaxi' };  // sanfrancisco is experimental
 const ACTIONS = { goto: ['robot', 'target'], halt: ['robot'], quarantine_zone: ['cells', 'ttl_s'], reassign_task: ['task', 'robot'], alert_human: ['severity', 'message'], proceed: ['robot'], reroute: ['robot', 'via'] };
 const SYSTEM_BASE = 'You are the decision module of NemoFleet, a robot fleet. Decide what the robot or fleet should do next. Never output coordinates or paths: a deterministic planner owns motion. Reply with only one JSON object: {"actions": [ __EXAMPLES__ ], "confidence": 0.0-1.0, "rationale": "one sentence"}';
 const EXAMPLES = {
   warehouse: '{"type": "proceed", "robot": "R07"} | {"type": "reroute", "robot": "R14", "via": "aisle 3"} | {"type": "halt", "robot": "R03"} | {"type": "quarantine_zone", "cells": ["A4"], "ttl_s": 600} | {"type": "goto", "robot": "R05", "target": "dock 2"} | {"type": "reassign_task", "task": "PICK-4471", "robot": "R05"} | {"type": "alert_human", "severity": "high", "message": "..."}',
   datacenter: '{"type": "proceed", "robot": "R07"} | {"type": "reroute", "robot": "R14", "via": "cold aisle 3"} | {"type": "halt", "robot": "R03"} | {"type": "quarantine_zone", "cells": ["C2"], "ttl_s": 600} | {"type": "goto", "robot": "R05", "target": "staging bay 1"} | {"type": "reassign_task", "task": "SWAP-B4-17-drive-3", "robot": "R05"} | {"type": "alert_human", "severity": "high", "message": "..."}',
+  sanfrancisco: '{"type": "proceed", "robot": "AV07"} | {"type": "reroute", "robot": "AV14", "via": "Beale St"} | {"type": "halt", "robot": "AV03"} | {"type": "quarantine_zone", "cells": ["fremont-mission-howard"], "ttl_s": 900} | {"type": "goto", "robot": "AV05", "target": "pickup at 1st and Howard"} | {"type": "reassign_task", "task": "RIDE-2231", "robot": "AV05"} | {"type": "alert_human", "severity": "high", "message": "..."}',
 };
+const PERCEPTION_CONTEXT = { warehouse: 'an autonomous robot in a fulfillment warehouse', datacenter: 'an autonomous robot in a hyperscale data center hall',
+  sanfrancisco: 'an autonomous robotaxi driving in downtown San Francisco (a person in or stepping into the vehicle\'s path always means "escalate")' };
 const systemFor = scene => SYSTEM_BASE.replace('__EXAMPLES__', EXAMPLES[scene] || EXAMPLES.warehouse);
 // Strict JSON schema for /v1/responses (text.format). It enforces shape only; validate() still runs as a second check.
 const FIELD = { robot: { type: 'string' }, target: { type: 'string' }, cells: { type: 'array', items: { type: 'string' } }, ttl_s: { type: 'integer' }, task: { type: 'string' }, severity: { type: 'string', enum: ['low', 'medium', 'high'] }, message: { type: 'string' }, via: { type: 'string' } };
@@ -83,13 +86,15 @@ async function decide(env, m, scene, run_id, robot, event, tier, context) {
 }
 async function perceive(env, req, m, scene, run_id, robot, frame) {
   if (!m.perception) throw Object.assign(new Error('No perception model id: set one with node tools/use_perception.cjs and redeploy.'), { status: 503 });
-  const buf = new Uint8Array(await (await asset(env, req, `/assets/scenes/${scene}/frames/${frame}.jpg`)).arrayBuffer());
+  const img = await asset(env, req, `/assets/scenes/${scene}/frames/${frame}.jpg`);
+  if (!/^image\//.test(img.headers.get('content-type') || '')) throw Object.assign(new Error(`camera frame ${scene}/${frame} is missing`), { status: 404 });
+  const buf = new Uint8Array(await img.arrayBuffer());
   let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   const prompt = 'Analyze this robot camera frame for the planner. Return JSON with keys "scene" (one sentence), "hazards" (array of {"type","description","severity"}), "person_present" (boolean), "path_clear" (boolean), "recommended_action" ("proceed"|"slow"|"reroute"|"halt"|"escalate"), "confidence" (0-1). A person in the robot\'s lane always means "escalate".';
   // perception may live on Token Factory or on a self-hosted Nebius endpoint (Gemma 4 via vLLM) with its own token
   const pkey = m.perception_key_env && m.perception_key_env !== 'NEBIUS_API_KEY' ? env[m.perception_key_env] : env.NEBIUS_API_KEY;
   if (!pkey) throw Object.assign(new Error(`${m.perception_key_env} is not set on the Pages project (token for the ${m.perception_label} endpoint).`), { status: 503 });
-  const r = await chat(env, m.perception_base || m.base, m.perception, [{ role: 'system', content: `You are the perception module of an autonomous robot in a ${scene === 'warehouse' ? 'fulfillment warehouse' : 'hyperscale data center hall'}. Report only what is visible. Answer with one JSON object.` },
+  const r = await chat(env, m.perception_base || m.base, m.perception, [{ role: 'system', content: `You are the perception module of ${PERCEPTION_CONTEXT[scene] || PERCEPTION_CONTEXT.warehouse}. Report only what is visible. Answer with one JSON object.` },
     { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${btoa(bin)}` } }, { type: 'text', text: prompt }] }], 700, 15000, pkey);  // a slow frame must not stall the step: it continues as 'perception unavailable'
   const result = parseJSON(r.content), ts = now(), key = `perception/${scene}/${frame}/${ts}.json`;
   await env.RUNS.put(key, JSON.stringify({ scene, frame, robot, model: m.perception, ts, latency_ms: r.latency_ms, usage: r.usage, raw: r.content, result }));
@@ -116,7 +121,7 @@ const routes = {
     return J({ d1, kv: !!env.TAGS, r2: !!env.RUNS, nebius_key: !!env.NEBIUS_API_KEY, models: m });
   },
   'GET state': async (env, req, url) => {
-    const scene = url.searchParams.get('scene'); if (!SCENARIOS[scene]) return J({ error: 'scene must be warehouse or datacenter' }, 400);
+    const scene = url.searchParams.get('scene'); if (!SCENARIOS[scene]) return J({ error: `scene must be one of ${Object.keys(SCENARIOS).join(', ')}` }, 400);
     const q = (s, ...b) => env.MEMORY.prepare(s).bind(...b).all().then(r => r.results);
     const [alarms, actions, calls, perception, precedents, night] = await Promise.all([
       q("SELECT * FROM alarms WHERE scene = ? AND status != 'released' ORDER BY created_at DESC LIMIT 20", scene),

@@ -40,6 +40,7 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.scene-switch .exp { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); margin-left: 3px; vertical-align: 1px; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
 .wrap { padding: 10px 14px 24px; max-width: 1880px; margin: 0 auto; display: grid; gap: 12px; }
 h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
@@ -295,7 +296,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       <h1>NemoFleet Ops</h1>
       <span class="site"><span id="site-label">—</span> · <span id="clock" class="num">--:--:--</span></span>
       <span class="mode" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
-      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button></div>
+      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button><button id="scene-sanfrancisco" data-scene="sanfrancisco" aria-pressed="false" title="Experimental: robotaxis on the real streets around Salesforce Tower">San Francisco <span class="exp">beta</span></button></div>
     </div>
     <div class="top-actions">
       <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
@@ -785,7 +786,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     return al.length ? `Released ${al.length} alarm${al.length === 1 ? '' : 's'} and cleared zone tags` : 'No alarms to release';
   });
   wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused (KV flag): scenario steps make no model calls until you resume'; });
-  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined: KV tag with a 10 min TTL`, halt: () => 'R07 halted: KV tag with a 1 h TTL',
+  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined: KV tag with a 10 min TTL`, halt: b => `${b.robot} halted: KV tag with a 1 h TTL`,
     broadcast_hazard: () => 'Hazard broadcast written as a KV tag (10 min TTL)', rollback_nano: () => 'Rollback flag written to KV. No LoRA adapter is deployed yet, so Nano itself is unchanged.' };
   document.querySelectorAll('[data-action]').forEach(b => wire(b, async () => {
     const type = b.dataset.action, body = { scene: SCENE, type };
@@ -794,7 +795,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     if (type === 'broadcast_hazard') body.message = `Operator broadcast: hazard at ${SC.zoneName}`;
     const r = await api('actions', body);
     if (type === 'escalate') return r.decision ? `Ultra (${fmtMs(r.latency_ms)}): ${r.decision.actions.map(a => a.type).join(', ')} · ${r.decision.rationale || ''}` : 'Ultra returned no valid decision after a retry';
-    return ACT_MSG[type]();
+    return ACT_MSG[type](body);
   }));
   const tau = $('tau');
   tau.addEventListener('input', () => { tau.dataset.dirty = '1'; $('tau-v').textContent = Number(tau.value).toFixed(2); });
@@ -845,6 +846,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     cx.textAlign = 'start';
   }
   function frame(now) {
+    if (SC.roads) return frameRoads(now);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const C = { ok: css('--map-ok'), warn: css('--map-warn'), crit: css('--map-crit'), peer: css('--map-peer'), ink: css('--map-ink'), floor: css('--map-floor') };
     const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
@@ -890,6 +892,89 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     drawLabels(labels, C);
     if (!reduce) requestAnimationFrame(frame);
   }
+  // ---- experimental San Francisco scene: robotaxis on the real road graph (one-way aware) ----
+  let RD = null, cars = [];
+  const AV_IDS = ['AV03', 'AV05', 'AV07', 'AV08', 'AV09', 'AV12', 'AV14', 'AV17', 'AV19', 'AV21', 'AV22', 'AV24'];
+  function loadRoads() {
+    const sc = SC;
+    if (sc._rd) { RD = sc._rd; initCars(); return; }
+    RD = null; cars = [];
+    fetch(sc.roads).then(r => r.json()).then(d => {
+      d.out = d.nodes.map(() => []); d.edges.forEach(([a, b]) => d.out[a].push(b));
+      const Z = d.meta.zone, near = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+      d.blocked = new Set(d.edges.filter(([a, b]) => { const m = [(d.nodes[a][0] + d.nodes[b][0]) / 2, (d.nodes[a][1] + d.nodes[b][1]) / 2]; return Z.some((p, i) => i && near(m, Z[i - 1], p) < 7); }).map(([a, b]) => a + '>' + b));
+      sc._rd = d; if (SC === sc) { RD = d; initCars(); }
+    }).catch(() => {});
+  }
+  function initCars() {
+    cars = AV_IDS.map((id, i) => { const [a, b] = RD.edges[(i * 67 + 11) % RD.edges.length]; return { id, a, b, t: (i * 0.37) % 1, v: 30 + (i * 7) % 18, knows: false }; });
+    rings.length = 0; passed.clear();
+  }
+  function carPos(c) { const A = RD.nodes[c.a], B = RD.nodes[c.b]; return [A[0] + (B[0] - A[0]) * c.t, A[1] + (B[1] - A[1]) * c.t, Math.atan2(B[1] - A[1], B[0] - A[0])]; }
+  function nextEdge(c, zoneOn) {
+    const ok = n => !(zoneOn && RD.blocked.has(c.b + '>' + n));
+    let opts = RD.out[c.b].filter(n => n !== c.a && ok(n));
+    if (!opts.length) opts = RD.out[c.b].filter(ok);
+    if (!opts.length) { const [a, b] = RD.edges[Math.floor(Math.random() * RD.edges.length)]; c.a = a; c.b = b; c.t = 0; return; }   // left the map: re-enter elsewhere
+    c.a = c.b; c.b = opts[Math.floor(Math.random() * opts.length)]; c.t = 0;
+  }
+  function frameRoads(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const C = { ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: '#16202a' };
+    const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
+    if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = '#e9ece6'; cx.fillRect(0, 0, CW, CH); }
+    cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.92)'; cx.fillStyle = '#16202a';
+    cx.strokeText('REAL STREETS · SIMULATED ROBOTAXIS', 10, CH - 8); cx.fillText('REAL STREETS · SIMULATED ROBOTAXIS', 10, CH - 8);
+    if (!RD) { if (!reduce) requestAnimationFrame(frame); return; }
+    const M = RD.meta;
+    if (zoneOn) {
+      cx.save(); cx.lineCap = 'round'; cx.lineJoin = 'round';
+      cx.strokeStyle = 'rgba(204,52,52,.28)'; cx.lineWidth = 18; cx.beginPath(); M.zone.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.stroke();
+      cx.strokeStyle = C.crit; cx.lineWidth = 2; cx.setLineDash([7, 5]); cx.stroke(); cx.restore();
+      const z0 = M.zone[0]; cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.92)';
+      cx.strokeText(M.zone_label, z0[0] + 14, z0[1] - 8); cx.fillStyle = C.crit; cx.fillText(M.zone_label, z0[0] + 14, z0[1] - 8);
+    }
+    // the double-parked truck (hazard) and the pedestrian at the crosswalk
+    const [hx, hy] = M.hazard;
+    cx.save(); cx.translate(hx, hy); cx.rotate(Math.PI / 4);
+    cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(-11, -5, 24, 12); cx.fillStyle = '#ffffff'; cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(-12, -6, 24, 12, 2); cx.fill(); cx.stroke();
+    cx.restore();
+    cx.fillStyle = C.warn; cx.beginPath(); cx.moveTo(hx + 16, hy - 20); cx.lineTo(hx + 26, hy - 4); cx.lineTo(hx + 6, hy - 4); cx.closePath(); cx.fill();
+    cx.fillStyle = '#ffffff'; cx.font = '700 11px system-ui, sans-serif'; cx.textAlign = 'center'; cx.fillText('!', hx + 16, hy - 6.5); cx.textAlign = 'start';
+    const [px, py] = M.person;
+    cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(px + 2, py + 2, 7, 0, 7); cx.fill();
+    cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(px, py, 7, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.2; cx.stroke();
+    const paused = !!ST?.paused;
+    for (const c of cars) {
+      if (reduce || paused || halts.includes(c.id)) continue;
+      const A = RD.nodes[c.a], B = RD.nodes[c.b], L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1;
+      c.t += c.v * dt / L;
+      while (c.t >= 1) { const over = (c.t - 1) * L; nextEdge(c, zoneOn); const A2 = RD.nodes[c.a], B2 = RD.nodes[c.b]; c.t = over / (Math.hypot(B2[0] - A2[0], B2[1] - A2[1]) || 1); }
+      const [x, y] = carPos(c); if (Math.hypot(x - hx, y - hy) < 34) c.knows = true;   // saw the truck
+    }
+    const P = cars.map(carPos);
+    for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
+      if (Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]) > 9) continue;
+      const key = i + ':' + j; if (now - (passed.get(key) || -1e9) < 2500) continue; passed.set(key, now);
+      if (cars[i].knows !== cars[j].knows) cars[i].knows = cars[j].knows = true;
+      rings.push({ x: (P[i][0] + P[j][0]) / 2, y: (P[i][1] + P[j][1]) / 2, age: 0 });
+    }
+    for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt || 0.016; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 10 + g.age * 40, 0, 7); cx.stroke(); }
+    cx.globalAlpha = 1;
+    const labels = [];
+    cars.forEach((c, i) => {
+      const [x, y, ang] = P[i], h = halts.includes(c.id), fill = h ? C.crit : c.knows ? C.warn : C.ok;
+      cx.save(); cx.translate(x, y); cx.rotate(ang);
+      cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-8, -3.5, 18, 10, 3); cx.fill();
+      cx.fillStyle = fill; cx.beginPath(); cx.roundRect(-9, -5, 18, 10, 3); cx.fill(); cx.lineWidth = 1.6; cx.strokeStyle = '#ffffff'; cx.stroke();
+      cx.fillStyle = 'rgba(255,255,255,.85)'; cx.fillRect(3, -3.5, 3.5, 7);       // windshield = heading
+      cx.restore();
+      labels.push({ x, y, text: h ? c.id + ' · HALTED' : c.id, color: h ? C.crit : C.ink });
+    });
+    labels.forEach((l, i) => l.i = i);
+    drawLabels(labels, C);
+    if (!reduce) requestAnimationFrame(frame);
+  }
   floorImg.addEventListener('load', () => { if (reduce) frame(performance.now()); });
 
   // ---- scenes ----
@@ -902,15 +987,25 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       lanes: [100, 124, 226, 250, 352, 376], labels: [[112, 'COLD AISLE 1'], [238, 'COLD AISLE 2'], [364, 'COLD AISLE 3']],
       zone: { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, zoneLabel: 'ZONE C2 · QUARANTINED', zoneName: 'C2', person: { x: 742, y: 246 }, halted: { x: 604, lane: 2 },
       cams: [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']] },
+    // experimental: robotaxis on real SoMa streets (OpenStreetMap); motion simulated, camera frames synthetic (Cosmos)
+    sanfrancisco: { dir: 'assets/scenes/sanfrancisco/', perception: 'assets/perception/sanfrancisco/index.json', site: 'SoMa, San Francisco · robotaxis (experimental)',
+      roads: 'assets/scenes/sanfrancisco/roads.json', zoneName: 'fremont-mission-howard', zoneText: 'Fremont St (Mission–Howard)', haltRobot: 'AV07',
+      floorSub: 'Real streets (OpenStreetMap) · simulated robotaxis · closures and halts from live KV tags',
+      lanes: [], labels: [], zone: null, person: null, halted: null,
+      cams: [['cam-av14-truck', 'AV14', 'Fremont St · Mission–Howard'], ['cam-av03-person', 'AV03', '1st & Mission crosswalk'], ['cam-av12-firetruck', 'AV12', 'Fremont St · later'], ['cam-av07-clear', 'AV07', 'Mission St at 2nd']] },
   };
   function applyScene(name) {
     if (!SCENES[name]) name = 'warehouse';
     SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null;
     $('site-label').textContent = SC.site;
-    $('q-btn').textContent = `Quarantine zone ${SC.zoneName}`;
+    $('q-btn').textContent = SC.zoneText ? `Close ${SC.zoneText}` : `Quarantine zone ${SC.zoneName}`;
+    const hb = $('halt-btn'); hb.dataset.robot = SC.haltRobot || 'R07'; hb.textContent = `Halt robot ${hb.dataset.robot}`;
+    $('h-floor').textContent = SC.roads ? 'Live map' : 'Live floor';
+    if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulated motion · quarantine zones and halts from live KV tags';
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
     if (!BUSY) { RAN = false; renderLastRun(); }
-    lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person; initRobots();
+    lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person;
+    if (SC.roads) loadRoads(); else initRobots();
     floorImg.src = SC.dir + 'floor.jpg';
     renderAll();
     if (!LIVE) fetch(SC.perception).then(r => r.ok ? r.json() : null).then(idx => { if (SC === SCENES[name]) { STATIC_PERC = idx; renderCams(); } }).catch(() => {});

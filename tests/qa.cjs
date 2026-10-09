@@ -84,6 +84,8 @@ for (const f of fs.readdirSync(path.join(DIST, 'docs'))) {
   const b = fs.readFileSync(path.join(DIST, 'docs', f));
   check(`valid PDF: docs/${f}`, b.slice(0, 5).toString() === '%PDF-' && b.length > 20000);
 }
+{ const rd = JSON.parse(fs.readFileSync(path.join(DIST, 'assets', 'scenes', 'sanfrancisco', 'roads.json'), 'utf8'));
+  check('sanfrancisco (experimental): road graph from OpenStreetMap with anchors', rd.nodes.length > 300 && rd.edges.length > 500 && rd.meta.zone.length > 2 && rd.meta.hazard && rd.meta.person && /OpenStreetMap/.test(rd.meta.attribution), `${rd.nodes.length} nodes ${rd.edges.length} edges`); }
 check('build publishes scenarios and the model registry for the API', fs.existsSync(path.join(DIST, 'scenarios', 'hall-b-coolant-leak.json')) && fs.existsSync(path.join(DIST, 'scenarios', 'aisle4-spill.json')) && !!JSON.parse(fs.readFileSync(path.join(DIST, 'config', 'models.json'), 'utf8')).deliberator);
 const mp4 = path.join(DIST, 'assets', 'nemofleet-explainer.mp4');
 check('video under the 25 MB Pages file limit', fs.existsSync(mp4) && fs.statSync(mp4).size < 25 * 1024 * 1024);
@@ -170,7 +172,7 @@ const server = http.createServer((req, res) => {
   check('chapter link seeks the video', Math.abs(ct - 125) < 2, `currentTime ${ct}`);
 
   // console interactions
-  for (const sc of ['warehouse', 'datacenter']) {
+  for (const sc of ['warehouse', 'datacenter', 'sanfrancisco']) {
     errors = [];
     await page.goto(base + 'console.html#' + sc, { waitUntil: 'domcontentloaded' }); await new Promise(r => setTimeout(r, 900));
     const st = await page.evaluate(() => ({ pressed: document.querySelector('.scene-switch [aria-pressed="true"]')?.dataset.scene, imgs: [...document.querySelectorAll('#cams img')].map(i => i.complete && i.naturalWidth > 0), alarm: document.querySelector('.alarm .t')?.textContent }));
