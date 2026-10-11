@@ -44,9 +44,10 @@ def load(path):
     return out
 
 
-def ego_view(bodies, ego):
-    """Contiguous stretches where the ego is tracked, as lists of frames in its own frame."""
-    helmets = [b for b in bodies if b.startswith("Helmet") and b != ego]
+def ego_view(bodies, ego, people="Helmet"):
+    """Contiguous stretches where the ego is tracked, as lists of frames in its own frame.
+    Bodies whose name starts with `people` (named <prefix>_<int id>) are the people."""
+    helmets = [b for b in bodies if b.startswith(people) and b != ego]
     runs, cur = [], []
     for f, pose in enumerate(bodies[ego]):
         if pose is None:

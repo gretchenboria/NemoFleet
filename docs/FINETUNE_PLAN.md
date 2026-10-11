@@ -152,3 +152,24 @@ An independent ML review concluded that this formulation should not be fine-tune
 | + the ego's planned path | 80.6% | 69.8% | +7.1 (+0.2 to +13.1) |
 
 Ego speed and turn rate alone do not give a reliable gain. The planned path does, and even plain constant velocity checked against the planned path reaches 75.1%. Human ego gains far more (55.7% to 81.3%), but a person's future path and head direction are not known in deployment, so that number does not transfer.
+
+## 11. Run `plan-1`: the ego's planned path in the prompt (2026-10-11)
+
+Same 16,080 training samples, same val and test rows and same labels as `main-1`; only the prompt changed (`featurize.py --plan`): every point is expressed in the ego's frame at decision time, and the prompt adds the ego's own past path and its planned path for the next 5 s. One spot H200, 70 min, about $0.95.
+
+Recall at the baseline's false-alarm rate, val and test pooled (95% interval over samples for the gain of run 2):
+
+| Viewpoint (positives) | Baseline A: constant velocity, ego frame | Run 1 | Run 2 (planned path) | Baseline B: constant velocity against the planned path | Run 2 at B's false-alarm rate |
+|---|---|---|---|---|---|
+| Human ego (798) | 53.9% | 57.6% | 68.5% (+14.7, +11.5 to +17.9) | 78.6% | 77.1% (-1.5, -4.3 to +1.5) |
+| Robot ego (216) | 74.1% | 74.5% | 80.1% (+6.0, +0.5 to +11.7) | 74.1% | 80.1% (+6.0, +0.5 to +11.3) |
+| Vehicle ego (271) | 87.8% | 90.0% | 90.0% (+2.2, -1.6 to +5.9) | 86.3% | 84.9% (-1.5, -5.9 to +2.8) |
+
+- Robot ego now clears the 5-point criterion against both baselines, and on positives where the person is not yet in the zone it gets 62.9% against 51.7%. The interval's lower edge is close to zero and, as the review noted, sample-level intervals are optimistic because the 216 positives come from 26 episodes.
+- Test AUROC rose from 0.86 / 0.90 / 0.99 to 0.90 / 0.92 / 0.995 (human / robot / vehicle). 300 of 300 answers are valid JSON, 274 agree with the label, timing error 0.21 s.
+- Human ego gains 15 points over the original baseline but only ties the plan-aware one: knowing where a person's head will point explains most of that gain.
+- The untuned model stays near chance with the new prompt (test AUROC 0.57 to 0.67), so the gain comes from fine-tuning, not from the prompt alone.
+
+## 12. Simulated data ready to mix in
+
+`adapt_smartspaces.py` turns NVIDIA's Omniverse-generated PhysicalAI-SmartSpaces scenes (CC BY 4.0) into the same track format: 19 scenes, 54,736 planned-path samples, 14,613 of them robot ego (NovaCarter and Transporter robots among 3 to 120 people). Every track is hinted train-only, so val and test stay real. Half its samples are positive against about 30% in the real robot-ego data, so its share of training should be capped. Not yet trained on.

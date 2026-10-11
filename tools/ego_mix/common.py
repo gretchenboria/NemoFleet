@@ -26,6 +26,7 @@ ZONES = {"robot": (2.5, 0.6, 10.0), "human": (2.5, 0.6, 10.0), "vehicle": (7.5, 
 # MuSoHu from its Dataverse record (doi:10.13021/orc2020/HZI4LJ); SCAND's is NOT verified yet.
 SOURCES = {
     "magni": (None, "annotated", "CC BY 4.0"),        # motion capture; embodiment set per viewpoint
+    "smartspaces": (None, "simulated", "CC BY 4.0"),  # NVIDIA Omniverse-generated; exact positions, scripted people
     "waymo": ("vehicle", "annotated", "Waymo Dataset License Agreement for Non-Commercial Use (NC)"),
     "jrdb": ("robot", "annotated", "CC BY-NC-SA 3.0"),
     "musohu": ("human", "pseudo", "CC0 1.0"),
