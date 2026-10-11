@@ -1,0 +1,54 @@
+# ==============================================================================
+# SkyPilot Task: Evaluate Fine-Tuned Model on Nebius VM
+# ==============================================================================
+# Launch with:
+#   sky launch -c brodel-eval sky-nebius-eval.yaml --yes
+#
+# Interactive test in cluster:
+#   sky ssh brodel-eval
+#   cd sky_workdir && uv run python test_model.py
+#
+# Teardown cluster when done:
+#   sky down brodel-eval --yes
+# ==============================================================================
+
+name: brodel-eval
+
+resources:
+  cloud: nebius
+  accelerators: H100:1
+  disk_size: 150
+
+workdir: .
+
+envs:
+  HF_HUB_ENABLE_HF_TRANSFER: "1"
+
+setup: |
+  set -e
+  echo "=== 1. Installing uv & Dependencies ==="
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  source $HOME/.cargo/env 2>/dev/null || source $HOME/.local/bin/env 2>/dev/null || export PATH="$HOME/.local/bin:$PATH"
+  
+  echo "=== 2. Configuring Hugging Face Authentication ==="
+  if [ -n "$HF_TOKEN" ]; then
+    mkdir -p $HOME/.cache/huggingface
+    echo "$HF_TOKEN" > $HOME/.cache/huggingface/token
+    chmod 600 $HOME/.cache/huggingface/token
+    echo "export HF_TOKEN=\"$HF_TOKEN\"" >> $HOME/.bashrc
+    echo "export HUGGING_FACE_HUB_TOKEN=\"$HF_TOKEN\"" >> $HOME/.bashrc
+    echo "export HF_HUB_ENABLE_HF_TRANSFER=1" >> $HOME/.bashrc
+    echo "Hugging Face token configured successfully."
+  fi
+
+  echo "=== 3. Setting up Python Environment ==="
+  uv venv --allow-existing
+  uv pip install "torch>=2.2.0" "transformers>=4.40.0" "peft>=0.10.0" "accelerate>=0.29.0" "safetensors" "hf_transfer" "huggingface_hub" "bitsandbytes"
+
+run: |
+  set -e
+  source $HOME/.cargo/env 2>/dev/null || source $HOME/.local/bin/env 2>/dev/null || export PATH="$HOME/.local/bin:$PATH"
+  echo "=== 3. Running Model Evaluation with Latest Fine-Tuned Checkpoint ==="
+  uv run python test_model.py --prompt "Explain why stars twinkle to a five-year-old."
+  echo ""
+  uv run python test_model.py --prompt "What is quantum entanglement in simple words?"
