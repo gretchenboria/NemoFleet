@@ -49,10 +49,12 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
 try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
 catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
 check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
-for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py']) {
+for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
+try { execFileSync('python3', [path.join(ROOT, 'tools/ego_mix/selftest.py')]); check('ego_mix: label, JRDB adapter and place-level split pass the selftest', true); }
+catch (e) { check('ego_mix: label, JRDB adapter and place-level split pass the selftest', false, String(e.stderr || e.message).slice(-200)); }
 for (const [scene, names] of [['warehouse', ['cam-r14-spill', 'cam-r03-person', 'cam-r12-forklift', 'cam-r07-clear']], ['datacenter', ['cam-r14-leak', 'cam-r03-person', 'cam-r12-cart', 'cam-r07-clear']]]) {
   const dir = path.join(ROOT, 'site', 'assets', 'scenes', scene);
   const missing = names.filter(f => !fs.existsSync(path.join(dir, 'frames', f + '.jpg')));
