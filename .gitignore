@@ -23,9 +23,28 @@ venv/
 .pytest_cache/
 *.egg-info/
 
-# Outputs
+# Outputs & System
 *.csv
 .DS_Store
+
+# Datasets and Large Binaries
+*.tfrecord*
+data/
+waymo_viewer/data/
+finetuning/experiments/openorca_*.jsonl
+finetuning/experiments/.archive/
+
+# ML Models and Tracking
+*.safetensors
+*.ckpt
+*.pt
+*.bin
+*.meta
+model_files*/
+finetuning/**/model_files*/
+mlflow.db
+mlruns/
+.archive/
 
 # Video build artifacts
 node_modules
@@ -42,3 +61,4 @@ runs/*-dry/
 
 # Wrangler local secrets
 .dev.vars
+
