@@ -42,3 +42,6 @@ runs/*-dry/
 
 # Wrangler local secrets
 .dev.vars
+
+# Built training sets (regenerate with tools/ego_mix)
+data/

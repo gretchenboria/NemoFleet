@@ -1,0 +1,23 @@
+# SkyPilot task for tools/ego_mix/job_train.sh. Launch with --down so the cluster is deleted when the job ends:
+#   HF_TOKEN=... sky launch -y -c ego-smoke --down -i 3 --secret HF_TOKEN --env MODE=smoke --env RUN_ID=smoke-1 tools/ego_mix/sky_train.yaml
+# Spot H200 was $0.79/h in eu-west1 on 2026-10-11 (on demand $5.40). A spot machine can be taken away mid-run;
+# job_train.sh uploads its log and any saved adapter when that happens, but training does not resume.
+name: ego-train
+resources:
+  infra: nebius
+  accelerators: H200:1
+  use_spot: true
+  disk_size: 200
+workdir: tools/ego_mix
+envs:
+  MODE: smoke
+  RUNS: ego_mix
+  RUN_ID: smoke-1
+  MAX_MINUTES: "40"
+  GPU_RATE: "0.79"
+  DATA_REPO: gretchenboria/nemofleet-ego-mix
+  OUT_REPO: gretchenboria/nemofleet-ego-lora
+secrets:
+  HF_TOKEN: null
+run: |
+  WORK=$HOME/work TRAIN_PY=train.py bash job_train.sh
