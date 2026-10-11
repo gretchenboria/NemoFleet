@@ -1,0 +1,27 @@
+# ==============================================================================
+# OpenOrca LoRA Fine-Tuning Configuration: High Capacity (V2)
+# ==============================================================================
+
+run:
+  name: "openorca-lora-v2-high-capacity"
+  description: "High-rank (r=32, alpha=64) LoRA run for complex multi-step reasoning"
+  model: "unsloth/gpt-oss-20b-BF16"
+  train_data: "openorca_train.jsonl"
+  val_data: "openorca_val.jsonl"
+  seed: 42
+
+hyperparameters:
+  learning_rate: 2.0e-5
+  batch_size: 4
+  n_epochs: 3
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  context_length: 4096
+  packing: true
+  max_grad_norm: 1.0
+
+lora:
+  enabled: true
+  r: 32
+  alpha: 64
+  dropout: 0.05
