@@ -49,7 +49,7 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
 try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
 catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
 check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
-for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py']) {
+for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
