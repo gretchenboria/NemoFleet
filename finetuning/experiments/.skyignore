@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+model_files/
+techbro.jsonl
+eli5_train.jsonl
+*.log

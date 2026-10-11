@@ -1,0 +1,27 @@
+# ==============================================================================
+# OpenOrca LoRA Fine-Tuning Configuration: Conservative (V3)
+# ==============================================================================
+
+run:
+  name: "openorca-llama-70b-conservative"
+  description: "Conservative LoRA fine-tuning (1.5e-5, 2 epochs) on Meta Llama 3.1 70B Instruct"
+  model: "meta-llama/Llama-3.1-70B-Instruct"
+  train_data: "openorca_train.jsonl"
+  val_data: "openorca_val.jsonl"
+  seed: 42
+
+hyperparameters:
+  learning_rate: 1.5e-5
+  batch_size: 4
+  n_epochs: 2
+  warmup_ratio: 0.10
+  weight_decay: 0.01
+  context_length: 8192
+  packing: true
+  max_grad_norm: 1.0
+
+lora:
+  enabled: true
+  r: 16
+  alpha: 16
+  dropout: 0.05
