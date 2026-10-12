@@ -178,36 +178,38 @@ def build(out_path: Path):
 
     # 3 stacked dataset source cards on left (x = 4.5..36.5)
     card(
-        ax, 4.5, 30.8, 32.0, 10.2,
+        ax, 4.5, 31.2, 32.0, 9.8,
         "A. THÖR-MAGNI Motion Capture",
         [
-            "Vicon 100 Hz · DARKO robot + Helmet 1–10",
-            "22 runs (plan-1) · 48 full Zenodo runs (magni-1)",
-            "Robot & Human ego viewpoints in industrial floor",
+            "Vicon 100 Hz · DARKO_Robot + Helmet_1..10",
+            "Scenarios 1–2 (22 runs, plan-1) · SC1–5 (48 runs, magni-1)",
+            "Robot & Human ego viewpoints in industrial layout",
         ],
-        stripe=TEAL, badge_kind="ccby", title_size=9.0, line_size=7.4,
+        stripe=TEAL, badge_kind="ccby", title_size=8.9, line_size=7.2,
     )
 
     card(
-        ax, 4.5, 19.0, 32.0, 10.2,
-        "B. Waymo Open Motion v1.3.1",
+        ax, 4.5, 18.2, 32.0, 11.6,
+        "B. Waymo Open Motion v1.3.1 (Scenario)",
         [
-            "70 train + 20 val shards (16,359 train scenarios)",
-            "Vehicle ego + surrounding pedestrians (7.5×1.5m)",
-            "Capped at 3 negatives per positive (1,608 pos)",
+            "gs://waymo_open_dataset_motion_v_1_3_1/",
+            "• training.tfrecord-00000..00069-of-01000 (70 shards)",
+            "  → 16,359 scenarios → 6,432 train rows (1,608 pos)",
+            "• validation.tfrecord-00000..00019-of-00150 (20 shards)",
+            "  → 1,404 val + 1,404 test scenarios (9.1 s @ 10 Hz)",
         ],
-        stripe=AMBER, badge_kind="nc", title_size=9.0, line_size=7.4,
+        stripe=AMBER, badge_kind="nc", title_size=8.8, line_size=7.0,
     )
 
     card(
-        ax, 4.5, 7.2, 32.0, 10.2,
+        ax, 4.5, 7.2, 32.0, 9.6,
         "C. NVIDIA PhysicalAI-SmartSpaces",
         [
             "19 Omniverse warehouse/smart-space scenes",
             "NovaCarter & Transporter AMRs (3–120 people)",
             "14,613 robot-ego samples (train-only in sim-1)",
         ],
-        stripe=NV, badge_kind="ccby", title_size=9.0, line_size=7.4,
+        stripe=NV, badge_kind="ccby", title_size=8.9, line_size=7.2,
     )
 
     # Card 2: Featurization & Split (x = 39.0..68.0)
