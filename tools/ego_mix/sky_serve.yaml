@@ -1,0 +1,30 @@
+# Serve a tuned adapter on one spot H200 (about $0.79/h; stop it with `sky down nemo-serve` when not needed):
+#   HF_TOKEN=... SERVE_TOKEN=... sky launch -y -c nemo-serve -i 60 --down --secret HF_TOKEN --secret SERVE_TOKEN \
+#     --env ADAPTER=decide-1/adapter_decide_v1 tools/ego_mix/sky_serve.yaml
+# The endpoint is http://<cluster-ip>:8000/v1/chat/completions. Idle clusters delete themselves after 60 minutes.
+name: nemo-serve
+resources:
+  infra: nebius
+  accelerators: H200:1
+  use_spot: true
+  disk_size: 200
+  ports: 8000
+workdir: tools/ego_mix
+envs:
+  ADAPTER: decide-1/adapter_decide_v1
+  OUT_REPO: gretchenboria/nemofleet-ego-lora
+  MODEL: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16
+secrets:
+  HF_TOKEN: null
+  SERVE_TOKEN: null
+run: |
+  set -e
+  export PATH="$HOME/.local/bin:$PATH"; command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+  W=$HOME/work; mkdir -p $W; uv venv $W/venv --python 3.12 -q --allow-existing
+  uv pip install -q --python $W/venv/bin/python torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128
+  uv pip install -q --python $W/venv/bin/python transformers==5.19.0 peft==0.21.2 accelerate safetensors huggingface_hub hf_xet
+  HF_XET_HIGH_PERFORMANCE=1 $W/venv/bin/python -c "
+  import os; from huggingface_hub import snapshot_download
+  snapshot_download(os.environ['MODEL'], local_dir='$W/model', allow_patterns=['*.json', '*.safetensors', '*.jinja'])
+  snapshot_download(os.environ['OUT_REPO'], local_dir='$W/adapters', allow_patterns=[os.environ['ADAPTER'] + '/*'])"
+  MODEL_DIR=$W/model ADAPTER_DIR=$W/adapters/$ADAPTER PORT=8000 $W/venv/bin/python serve.py
