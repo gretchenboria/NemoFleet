@@ -150,10 +150,10 @@ const routes = {
   },
   'POST actions': async (env, req, url, body) => {
     const { scene, type } = body; if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
-    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); await alarm(env, scene, 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min (KV TTL)'); }
+    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); await alarm(env, scene, 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min'); }
     else if (type === 'halt') { await env.TAGS.put(`${scene}:halt:${body.robot}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 3600 }); }
     else if (type === 'broadcast_hazard') { await env.TAGS.put(`${scene}:tag:broadcast-${Date.now()}`, JSON.stringify({ message: body.message || 'operator broadcast', at: now() }), { expirationTtl: 600 }); }
-    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); await alarm(env, scene, 'info', 'Fleet paused by operator', 'scenario steps make no model calls until resumed'); }
+    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); await alarm(env, scene, 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
     else if (type === 'resume_fleet') { await env.TAGS.delete(`${scene}:pause`); }
     else if (type === 'set_tau') { const t = Number(body.tau); if (!(t >= 0.3 && t <= 0.9)) return J({ error: 'tau must be in [0.30, 0.90]' }, 400); await env.TAGS.put(`${scene}:tau`, String(t)); }
     else if (type === 'rollback_nano') { await env.TAGS.put(`${scene}:adapter`, JSON.stringify({ adapter: 'previous', at: now() })); }

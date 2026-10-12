@@ -8,7 +8,7 @@ token_factory:
 
 models:
   perception:       # camera frame -> hazard JSON. Switch with: node tools/use_perception.cjs <gemma3|gemma4|cosmos>
-    active: gemma4
+    active: gemma3
     options:
       gemma3:
         id: google/gemma-3-27b-it

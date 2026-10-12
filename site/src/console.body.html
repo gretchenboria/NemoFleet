@@ -475,22 +475,14 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-rules" aria-labelledby="tab-rules" tabindex="0" hidden>
-      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds</h2><span class="sub">Live: person or safety event, hazard sighting, operator quarantine and pause. The rest are planned.</span></div>
+      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds</h2></div>
       <div class="rulebox"><table class="rt">
       <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
       <tbody>
-        <tr><td>Person in lane</td><td><span class="sev crit">Critical</span></td><td>Perception or sensors detect a person in a robot lane</td><td>Nearest robots halt; always escalates to Ultra</td><td>Confirm zone clear, release</td></tr>
-        <tr><td>Collision risk</td><td><span class="sev crit">Critical</span></td><td>Planner cannot find a conflict-free path within 2 s</td><td>Affected robots hold position</td><td>Quarantine zone, reassign tasks</td></tr>
-        <tr><td>Schema rejects</td><td><span class="sev warn">Warning</span></td><td>More than 2% of model outputs fail validation in 10 min</td><td>Retries, then falls back to safe stop</td><td>Inspect the call log</td></tr>
-        <tr><td>Ultra latency</td><td><span class="sev warn">Warning</span></td><td>Ultra p95 above 30 s for 5 min</td><td>Live escalations route to Nemotron Super</td><td>Check model service status</td></tr>
-        <tr><td>Escalation storm</td><td><span class="sev warn">Warning</span></td><td>Ultra calls per 100 events double versus the 7-night average</td><td>None</td><td>Review τ, check for a new hazard type</td></tr>
-        <tr><td>Confident mistakes</td><td><span class="sev warn">Warning</span></td><td>Replay finds Nano wrong at confidence ≥ 0.9 on more than 0.3% of decisions</td><td>Lower τ for next shift</td><td>Review flagged episodes</td></tr>
-        <tr><td>Promotion gate failed</td><td><span class="sev info">Info</span></td><td>Candidate Nano regresses normal operations</td><td>Production adapter stays in place</td><td>Read the evaluation</td></tr>
-        <tr><td>Night Shift stalled</td><td><span class="sev warn">Warning</span></td><td>Any stage exceeds its time budget or a job fails twice</td><td>Pipeline pauses, keeps current adapter</td><td>Retry stage</td></tr>
-        <tr><td>Idle endpoint</td><td><span class="sev warn">Warning</span></td><td>A GPU endpoint running with no calls for 15 min</td><td>None</td><td>Stop endpoint</td></tr>
-        <tr><td>Budget</td><td><span class="sev warn">Warning</span></td><td>Daily spend passes 80% of budget</td><td>None</td><td>Stop idle endpoints, defer dreams</td></tr>
-        <tr><td>Stale hazard tag</td><td><span class="sev info">Info</span></td><td>A tag expires while robots are still inbound to that cell</td><td>Re-request perception on next sighting</td><td>None needed</td></tr>
-        <tr><td>Robot offline</td><td><span class="sev warn">Warning</span></td><td>No heartbeat for 10 s</td><td>Planner reserves its last cell</td><td>Dispatch technician</td></tr>
+        <tr><td>Person or safety event</td><td><span class="sev crit">Critical</span></td><td>Perception reports a person in the lane, or a robot reports a safety event</td><td>Goes to Ultra; never settled from fleet memory</td><td>Confirm the zone is clear, then release</td></tr>
+        <tr><td>Hazard sighting</td><td><span class="sev warn">Warning</span></td><td>Perception reports a hazard on the robot's path</td><td>Ultra decides once; the decision is stored for that map cell</td><td>Acknowledge; quarantine the zone if needed</td></tr>
+        <tr><td>Unknown hazard</td><td><span class="sev warn">Warning</span></td><td>A robot reports a hazard and no camera result is available</td><td>Ultra decides; safe stop if there is no valid decision</td><td>Review the call log</td></tr>
+        <tr><td>Operator quarantine or pause</td><td><span class="sev info">Info</span></td><td>An operator quarantines a zone or pauses the fleet</td><td>Zone closed for 10 min, or no model calls until resumed</td><td>Release when clear</td></tr>
       </tbody>
     </table></div>
     </div>

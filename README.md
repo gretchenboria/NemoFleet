@@ -179,7 +179,8 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 | Deliberation: new hazards, people, low confidence | `nvidia/Nemotron-3-Ultra-550b-a55b` | Nebius **Token Factory**, Responses API with a strict JSON schema | Live |
 | Reflex decisions and reuse of fleet memory | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | Nebius **Token Factory**, Responses API with a strict JSON schema | Live |
 | Night Shift replay: Ultra re-judges Nano's decisions | `nvidia/Nemotron-3-Ultra-550b-a55b` | Nebius **Token Factory** | Live |
-| Camera perception | `google/gemma-4-26B-A4B-it` | Our **Nebius Serverless AI Endpoint**: vLLM on one H200 | Live |
+| Camera perception | `google/gemma-3-27b-it` | Nebius **Token Factory**, billed per token | Live |
+| Camera perception, alternative | `google/gemma-4-26B-A4B-it` | Our **Nebius Serverless AI Endpoint**: vLLM on one H200 | Wired in; switch with one command |
 | Camera perception, alternative | `Cosmos3-Super-Reasoner` | Token Factory dedicated endpoint | Wired in; switch with one command |
 | Night Shift Dream: possible futures of each camera frame | `nvidia/Cosmos-Predict2.5-2B` | **Nebius Serverless Job** on one H200 | In progress |
 | Night Shift incident generator | `nvidia/nemotron-3-super-120b-a12b` | Nebius **Token Factory** | Live in `tools/night_shift` |
@@ -190,7 +191,7 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 **Where Token Factory helped:**
 - One API key and one base URL for Ultra and Nano. That let us tier the models by cost and latency without running any GPUs for them.
 - The Responses API's strict `json_schema` output removed most malformed decisions before our own validator ran.
-- Gemma 4 isn't served on Token Factory, so it runs on a Serverless AI Endpoint in the same Nebius account.
+- Perception runs per token on Token Factory, so the live demo needs no GPU of its own. Gemma 4 isn't served there; it can run on a Serverless AI Endpoint in the same Nebius account.
 
 **Measured on 2026-10-08, live site, both scenarios:**
 - Ultra decisions took 1.1–1.9 s each.
