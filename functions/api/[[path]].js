@@ -174,8 +174,8 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
   const tau = await tauFor(env, scene, sc);
   if (ev.kind === 'peer_handshake') {
     const prev = await env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
-    if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
+    if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, robot, origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null, ev.robot, prev.origin_id || (prev.source === 'peer' ? null : prev.id)).run();
     await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
     return J({ t: ev.t, robot: ev.robot, tier: 'peer', model_calls: 0, note: prev ? `received precedent (hop ${(prev.hops || 0) + 1})` : 'no precedent yet to pass on' });
   }
@@ -212,8 +212,8 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
     await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id, at);
   } else {
     await action(env, scene, 'decision', out.decision, tier, run_id, at);
-    if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
+    if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, robot, origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null, ev.robot, null).run();
     await applyZones(env, scene, out.decision, tier, run_id);
   }
   const link = { event_index: i, event: { robot: ev.robot, where: ev.where, text: ev.text, cell: ev.cell || null, kind: ev.kind, frame: ev.frame || null }, safety, call_id: out.call_id, perception_id: pref.id || null,
@@ -352,7 +352,11 @@ const routes = {
     const t = now(), since = new Date(Date.now() - 86400e3).toISOString();  // live, plus anything that expired in the last day
     const r = await env.MEMORY.prepare(`SELECT p.*, (SELECT COUNT(*) FROM actions a WHERE a.scene = p.scene AND a.type = 'memory_hit' AND json_extract(a.payload_json, '$.precedent') = p.id) reuse_count
       FROM precedents p WHERE p.scene = ? AND p.source IN ('ultra', 'operator') AND (p.pinned = 1 OR p.expires_at IS NULL OR p.expires_at > ?) ORDER BY p.created_at DESC LIMIT 100`).bind(scene, since).all();
-    return J({ scene, decisions: r.results.map(p => decisionRow(p, t)) });
+    // fleet awareness: the robot that met the hazard plus every robot holding a copy, out of the scene's robots
+    const copies = (await env.MEMORY.prepare("SELECT origin_id, robot FROM precedents WHERE scene = ? AND source = 'peer' AND origin_id IS NOT NULL AND robot IS NOT NULL AND revoked_at IS NULL").bind(scene).all()).results;
+    const fleet = new Set((await scenario(env, req, scene)).events.flatMap(e => [e.robot, e.from]).filter(Boolean));
+    return J({ scene, decisions: r.results.map(p => { const know = new Set(copies.filter(c => c.origin_id === p.id).map(c => c.robot)); if (p.robot) know.add(p.robot);
+      return { ...decisionRow(p, t), robot: p.robot || null, known_by: know.size, robots_total: new Set([...fleet, ...know]).size }; }) });
   },
   // the decision Nano would be handed for a hazard at this cell right now (the same lookup the step handler uses)
   'GET decisions/lookup': async (env, req, url) => {

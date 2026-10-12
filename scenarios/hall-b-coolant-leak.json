@@ -5,6 +5,26 @@
   "site": "DC-04 hall B",
   "tau": 0.62,
   "notes": "Day 1 of the demo in a data center hall. Frames are simulation renders; every model call is real. Hazard events carry a map cell: fleet memory reuses an Ultra decision for that cell instead of calling Ultra again (never for safety events).",
+  "cells": {
+    "C2": {
+      "x": 630,
+      "y": 305,
+      "w": 160,
+      "h": 68,
+      "lanes": [
+        3
+      ]
+    },
+    "C2-end": {
+      "x": 630,
+      "y": 305,
+      "w": 160,
+      "h": 68,
+      "lanes": [
+        3
+      ]
+    }
+  },
   "events": [
     {
       "t": 0,

@@ -5,6 +5,28 @@
   "site": "DC-04 zone B",
   "tau": 0.62,
   "notes": "Day 1 of docs/DEMO.md. Frames are simulation renders; every model call is real. Hazard events carry a map cell: fleet memory reuses an Ultra decision for that cell instead of calling Ultra again (never for safety events).",
+  "cells": {
+    "A4": {
+      "x": 630,
+      "y": 204,
+      "w": 160,
+      "h": 68,
+      "lanes": [
+        2,
+        3
+      ]
+    },
+    "41,7": {
+      "x": 630,
+      "y": 204,
+      "w": 160,
+      "h": 68,
+      "lanes": [
+        2,
+        3
+      ]
+    }
+  },
   "events": [
     {
       "t": 0,

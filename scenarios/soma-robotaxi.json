@@ -5,13 +5,80 @@
   "site": "SoMa, San Francisco: the blocks around Salesforce Tower",
   "tau": 0.62,
   "notes": "Experimental scene. Streets are real (OpenStreetMap); vehicle motion is simulated and the camera frames are synthetic (Cosmos-Predict2.5). Every model call is real. Hazard events carry a map cell (a street block): fleet memory reuses an Ultra decision for that block instead of calling Ultra again, never for events with people.",
+  "cells": {
+    "fremont-mission-howard": {
+      "x": 589,
+      "y": 144,
+      "w": 165,
+      "h": 167
+    }
+  },
   "events": [
-    { "t": 0, "robot": "AV07", "kind": "routine", "where": "Mission St at 2nd St", "text": "Robotaxi with one passenger heading to the Ferry Building. Lane clear, green light, light traffic. Lidar and radar show no obstruction.", "frame": "cam-av07-clear", "device": "robotaxi" },
-    { "t": 5, "robot": "AV14", "kind": "first_sighting", "cell": "fremont-mission-howard", "where": "Fremont St between Mission and Howard", "text": "Empty, en route to a pickup at 1st and Howard. Forward camera shows a vehicle stopped in the right lane ahead with hazard lights; lidar confirms a large static object. Planned route continues down this block.", "frame": "cam-av14-truck", "device": "robotaxi" },
-    { "t": 12, "robot": "AV09", "kind": "peer_handshake", "from": "AV14", "where": "Mission St at Fremont St", "text": "Passed AV14 at the intersection; received the hazard precedent for the Fremont block.", "device": "robotaxi" },
-    { "t": 14, "robot": "AV05", "kind": "peer_handshake", "from": "AV09", "where": "Beale St at Mission St", "text": "Passed AV09; received the hazard precedent for the Fremont block (hop 2).", "device": "robotaxi" },
-    { "t": 20, "robot": "AV03", "kind": "safety", "where": "1st St and Mission St crosswalk", "text": "Approaching the crosswalk to turn right; forward camera shows activity at the curb ahead.", "frame": "cam-av03-person", "device": "robotaxi" },
-    { "t": 26, "robot": "AV08", "kind": "repeat_sighting", "cell": "fremont-mission-howard", "where": "Fremont St between Mission and Howard (second robotaxi)", "text": "Two passengers, heading to Folsom St. Planned route enters the Fremont block. Forward camera shows a vehicle stopped in the right lane ahead with hazard lights; lidar confirms a large static object.", "frame": "cam-av14-truck", "device": "robotaxi" },
-    { "t": 30, "robot": "AV12", "kind": "variant", "cell": "fremont-mission-howard", "where": "Fremont St between Mission and Howard (later)", "text": "Empty, repositioning to the Transit Center. Approaching the Fremont block. Camera frame attached.", "frame": "cam-av12-firetruck", "device": "robotaxi" }
+    {
+      "t": 0,
+      "robot": "AV07",
+      "kind": "routine",
+      "where": "Mission St at 2nd St",
+      "text": "Robotaxi with one passenger heading to the Ferry Building. Lane clear, green light, light traffic. Lidar and radar show no obstruction.",
+      "frame": "cam-av07-clear",
+      "device": "robotaxi"
+    },
+    {
+      "t": 5,
+      "robot": "AV14",
+      "kind": "first_sighting",
+      "cell": "fremont-mission-howard",
+      "where": "Fremont St between Mission and Howard",
+      "text": "Empty, en route to a pickup at 1st and Howard. Forward camera shows a vehicle stopped in the right lane ahead with hazard lights; lidar confirms a large static object. Planned route continues down this block.",
+      "frame": "cam-av14-truck",
+      "device": "robotaxi"
+    },
+    {
+      "t": 12,
+      "robot": "AV09",
+      "kind": "peer_handshake",
+      "from": "AV14",
+      "where": "Mission St at Fremont St",
+      "text": "Passed AV14 at the intersection; received the hazard precedent for the Fremont block.",
+      "device": "robotaxi"
+    },
+    {
+      "t": 14,
+      "robot": "AV05",
+      "kind": "peer_handshake",
+      "from": "AV09",
+      "where": "Beale St at Mission St",
+      "text": "Passed AV09; received the hazard precedent for the Fremont block (hop 2).",
+      "device": "robotaxi"
+    },
+    {
+      "t": 20,
+      "robot": "AV03",
+      "kind": "safety",
+      "where": "1st St and Mission St crosswalk",
+      "text": "Approaching the crosswalk to turn right; forward camera shows activity at the curb ahead.",
+      "frame": "cam-av03-person",
+      "device": "robotaxi"
+    },
+    {
+      "t": 26,
+      "robot": "AV08",
+      "kind": "repeat_sighting",
+      "cell": "fremont-mission-howard",
+      "where": "Fremont St between Mission and Howard (second robotaxi)",
+      "text": "Two passengers, heading to Folsom St. Planned route enters the Fremont block. Forward camera shows a vehicle stopped in the right lane ahead with hazard lights; lidar confirms a large static object.",
+      "frame": "cam-av14-truck",
+      "device": "robotaxi"
+    },
+    {
+      "t": 30,
+      "robot": "AV12",
+      "kind": "variant",
+      "cell": "fremont-mission-howard",
+      "where": "Fremont St between Mission and Howard (later)",
+      "text": "Empty, repositioning to the Transit Center. Approaching the Fremont block. Camera frame attached.",
+      "frame": "cam-av12-firetruck",
+      "device": "robotaxi"
+    }
   ]
 }
