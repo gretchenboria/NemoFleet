@@ -129,43 +129,116 @@
       ]
     },
     "test_untuned_same_harness_seconds_per_decision": 2.72,
+    "gate_measured_through": "serving endpoint",
     "gate": {
       "levels": [
         {
           "target_error": 0.01,
-          "min_probability": 0.988,
+          "min_probability": 1.0,
           "settled": [
-            153,
+            147,
             332
           ],
-          "wrong": 0
+          "wrong": 1,
+          "settled_by_kind": {
+            "first": [
+              24,
+              83
+            ],
+            "repeat": [
+              43,
+              83
+            ],
+            "variant": [
+              19,
+              83
+            ],
+            "routine": [
+              61,
+              83
+            ]
+          }
         },
         {
           "target_error": 0.02,
-          "min_probability": 0.974,
+          "min_probability": 0.999,
           "settled": [
-            165,
+            162,
             332
           ],
-          "wrong": 0
+          "wrong": 2,
+          "settled_by_kind": {
+            "first": [
+              28,
+              83
+            ],
+            "repeat": [
+              47,
+              83
+            ],
+            "variant": [
+              21,
+              83
+            ],
+            "routine": [
+              66,
+              83
+            ]
+          }
         },
         {
           "target_error": 0.05,
-          "min_probability": 0.81,
+          "min_probability": 0.974,
           "settled": [
-            201,
+            211,
             332
           ],
-          "wrong": 1
+          "wrong": 4,
+          "settled_by_kind": {
+            "first": [
+              44,
+              83
+            ],
+            "repeat": [
+              60,
+              83
+            ],
+            "variant": [
+              33,
+              83
+            ],
+            "routine": [
+              74,
+              83
+            ]
+          }
         },
         {
           "target_error": 0.1,
-          "min_probability": 0.026,
+          "min_probability": 0.768,
           "settled": [
-            244,
+            256,
             332
           ],
-          "wrong": 20
+          "wrong": 15,
+          "settled_by_kind": {
+            "first": [
+              57,
+              83
+            ],
+            "repeat": [
+              68,
+              83
+            ],
+            "variant": [
+              55,
+              83
+            ],
+            "routine": [
+              76,
+              83
+            ]
+          }
         }
       ],
       "stated_confidence": {

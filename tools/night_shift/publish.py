@@ -45,6 +45,7 @@ def distill():
         import math
         val = json.load(open(os.path.join(res, "decide_decide_v1_val.json")))["rows"]
         test_rows = json.load(open(os.path.join(res, "decide_decide_v1_test.json")))["rows"]
+        offline = test_rows  # the stated-confidence comparison comes from the offline evaluation, which recorded it
         if os.path.exists(os.path.join(res, "served_test.json")):
             # measured through the serving endpoint (tools/night_shift/gate_eval.py): probability of the action
             # choices only, which is what the live gate receives
@@ -60,8 +61,8 @@ def distill():
             gate.append({"target_error": target, "min_probability": round(math.exp(thr), 3), "settled": [len(kept), len(test_rows)],
                          "wrong": len(kept) - sum(r["agree"] for r in kept),
                          "settled_by_kind": {k: [sum(1 for r in kept if r["kind"] == k), sum(1 for r in test_rows if r["kind"] == k)] for k in KINDS}})
-        stated = [r for r in test_rows if isinstance(r.get("stated_confidence"), (int, float)) and r["stated_confidence"] >= 0.62]
-        out["gate"] = {"levels": gate, "stated_confidence": {"settled": [len(stated), len(test_rows)], "wrong": len(stated) - sum(r["agree"] for r in stated)}}
+        stated = [r for r in offline if isinstance(r.get("stated_confidence"), (int, float)) and r["stated_confidence"] >= 0.62]
+        out["gate"] = {"levels": gate, "stated_confidence": {"settled": [len(stated), len(offline)], "wrong": len(stated) - sum(r["agree"] for r in stated)}}
         r = json.load(open(os.path.join(res, "results.json")))["runs"]["decide_v1"]["train"]
         out["fine_tune"] = {"status": "done", "run": "decide-1", "minutes": round(r["seconds"] / 60), "steps": r["steps"]}
     return out
