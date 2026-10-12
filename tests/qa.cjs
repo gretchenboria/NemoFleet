@@ -211,7 +211,7 @@ const server = http.createServer((req, res) => {
       al('al-qa-haz', 'QA1', 0, ", 9001, 'datacenter/qa/1', 'pr-qa-1', 'created'"), al('al-qa-person', 'QA2', 1, '')].join('\n'));
     execFileSync('npx', ['wrangler', 'd1', 'execute', 'nemofleet-memory', '--local', '-c', 'cloudflare/wrangler.jsonc', '--persist-to', state, '--file', path.join(state, 'seed.sql')], { cwd: ROOT, stdio: 'pipe' });
     const port = 8790 + Math.floor(Math.random() * 100);
-    const dev = spawn('npx', ['wrangler', 'pages', 'dev', 'site/dist', '--d1', 'MEMORY=eb9d266f-5753-45da-9378-5797b5cf1fdc', '--kv', 'TAGS', '--r2', 'RUNS', '--port', String(port), '--persist-to', state], { cwd: ROOT, stdio: 'ignore', detached: true });
+    const dev = spawn('npx', ['wrangler', 'pages', 'dev', 'site/dist', '--d1', 'MEMORY=eb9d266f-5753-45da-9378-5797b5cf1fdc', '--kv', 'TAGS', '--r2', 'RUNS', '--binding', 'EVENTS_TOKEN=qa-events-token', '--binding', 'NEBIUS_API_KEY=qa-stub-key', '--binding', 'TUNED_ENDPOINT_TOKEN=qa-stub-token', '--port', String(port), '--persist-to', state], { cwd: ROOT, stdio: 'ignore', detached: true });
     const api = `http://127.0.0.1:${port}/api/`;
     const get = p => fetch(api + p).then(r => r.json()), post = (p, b) => fetch(api + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
     let health = null;
@@ -231,17 +231,50 @@ const server = http.createServer((req, res) => {
       const s0 = await post('scenario/start', { scene: 'datacenter' }), peer = await post('scenario/step', { scene: 'datacenter', run_id: s0.run_id, i: 2 });
       check('API: scenario start returns 7 events; a handshake step makes no model call', s0.events?.length === 7 && peer.tier === 'peer' && peer.model_calls === 0, JSON.stringify(peer));
       // events endpoint: a robot posts one event; the model-free paths run locally
-      const evPost = await post('events', { scene: 'datacenter', robot: 'R09', device: 'AMR', where: 'cold aisle 3', cell: 'QA1', kind: 'peer_handshake', text: 'Passing R07 at the aisle end.', from: 'R07' });
-      const evRun = await post('events', { scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'peer_handshake', text: 'Passing R07 again.', run_id: 'qa-run' });
+      const evH = { 'content-type': 'application/json', authorization: 'Bearer qa-events-token' }, postEv = (b, h = evH) => fetch(api + 'events', { method: 'POST', headers: h, body: JSON.stringify(b) }).then(async r => [r.status, await r.json()]);
+      const evOk = { scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'peer_handshake', text: 'Passing R07.' }, noTok = await postEv(evOk, { 'content-type': 'application/json' }), badTok = await postEv(evOk, { ...evH, authorization: 'Bearer nope' });
+      check('API events: a missing or wrong bearer token is rejected with 401', noTok[0] === 401 && badTok[0] === 401 && noTok[1].error && !noTok[1].tier, JSON.stringify([noTok, badTok]));
+      const evPost = (await postEv( { scene: 'datacenter', robot: 'R09', device: 'AMR', where: 'cold aisle 3', cell: 'QA1', kind: 'peer_handshake', text: 'Passing R07 at the aisle end.', from: 'R07' }))[1];
+      const evRun = (await postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'peer_handshake', text: 'Passing R07 again.', run_id: 'qa-run' }))[1];
       check('API events: a posted handshake event runs the shared pipeline with no model call, under the day\'s run or the one passed in', evPost.tier === 'peer' && evPost.model_calls === 0 && evPost.robot === 'R09' && /^events-datacenter-\d{4}-\d\d-\d\d$/.test(evPost.run_id) && /received precedent/.test(evPost.note) && evRun.run_id === 'qa-run' && evRun.tier === 'peer', JSON.stringify([evPost, evRun]).slice(0, 300));
       const evBad = await Promise.all([{ scene: 'moon', robot: 'R1', where: 'x', kind: 'routine', text: 'x' }, { scene: 'datacenter', where: 'x', kind: 'routine', text: 'x' }, { scene: 'datacenter', robot: 'R1', where: 'x', kind: 'teleport', text: 'x' }, { scene: 'datacenter', robot: 'R1', where: 'x', kind: 'routine', text: '' }]
-        .map(b => fetch(api + 'events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then(async r => [r.status, (await r.json()).error])));
+        .map(b => postEv(b).then(([st2, j]) => [st2, j.error])));
       check('API events: unknown scene, missing robot, unknown kind and empty text are rejected with 400', evBad.every(([st2, e]) => st2 === 400 && e) && /scene must be/.test(evBad[0][1]) && /"robot" is required/.test(evBad[1][1]) && /"kind" must be/.test(evBad[2][1]) && /"text" is required/.test(evBad[3][1]), JSON.stringify(evBad));
       // autonomy target: stored per scene, only measured levels, tau untouched
       const gate = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'night_shift.json'), 'utf8')).distill.gate, lvl = gate.levels[gate.levels.length > 2 ? 2 : 0];
       const au0 = (await get('state?scene=datacenter')).autonomy, auSet = await post('actions', { scene: 'datacenter', type: 'set_autonomy', target_error: lvl.target_error }), stA = await get('state?scene=datacenter'), auBad = await post('actions', { scene: 'datacenter', type: 'set_autonomy', target_error: 0.5 });
       check('API autonomy: a measured target is stored per scene and returned in state; an unmeasured one is rejected; stated confidence and tau stay in force', au0?.target_error === null && auSet.ok && stA.autonomy.target_error === lvl.target_error && stA.autonomy.level.min_probability === lvl.min_probability && stA.autonomy.in_force === 'stated_confidence' &&
         stA.tau === stA.tau_default && /must be one of/.test(auBad.error || '') && (await get('state?scene=warehouse')).autonomy.target_error === null && stA.actions.some(a => a.type === 'set_autonomy' && a.source === 'operator'), JSON.stringify([au0, stA.autonomy, auBad]));
+      // adapter registry: promote or hold; the tuned endpoint and the Token Factory are a local stub (no paid calls)
+      const MJ = path.join(DIST, 'config', 'models.json'), mjOrig = fs.readFileSync(MJ, 'utf8'), mj = JSON.parse(mjOrig), seenBy = { tuned: 0, responses: [] };
+      const stubDecision = { actions: [{ type: 'proceed', robot: 'R09' }], confidence: 0.95, rationale: 'stub' };
+      const stub = require('http').createServer((rq, rs) => { let b = ''; rq.on('data', c => b += c); rq.on('end', () => {
+        const send = (code, o) => { rs.writeHead(code, { 'content-type': 'application/json' }); rs.end(JSON.stringify(o)); };
+        if (rq.url === '/v1/chat/completions') { seenBy.tuned++; if (rq.headers.authorization !== 'Bearer qa-stub-token' || /QA-FAIL/.test(b)) return send(500, { error: 'stub failure' });
+          return send(200, { choices: [{ message: { content: JSON.stringify(stubDecision, null, 2) } }], actions_probability: /QA-LOWP/.test(b) ? 0.01 : 0.999, latency_ms: 5, usage: { prompt_tokens: 10, completion_tokens: 5 } }); }
+        if (rq.url === '/v1/responses') { seenBy.responses.push(JSON.parse(b).model); return send(200, { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(stubDecision) }] }], usage: { input_tokens: 1, output_tokens: 1 } }); }
+        send(404, { error: 'no route' }); }); });
+      await new Promise(r => stub.listen(0, '127.0.0.1', r));
+      try {
+        const stA0 = await get('state?scene=datacenter'), early = await post('actions', { scene: 'datacenter', type: 'promote_adapter' });
+        check('API adapter: with no endpoint configured the tuned adapter is not serving and Promote is refused', stA0.adapter && stA0.adapter.configured === false && stA0.adapter.serving === false && /Not serving/.test(early.error || ''), JSON.stringify([stA0.adapter, early]));
+        const stubBase = `http://127.0.0.1:${stub.address().port}/v1`;
+        fs.writeFileSync(MJ, JSON.stringify({ ...mj, base: stubBase, reflex_tuned: { ...mj.reflex_tuned, base_url: stubBase } }));
+        let stB = null; for (let k = 0; k < 20 && !stB?.adapter?.configured; k++) { await new Promise(r => setTimeout(r, 500)); stB = await get('state?scene=datacenter'); }
+        const prom = await post('actions', { scene: 'datacenter', type: 'promote_adapter' }), stC = await get('state?scene=datacenter');
+        check('API adapter: once configured, Promote is stored per scene, logged, and the probability gate is reported in force', stB.adapter.configured && stB.adapter.key && !stB.adapter.promoted && stB.autonomy.in_force === 'stated_confidence' && prom.ok && stC.adapter.serving && stC.autonomy.in_force === 'probability_gate' &&
+          stC.actions.some(a => a.type === 'promote_adapter' && a.source === 'operator') && (await get('state?scene=warehouse')).adapter.promoted === false, JSON.stringify([stB.adapter, prom, stC.autonomy]));
+        const ev = text => postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'routine', text }).then(r => r[1]);
+        const hi = await ev('QA-HIGH aisle clear.'), afterHi = seenBy.responses.length;
+        check('pipeline: a promoted tuned Nano settles an event when its probability clears the target level (no other model called)', hi.tier === 'nano' && hi.model === mj.reflex_tuned.id && hi.tuned?.used && hi.tuned.actions_probability === 0.999 && hi.gate === 'settled' && hi.decision?.actions[0].type === 'proceed' && afterHi === 0 && seenBy.tuned === 1, JSON.stringify(hi).slice(0, 300));
+        const lo = await ev('QA-LOWP aisle clear.');
+        check('pipeline: a probability below the level escalates to Ultra', lo.tier === 'ultra' && lo.gate === 'low_probability' && lo.tuned?.actions_probability === 0.01 && lo.tuned.min_probability === lvl.min_probability && seenBy.responses.length === 1 && seenBy.responses[0] === mj.deliberator, JSON.stringify(lo).slice(0, 300) + seenBy.responses);
+        const fb = await ev('QA-FAIL aisle clear.'), stD = await get('state?scene=datacenter');
+        check('pipeline: an error from the tuned endpoint falls back to the served Nano and is recorded in the call and action logs', fb.tier === 'nano' && fb.model === mj.reflex && fb.tuned?.used === false && /HTTP 500/.test(fb.tuned.fallback) && seenBy.responses[1] === mj.reflex &&
+          stD.calls.some(c => c.model === mj.reflex_tuned.id && c.valid === 0) && stD.actions.some(a => a.type === 'tuned_fallback'), JSON.stringify(fb).slice(0, 300));
+        const hold = await post('actions', { scene: 'datacenter', type: 'hold_adapter' }), stE = await get('state?scene=datacenter');
+        check('API adapter: Hold stops serving and stated confidence is back in force', hold.ok && !stE.adapter.promoted && !stE.adapter.serving && stE.autonomy.in_force === 'stated_confidence' && stE.actions.some(a => a.type === 'hold_adapter'), JSON.stringify(stE.adapter));
+      } finally { fs.writeFileSync(MJ, mjOrig); stub.close(); await new Promise(r => setTimeout(r, 1500)); }
       // decision book
       const lookup = c => get('decisions/lookup?scene=datacenter&cell=' + c).then(r => r.decision);
       let book = (await get('decisions?scene=datacenter')).decisions, d1 = book.find(d => d.id === 'pr-qa-1');
@@ -280,6 +313,8 @@ const server = http.createServer((req, res) => {
       const autoV = await page.evaluate(() => ({ btns: [...document.querySelectorAll('#auto-levels button')].map(b => b.textContent + ':' + b.getAttribute('aria-pressed')), rows: [...document.querySelectorAll('#auto-evidence tr')].map(r => r.innerText.replace(/\s+/g, ' ')), line: document.getElementById('gate-line').innerText.replace(/\s+/g, ' '), tau: !!document.getElementById('tau') }));
       check('console LIVE: Autonomy control shows the measured levels, the chosen target with its evidence beside stated confidence, and which gate is in force', autoV.btns.length === gate.levels.length && autoV.btns.filter(b => /:true$/.test(b)).length === 1 && autoV.rows.length === 2 && autoV.rows[0].includes(`${lvl.settled[0]} of ${lvl.settled[1]}`) && autoV.rows[1].includes(`${gate.stated_confidence.settled[0]} of ${gate.stated_confidence.settled[1]} ${gate.stated_confidence.wrong}`) &&
         /In force: stated confidence, τ 0\.\d\d/.test(autoV.line) && /Ready: probability gate, target/.test(autoV.line) && autoV.tau, JSON.stringify(autoV));
+      const adV = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#adapter-rows tr')].map(r => r.dataset.adapter + ':' + r.innerText.replace(/\s+/g, ' ')), off: document.getElementById('adapter-toggle')?.disabled, brief: document.getElementById('brief').innerText.replace(/\s+/g, ' '), briefShown: !document.getElementById('brief').hidden }));
+      check('console LIVE: adapters are listed with measured evidence, "Not serving" with Promote disabled when no endpoint is configured, and the morning brief line is shown', adV.rows.length === 2 && /^decision:.*Agrees with Ultra \d+ → \d+ of \d+.*Not serving/.test(adV.rows[0]) && /^person:.*Recall .*→.*Not serving/.test(adV.rows[1]) && adV.off === true && adV.briefShown && /Replay/.test(adV.brief) && /not serving/.test(adV.brief), JSON.stringify(adV));
       await page.click('#tab-dec'); await new Promise(r => setTimeout(r, 300));
       const decv = await page.evaluate(() => ({ shown: !document.getElementById('pane-dec').hidden, rows: [...document.querySelectorAll('#dec tr[data-id]')].map(r => r.dataset.status + ':' + r.innerText.replace(/\s+/g, ' ')), pin: document.querySelectorAll('#dec [data-op="pin"]').length, ext: document.querySelectorAll('#dec select[data-op="extend"] option').length, rev: document.querySelectorAll('#dec [data-op="revoke"]').length }));
       check('console LIVE: Decisions view lists stored decisions with Pin, Extend and Revoke, no errors', decv.shown && decv.rows.length >= 4 && decv.rows.some(r => /^live:QA1 .*Reroute.*Operator/.test(r)) && decv.rows.some(r => /^revoked:QA3/.test(r)) && decv.pin >= 2 && decv.ext >= 8 && decv.rev >= 2 && !errors.length, JSON.stringify(decv).slice(0, 400) + errors.join(';'));

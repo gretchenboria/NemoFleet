@@ -20,6 +20,11 @@ function models() {
   Object.assign(out, { perception: opt.id || null, perception_option: active || null, perception_label: opt.label || null, perception_billing: opt.billing || null,
     perception_base: opt.base_url || out.base, perception_key_env: opt.api_key_env || 'NEBIUS_API_KEY',
     perception_options: Object.fromEntries(Object.entries(p).map(([k, o]) => [k, { id: o.id || null, label: o.label || k }])) });
+  // optional tuned-adapter endpoint: models.reflex_tuned.{id,label,adapter,base_url,api_key_env}; the key itself is never in the file
+  const rt = (y.match(/\n  reflex_tuned:[^\n]*\n((?:    [^\n]*\n?)*)/) || [])[1];
+  if (rt) { const f = Object.fromEntries([...rt.matchAll(/^    (\w+):[ \t]*(.*?)[ \t]*(?:#.*)?$/gm)].map(([, k, v]) => [k, v === 'null' ? '' : v]));
+    out.reflex_tuned = { id: f.id || null, label: f.label || null, adapter: f.adapter || null, base_url: f.base_url || '', api_key_env: f.api_key_env || null }; }
+  else delete out.reflex_tuned;
   return out;
 }
 // models.perception.options.<name>.{id,label,billing,...}

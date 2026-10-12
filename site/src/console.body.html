@@ -323,6 +323,8 @@ table.proof tr.total td { border-bottom: 0; border-top: 1px solid var(--ink-2); 
 .auto td { padding: 4px 12px 4px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .auto .gate-line { font-size: 12.5px; display: flex; gap: 4px 18px; flex-wrap: wrap; }
 .auto .gate-line b { font-weight: 600; }
+#adapters table { max-width: none; } #adapters td .sub { display: block; color: var(--muted); font-size: 11.5px; }
+.brief { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; min-width: 0; } .brief b { font-weight: 600; }
 
 /* learning, memory, usage */
 .charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
@@ -457,6 +459,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   </div>
 
   <section class="night" id="night" aria-labelledby="h-ns">
+    <div class="brief" id="brief" hidden></div>
     <div class="night-head">
       <div><div class="t"><span class="idx">03</span><h2 id="h-ns">Night Shift</h2></div>
         <p id="ns-night"></p></div>
@@ -464,6 +467,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
     <div class="ns-learn" id="ns-learn"></div>
     <div class="ns-foot">
+      <div class="auto" id="adapters" hidden><table aria-label="Adapters"><thead><tr><th>Adapter</th><th>Measured</th><th>Status</th><th aria-label="Manage"></th></tr></thead><tbody id="adapter-rows"></tbody></table></div>
       <div class="auto" id="auto">
         <div class="auto-row"><span class="label" id="auto-label">Autonomy target</span><div class="auto-levels" id="auto-levels" role="group" aria-labelledby="auto-label"></div><span class="sub" id="auto-unit"></span></div>
         <table aria-label="Measured gates"><thead><tr><th>Gate</th><th>Settles without Ultra</th><th>Differ from Ultra</th></tr></thead><tbody id="auto-evidence"></tbody></table>
@@ -730,6 +734,36 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     $('gate-line').innerHTML = ST ? `<span><b>In force:</b> ${au?.in_force === 'stated_confidence' ? 'stated confidence' : esc(au?.in_force || DASH)}, τ ${Number(ST.tau).toFixed(2)}</span><span><b>Ready:</b> ${lv ? `probability gate, target ${per100(lv.target_error)}%` : 'no target set'}</span>` : '';
   }
 
+  // ---- adapters: measured evidence (config/night_shift.json) and serving status (API state) ----
+  const adState = a => !a || !a.configured ? 'Not serving' : !a.key ? 'Not serving · token missing' : a.promoted ? 'Serving' : 'On hold';
+  const pct1 = v => (100 * v).toFixed(1) + '%';
+  function renderAdapters() {
+    const box = $('adapters'), d = NS?.distill, tr = NS?.trigger, a = ST?.adapter, lv = ST?.autonomy?.level;
+    box.hidden = !(NS && ST); if (box.hidden) return;
+    const sig = JSON.stringify([a, lv, NS.updated, SCENE]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
+    const body = $('adapter-rows'); body.innerHTML = '';
+    const row = (name, sub, measured, status) => { const r = document.createElement('tr'); r.innerHTML = `<td>${esc(name)}<span class="sub mono">${esc(sub || '')}</span></td><td>${measured}</td><td>${esc(status)}</td><td></td>`; body.appendChild(r); return r; };
+    if (d?.test_tuned?.all && d?.test_served_nano?.all) {
+      const r = row(a?.label || 'Decisions', a?.adapter || d.fine_tune?.run, `Agrees with Ultra ${fmtInt(d.test_served_nano.all[0])} → ${fmtInt(d.test_tuned.all[0])} of ${fmtInt(d.test_tuned.all[1])}` +
+        (lv ? `<span class="sub">Gate at ${per100(lv.target_error)}%: settles ${fmtInt(lv.settled[0])} of ${fmtInt(lv.settled[1])} · ${fmtInt(lv.wrong)} differ</span>` : ''), adState(a));
+      r.dataset.adapter = 'decision';
+      const b = document.createElement('button'), can = !!(a && a.configured && a.key); b.className = 'btn sm' + (a?.promoted ? ' quiet' : ''); b.id = 'adapter-toggle'; b.textContent = a?.promoted ? 'Hold' : 'Promote';
+      if (!can && !a?.promoted) { b.disabled = true; b.title = adState(a); }
+      wire(b, async () => { await api('actions', { scene: SCENE, type: a?.promoted ? 'hold_adapter' : 'promote_adapter' }); return a?.promoted ? 'Adapter on hold' : 'Adapter promoted'; });
+      r.lastElementChild.appendChild(b);
+    }
+    if (tr?.viewpoints) row('Person in the way', tr.run, 'Recall ' + Object.entries(tr.viewpoints).map(([k, v]) => `${esc(k)} ${pct1(v.baseline_recall)} → ${pct1(v.tuned_recall)}`).join(' · '), 'Not serving').dataset.adapter = 'person';
+  }
+  // ---- morning brief: last replay and what each adapter is doing ----
+  function renderBrief() {
+    const box = $('brief'); box.hidden = !(LIVE && ST); if (box.hidden) return;
+    const rep = (ST.night_shift || []).find(r => r.stage === 'replay'), met = rep ? parse(rep.metrics_json) : null, at = rep && (rep.finished_at || rep.started_at);
+    const parts = [rep ? `<b>Replay</b> ${esc(new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}${met ? ` · ${fmtInt(met.disagree ?? 0)} of ${fmtInt(met.rejudged ?? 0)} disagree` : ''}` : '<b>Replay</b> none yet'];
+    if (NS?.distill?.test_tuned) parts.push(`<b>${esc(ST.adapter?.label || 'Decisions')}</b> ${esc(adState(ST.adapter).toLowerCase())}`);
+    if (NS?.trigger?.viewpoints) parts.push('<b>Person in the way</b> not serving');
+    box.innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+  }
+
   // ---- decision book: stored decisions for this scene ----
   function renderDecisions() {
     const body = $('dec'), list = DEC?.decisions || [], hit = body.querySelector('tr.hit')?.dataset.id;
@@ -874,7 +908,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       stage('consolidate' + (NS ? '' : ' off'), 'Consolidate', NS ? fmtInt(NS.distill.events) : DASH,
         NS ? `events decided by Ultra · Nano fine-tune ${NS.distill.fine_tune.status === 'done' ? 'done' : 'running'}` : 'no fine-tune results');
     renderLearned();
-    renderAutonomy();
+    renderAutonomy(); renderAdapters(); renderBrief();
     const tau = $('tau');
     tau.disabled = !ST;
     if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }

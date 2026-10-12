@@ -125,15 +125,47 @@ const decisionRow = (p, t = now()) => ({ id: p.id, cell: p.hazard_key, situation
 // Autonomy target: the share of self-settled decisions that may differ from Ultra. Only the levels measured for the tuned
 // Nano (config/night_shift.json distill.gate.levels) can be chosen. It is the gate for the tuned adapter; the served Nano is gated by stated confidence and tau.
 async function gateLevels(env, req) { try { return (await (await asset(env, req, '/config/night_shift.json')).json()).distill?.gate?.levels || []; } catch { return []; } }
-async function autonomyFor(env, req, scene) {
+// The tuned Nano adapter: configured in config/models.yaml (reflex_tuned), its token in the env var it names, promoted per scene by the operator.
+// It is serving a scene only when all three hold.
+async function adapterFor(env, req, scene, m) {
+  m = m || await models(env, req).catch(() => ({})); const t = m.reflex_tuned; if (!t) return null;
+  const configured = !!t.base_url, key = !!(t.api_key_env && env[t.api_key_env]), promoted = !!(await env.TAGS.get(`${scene}:promoted`));
+  return { id: t.id || null, label: t.label || null, adapter: t.adapter || null, configured, key, key_env: t.api_key_env || null, promoted, serving: configured && key && promoted };
+}
+async function autonomyFor(env, req, scene, ad) {
   const t = Number(await env.TAGS.get(`${scene}:autonomy`)), level = t > 0 ? (await gateLevels(env, req)).find(l => l.target_error === t) : null;
-  return { target_error: level ? t : null, level: level || null, in_force: 'stated_confidence' };
+  if (ad === undefined) ad = await adapterFor(env, req, scene);
+  return { target_error: level ? t : null, level: level || null, in_force: ad?.serving && level ? 'probability_gate' : 'stated_confidence' };
+}
+// Whether a Nano-tier answer goes up to Ultra: by the tuned adapter's own probability when there is one and a target level is set, otherwise by stated confidence against tau.
+function gateDecision(out, tau, level) {
+  if (!out.decision) return { escalate: true, by: 'invalid' };
+  if (level && typeof out.actions_probability === 'number') return { escalate: out.actions_probability < level.min_probability, by: 'probability' };
+  return { escalate: out.decision.confidence < tau, by: 'stated_confidence' };
+}
+// One call to the tuned adapter's OpenAI-compatible endpoint. Any error or invalid decision is logged and returned as no decision; the caller falls back to the served Nano.
+async function decideTuned(env, t, scene, run_id, robot, event, context) {
+  const t0 = Date.now(); let content = '', errs = [], prob = null, usage = {}, d = null;
+  try {
+    const r = await fetch(`${t.base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${t.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: t.model, messages: [{ role: 'system', content: systemFor(scene) }, { role: 'user', content: context }], max_tokens: 220 }), signal: AbortSignal.timeout(20000) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    content = j.choices?.[0]?.message?.content ?? ''; d = parseJSON(content); errs = validate(d); usage = j.usage || {};
+    if (typeof j.actions_probability === 'number') prob = j.actions_probability;
+  } catch (e) { errs = [`tuned endpoint: ${e.message}`]; }
+  const latency_ms = Date.now() - t0;
+  const call_id = await logCall(env, { scene, run_id, ts: now(), tier: 'nano', model: t.model, robot, event, latency_ms, usage, input: context, output: content, valid: !errs.length, errors: errs, fallback: errs.length ? 'served_nano' : null, decision: errs.length ? null : { ...d, actions_probability: prob } });
+  return errs.length ? { decision: null, model: t.model, errors: errs, call_id } : { decision: d, model: t.model, latency_ms, call_id, actions_probability: prob };
 }
 async function tauFor(env, scene, sc) { const t = Number(await env.TAGS.get(`${scene}:tau`)); return t >= 0.3 && t <= 0.9 ? t : sc.tau; }
 async function applyZones(env, scene, decision, by, run_id) {
   for (const a of decision.actions) if (a.type === 'quarantine_zone') for (const c of a.cells || []) await env.TAGS.put(`${scene}:zone:${c}`, JSON.stringify({ by, run_id, at: now() }), { expirationTtl: Math.max(60, a.ttl_s || 600) });
 }
 
+// a random 52-bit integer per posted event: unique without a counter, and still an exact JS/SQLite integer
+const eventIndex = () => { const r = crypto.getRandomValues(new Uint32Array(2)); return r[0] * 0x100000 + (r[1] & 0xFFFFF); };
+const sameText = (a, b) => { let d = a.length ^ b.length; for (let i = 0; i < b.length; i++) d |= (a.charCodeAt(i) || 0) ^ b.charCodeAt(i); return d === 0; };  // constant-time compare
 const EVENT_KINDS = ['routine', 'first_sighting', 'repeat_sighting', 'variant', 'safety', 'peer_handshake'];
 // One event through the pipeline: perception, fleet-memory lookup, Nano or Ultra, actions, stored decision, alarm.
 // Shared by the rehearsal runner (POST scenario/step) and by robots posting their own events (POST events).
@@ -159,8 +191,18 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
   const memo = hazard && ev.cell && !safety ? await lookupDecision(env, scene, ev.cell) : null;
   if (memo) ctx += `\nFleet memory: ${memo.source === 'operator' ? 'the operator' : 'Ultra'} already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
   const novel = hazard && !memo;
-  let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null, created = null;
-  if (tier === 'nano' && (!out.decision || out.decision.confidence < tau)) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
+  let tier = safety || novel ? 'ultra' : 'nano', out = null, memory = null, created = null, tuned = null, level = null;
+  // Nano tier only: when the tuned adapter is promoted and serving for this scene it answers first; the served Nano is the fallback.
+  const ad = tier === 'nano' ? await adapterFor(env, req, scene, m) : null;
+  if (ad?.serving) {
+    const t = m.reflex_tuned; level = (await autonomyFor(env, req, scene, ad)).level;
+    out = await decideTuned(env, { base: t.base_url.replace(/\/+$/, ''), key: env[t.api_key_env], model: t.id || t.adapter }, scene, run_id, ev.robot, ev.kind, ctx);
+    tuned = { model: out.model, used: !!out.decision, actions_probability: out.actions_probability ?? null, min_probability: level?.min_probability ?? null, fallback: out.decision ? null : out.errors.join('; ') };
+    if (!out.decision) { await action(env, scene, 'tuned_fallback', { robot: ev.robot, model: out.model, reason: tuned.fallback, call_id: out.call_id, to: m.reflex }, 'nano', run_id, at); out = null; level = null; }
+  }
+  if (!out) out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx);
+  const g = tier === 'nano' ? gateDecision(out, tau, level) : null;
+  if (g?.escalate) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
   if (memo) {
     memory = { precedent: memo.id, cell: ev.cell, from: memo.created_at, ultra_avoided: tier === 'nano' && !!out.decision };
     await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id, at);
@@ -179,7 +221,7 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
   if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
   else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
   else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
-  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
+  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? (g?.by === 'probability' ? 'low_probability' : 'low_confidence') : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, tuned, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
 }
 
 async function incident(env, id) {
@@ -223,11 +265,11 @@ const routes = {
       q('SELECT * FROM night_shift WHERE id LIKE ? ORDER BY started_at DESC LIMIT 8', `${scene}/%`)]);
     const tags = (await env.TAGS.list({ prefix: `${scene}:` })).keys.map(k => ({ name: k.name, expires: k.expiration ? new Date(k.expiration * 1000).toISOString() : null }));
     const peer_total = (await env.MEMORY.prepare("SELECT COUNT(*) n FROM precedents WHERE scene = ? AND source = 'peer'").bind(scene).first()).n;
-    const sc = await scenario(env, req, scene), tau = await tauFor(env, scene, sc);
+    const sc = await scenario(env, req, scene), tau = await tauFor(env, scene, sc), adapter = await adapterFor(env, req, scene);
     // Fleet memory: Ultra calls avoided, and what an Ultra call costs on average (real calls only).
     const memory = await env.MEMORY.prepare("SELECT SUM(type = 'memory_hit') hits, SUM(type = 'memory_override') overrides FROM actions WHERE scene = ?").bind(scene).first();
     const ultra = await env.MEMORY.prepare("SELECT COUNT(*) n, AVG(latency_ms) ms, AVG(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)) tokens FROM calls WHERE scene = ? AND tier = 'ultra' AND valid = 1").bind(scene).first();
-    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, autonomy: await autonomyFor(env, req, scene), paused: !!(await env.TAGS.get(`${scene}:pause`)),
+    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, adapter, autonomy: await autonomyFor(env, req, scene, adapter), paused: !!(await env.TAGS.get(`${scene}:pause`)),
       memory: { hits: memory?.hits || 0, overrides: memory?.overrides || 0, ultra_calls: ultra?.n || 0, ultra_avg_ms: ultra?.ms ?? null, ultra_avg_tokens: ultra?.tokens ?? null } });
   },
   'POST alarms/ack': async (env, req, url, body) => { await env.MEMORY.prepare("UPDATE alarms SET status = CASE status WHEN 'acked' THEN 'open' ELSE 'acked' END, updated_at = ? WHERE id = ?").bind(now(), body.id).run(); return J({ ok: true }); },
@@ -254,7 +296,14 @@ const routes = {
         if (!levels.some(l => l.target_error === t)) return J({ error: levels.length ? `target_error must be one of ${levels.map(l => l.target_error).join(', ')}` : 'no measured gate levels are published' }, 400);
         await env.TAGS.put(`${scene}:autonomy`, String(t)); }
     }
-    else if (type === 'rollback_nano') { await env.TAGS.put(`${scene}:adapter`, JSON.stringify({ adapter: 'previous', at: now() })); }
+    else if (type === 'promote_adapter') {
+      const ad = await adapterFor(env, req, scene);
+      if (!ad || !ad.configured) return J({ error: 'Not serving: no endpoint is configured for the tuned adapter' }, 409);
+      if (!ad.key) return J({ error: `Not serving: ${ad.key_env} is not set on the Pages project` }, 409);
+      await env.TAGS.put(`${scene}:promoted`, JSON.stringify({ adapter: ad.adapter, by: 'operator', at: now() }));
+    }
+    else if (type === 'hold_adapter') { await env.TAGS.delete(`${scene}:promoted`); }
+    else if (type === 'rollback_nano') { await env.TAGS.delete(`${scene}:promoted`); await env.TAGS.put(`${scene}:adapter`, JSON.stringify({ adapter: 'previous', at: now() })); }
     else if (type === 'escalate') {
       const m = await models(env, req), open = await env.MEMORY.prepare("SELECT title, meta FROM alarms WHERE scene = ? AND status = 'open' ORDER BY created_at DESC LIMIT 3").bind(scene).all();
       const ctx = `Operator escalation at ${scene}. Open alarms: ${JSON.stringify(open.results)}. Decide the fleet response.`;
@@ -277,6 +326,8 @@ const routes = {
   },
   // A robot posts one event; it goes through the same pipeline as a rehearsal step. Events are grouped under one run per scene per day unless a run_id is passed.
   'POST events': async (env, req, url, body) => {
+    if (!env.EVENTS_TOKEN) return J({ error: 'Robot events are disabled: EVENTS_TOKEN is not set on the Pages project. Run: npx wrangler pages secret put EVENTS_TOKEN --project-name nemofleet' }, 503);
+    if (!sameText(req.headers.get('authorization') || '', `Bearer ${env.EVENTS_TOKEN}`)) return J({ error: 'missing or wrong events token' }, 401);
     const { scene } = body, errs = [];
     if (!SCENARIOS[scene]) return J({ error: `scene must be one of ${Object.keys(SCENARIOS).join(', ')}` }, 400);
     for (const k of ['robot', 'where', 'kind', 'text']) if (typeof body[k] !== 'string' || !body[k].trim()) errs.push(`"${k}" is required`);
@@ -287,7 +338,7 @@ const routes = {
     const sc = await scenario(env, req, scene), t = now(), run_id = body.run_id || `events-${scene}-${t.slice(0, 10)}`;
     await env.MEMORY.prepare('INSERT OR IGNORE INTO runs (id, scenario, scene, dry_run, started_at, r2_prefix) VALUES (?,?,?,?,?,?)').bind(run_id, 'events', scene, 0, t, `calls/${scene}/`).run();
     const ev = { t, robot: body.robot.trim(), device: body.device || null, where: body.where.trim(), cell: body.cell || null, kind: body.kind, text: body.text.trim().slice(0, 2000), frame: body.frame || null, from: body.from || 'fleet' };
-    const res = await runEvent(env, req, scene, run_id, Date.now() % 86400000, ev, sc), out = await res.json();  // event_index: the millisecond of the day, unique within the day's run
+    const res = await runEvent(env, req, scene, run_id, eventIndex(), ev, sc), out = await res.json();
     return J({ run_id, ...out }, res.status);
   },
   'POST scenario/finish': async (env, req, url, body) => {

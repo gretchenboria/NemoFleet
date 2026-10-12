@@ -39,3 +39,10 @@ models:
   scenario_generator:   # Nemotron Super
     id: nvidia/nemotron-3-super-120b-a12b
     status: to verify
+
+  reflex_tuned:     # the fine-tuned Nano adapter (tools/ego_mix/serve.py, OpenAI-compatible). Empty base_url = not serving.
+    id: nemotron-nano-decide-1
+    label: Nemotron Nano, tuned
+    adapter: decide-1
+    base_url:
+    api_key_env: TUNED_ENDPOINT_TOKEN
