@@ -197,7 +197,7 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 | Camera perception, alternative | `Cosmos3-Super-Reasoner` | Token Factory dedicated endpoint | Wired in; switch with one command |
 | Night Shift Dream: possible futures of each camera frame | `nvidia/Cosmos-Predict2.5-2B` | **Nebius Serverless Job** on one H200 | In progress |
 | Night Shift incident generator | `nvidia/nemotron-3-super-120b-a12b` | Nebius **Token Factory** | Live in `tools/night_shift` |
-| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
+| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained, evaluated and served behind the pipeline on a spot H200 when promoted |
 | Safety trigger: person in the way | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
 | Fleet memory and call log | none | Cloudflare D1, KV and R2 | Live |
 
@@ -314,7 +314,7 @@ The job generates short clips of possible futures from the camera frames and upl
 
 ## What is not built yet
 
-- **Tuned Nano in the live pipeline.** The adapters are trained and evaluated offline; serving one behind the console is the next step.
+- **Always-on serving of the tuned Nano.** It runs behind the pipeline when its spot endpoint is up and the adapter is promoted; otherwise the pipeline uses the served Nano.
 - **Night Shift Gate.** Promoting an adapter automatically only when it beats today's Nano.
 - **Dead-zone offline mode.** Robots that know only what their peers handed them.
 - **Real robots.** Motion on the console's floor view is simulated, and the camera frames are rendered.

@@ -221,3 +221,24 @@ The combined adapter is worse on both tasks, so the two single-task adapters sta
 ## 16. The gate, corrected after running it live (2026-10-12)
 
 Serving `decide-1` behind the live pipeline (`tools/ego_mix/serve.py`) showed that the first gate, the probability of every token before `"confidence"`, also scored the free text of alert messages: decisions that alert a human had a median probability of 0.004 and were always sent to Ultra, however sure the model was of the action. The gate now scores only the tokens that spell each action type and that continue or close the action list. It is re-measured through the serving endpoint with `tools/night_shift/gate_eval.py`; `config/night_shift.json` carries the current levels.
+
+## 17. Run `plan-r32`: more capacity for person in the way (2026-10-12)
+
+Same data as `plan-1`, LoRA rank 32, 3 epochs. Val loss was 0.0670, 0.0605, 0.0644 by epoch, so the best checkpoint is again epoch 2 and matches `plan-1` (0.0606).
+
+| Viewpoint | Baseline | `plan-1` (rank 16, 2 epochs) | `plan-r32` | Difference (95% interval) |
+|---|---|---|---|---|
+| Robot ego | 74.1% | 80.1% | 78.7% | -4.4 to +1.5 |
+| Human ego | 53.9% | 68.5% | 64.3% | -6.5 to -2.2 |
+| Vehicle ego | 87.8% | 90.0% | 92.6% | +0.4 to +4.9 |
+
+More capacity and a third epoch do not help the robot viewpoint and hurt the human one. The model is limited by data, not capacity.
+
+## 18. What we keep
+
+| Job | Adapter | Result on held-out data |
+|---|---|---|
+| Decide like Ultra | `decide-1` (rank 16, best of 3 epochs) | 88% agreement on hazard types never trained on (65% untuned, 81% as served); gate settles 64% of events with 1.9% wrong at the 5% target |
+| Person in the way | `plan-1` (rank 16, 2 epochs, planned path in the prompt) | Robot view 80.1% recall at the baseline's false-alarm rate (baseline 74.1%) |
+
+Tried and rejected, each on the same val and test rows: positions only without the planned path (`main-1`), no Waymo, equal thirds, simulated SmartSpaces data (`sim-1`), one combined adapter (`multi-1`), rank 32 with a third epoch (`plan-r32`). `decide-1` has been served behind the live pipeline with the probability gate (`tools/ego_mix/serve.py`, `sky_serve.yaml`). What would move the numbers next is data: the full THÖR-MAGNI release and real site recordings for person in the way, and decisions from real incidents and operator overrides for the decision adapter.
