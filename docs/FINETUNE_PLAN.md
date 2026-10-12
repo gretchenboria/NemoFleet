@@ -185,3 +185,24 @@ Run 2's training set plus 3,200 SmartSpaces robot-ego samples at a 30% positive 
 | Vehicle ego | 87.8% | 90.0% | 90.8% | -2.3 to +3.8 |
 
 The simulated data gives no reliable gain on robot ego and costs about 3 points on human ego. Run 2 (`plan-1`) remains the adapter we report. The simulated people follow scripted routes, which may be why they add little to real motion.
+
+## 14. Run `decide-1`: Nano learns Ultra's decisions (2026-10-12)
+
+Data: `tools/night_shift/distill.cjs`. Nemotron Super wrote 519 episodes across 24 data-hall hazard types; Ultra and the served Nano decided all 2,076 events with the production prompt and schema ($3.34 for Ultra). Split by hazard type: 16 train (1,360 events), 4 val (384), 4 test (332). LoRA r=16, 3 epochs, 6 minutes of training on one spot H200; best val loss at epoch 2.
+
+Agreement with Ultra (same set of action types), test:
+
+| Event | Served Nano (reasoning on) | Untuned, direct | Tuned, direct |
+|---|---|---|---|
+| First sighting | 70% | 46% | 81% |
+| Variant | 72% | 48% | 77% |
+| Repeat, with fleet memory | 88% | 72% | 96% |
+| Routine | 95% | 95% | 96% |
+| Person present | 64% | 29% | 75% |
+| All (332) | 81% | 65% | 88% |
+
+Validation shows the same pattern (84% tuned, 61% untuned, 77% served).
+
+Escalation gate: the tuned model's stated confidence would settle 330 of 332 test events with 12.4% wrong. The probability it assigned to its own actions, thresholded on val, settles 165 (50%) with none wrong, or 201 (61%) with 1 wrong. For the untuned model the same gate settles only 37 (11%).
+
+Limits: agreement is on action types, not arguments; the events are model-written, not from a real site; person events still go to Ultra by rule, and 75% agreement there says that rule should stay.

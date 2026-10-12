@@ -70,9 +70,65 @@
       ]
     },
     "fine_tune": {
-      "status": "training",
-      "run": "decide-1"
-    }
+      "status": "done",
+      "run": "decide-1",
+      "minutes": 6,
+      "steps": 1020
+    },
+    "test_tuned": {
+      "first": [
+        67,
+        83
+      ],
+      "all": [
+        291,
+        332
+      ],
+      "routine": [
+        80,
+        83
+      ],
+      "repeat": [
+        80,
+        83
+      ],
+      "variant": [
+        64,
+        83
+      ],
+      "person": [
+        64,
+        85
+      ]
+    },
+    "test_tuned_seconds_per_decision": 2.7,
+    "test_untuned_same_harness": {
+      "first": [
+        38,
+        83
+      ],
+      "all": [
+        217,
+        332
+      ],
+      "routine": [
+        79,
+        83
+      ],
+      "repeat": [
+        60,
+        83
+      ],
+      "variant": [
+        40,
+        83
+      ],
+      "person": [
+        25,
+        85
+      ]
+    },
+    "test_untuned_same_harness_seconds_per_decision": 2.72
   },
   "trigger": {
     "run": "plan-1",

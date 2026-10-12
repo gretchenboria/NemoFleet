@@ -92,7 +92,20 @@ Every training prompt is built exactly as the live pipeline builds it, so a tune
 - On new hazards Nano was wrong more often than right, and it never reported confidence below the escalation threshold. Its stated confidence does not separate right from wrong, which is why new hazards are routed to Ultra by rule.
 - Ultra cost about $0.0017 per decision (433 tokens in, 425 out).
 
-**Status:** the full set (about 576 episodes) and the first distillation fine-tune are in progress. Results will replace this line.
+**After fine-tuning (519 episodes, 2,076 events; tested on 332 events from 4 hazard types Nano never trained on):**
+
+| Event | Nano as served today | Untuned Nano, direct answer | Tuned Nano, direct answer |
+|---|---|---|---|
+| First sighting of a hazard | 58 of 83 · 70% | 38 of 83 · 46% | **67 of 83 · 81%** |
+| Something changed since the stored decision | 60 of 83 · 72% | 40 of 83 · 48% | **64 of 83 · 77%** |
+| Repeat sighting, with fleet memory | 73 of 83 · 88% | 60 of 83 · 72% | **80 of 83 · 96%** |
+| Routine | 79 of 83 · 95% | 79 of 83 · 95% | 80 of 83 · 96% |
+| Any event with a person present | 54 of 85 · 64% | 25 of 85 · 29% | **64 of 85 · 75%** |
+| All events | 270 of 332 · 81% | 217 of 332 · 65% | **291 of 332 · 88%** |
+
+- "As served today" is Nano on Token Factory with reasoning on. The tuned model answers directly, with no reasoning step, and still beats it.
+- **The escalation gate now works.** Nano's stated confidence is useless: at the 0.62 threshold it would settle 330 of 332 events and be wrong on 12%. Using the probability the tuned model gave to its own actions (threshold picked on validation), it settles 201 of 332 events (61%) and is wrong on 1 of them; the rest go to Ultra.
+- Training took 6 minutes on one spot H200; Ultra's 2,076 teaching decisions cost $3.34. Analysis: `tools/night_shift/analyze.py`.
 
 ## The safety trigger: is a person in the way?
 
@@ -184,7 +197,7 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 | Camera perception, alternative | `Cosmos3-Super-Reasoner` | Token Factory dedicated endpoint | Wired in; switch with one command |
 | Night Shift Dream: possible futures of each camera frame | `nvidia/Cosmos-Predict2.5-2B` | **Nebius Serverless Job** on one H200 | In progress |
 | Night Shift incident generator | `nvidia/nemotron-3-super-120b-a12b` | Nebius **Token Factory** | Live in `tools/night_shift` |
-| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | In progress |
+| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
 | Safety trigger: person in the way | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
 | Fleet memory and call log | none | Cloudflare D1, KV and R2 | Live |
 
