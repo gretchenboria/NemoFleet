@@ -1,64 +1,157 @@
 # NemoFleet
 
-**One hazard. One Ultra call. The whole fleet knows.**
+**One hazard. One Ultra call. The whole fleet knows. Overnight, the small model learns it.**
 
-NemoFleet is decision-making for robot fleets in warehouses and data centers, built on NVIDIA Nemotron running on Nebius. When a robot meets something new, like a spill in aisle 4 or a coolant leak at the end of row C2, **Nemotron 3 Ultra** works out what to do. NemoFleet stores that decision against the map cell. Every robot that reaches the cell afterwards reuses it through **Nemotron 3 Nano** instead of paying for the same reasoning again. A person in the lane is never reused: that always goes back to Ultra.
+NemoFleet is decision-making for robot fleets in data centers, AI factories and warehouses, built on NVIDIA Nemotron running on Nebius. A large model decides each new situation once, the fleet reuses that decision, and a nightly fine-tune teaches the small on-robot model what the large one decided.
 
 - **Live site and console:** https://nemofleet.pages.dev · operator console at https://nemofleet.pages.dev/console
 - **Hackathon:** Nebius × NVIDIA Global AI Hackathon, Physical AI track
 - **License:** [Apache 2.0](LICENSE)
 
-The robots, the warehouse and the data-center hall are simulated, and the camera frames are rendered images. **Every model call is real.** The console shows each call's latency, tokens and output from the database, and nothing in it is a placeholder.
+The robots and the halls are simulated, and the camera frames are rendered images. **Every model call is real**, and every number on this page was measured; where something is a pilot or still in progress, it says so.
+
+## The idea in one picture
+
+```mermaid
+flowchart LR
+    R["Robot meets<br/>something"] --> S["See<br/>vision model"]
+    S --> G{"Known here?<br/>Person involved?"}
+    G -- "new hazard<br/>or person" --> U["Nemotron Ultra<br/>decides once"]
+    G -- "known hazard" --> N["Nemotron Nano<br/>applies fleet memory"]
+    U --> M[("Fleet memory<br/>by map cell")]
+    M --> N
+    N --> A["Fleet action"]
+    U --> A
+    M -. "every night" .-> NS["Night Shift<br/>fine-tunes Nano<br/>on Ultra's decisions"]
+    NS -. "tuned Nano" .-> N
+```
+
+During the day the fleet **decides once and shares**. At night it **learns**, so that tomorrow fewer events need the large model.
 
 ## The problem
 
-In a warehouse or a data-center hall, one spill is met by robot after robot. Today a fleet has two bad options:
+In a data hall or a warehouse, one spill is met by robot after robot. A fleet has two bad options:
+
 - Send every sighting to a frontier reasoning model. That is slow, and the cost grows with the fleet.
 - Let a small model guess. That is fast, but it gets things wrong that it has never seen.
 
 In practice, operators halt the whole zone and wait.
 
-## How it works
+## How one event is decided
 
-Each event a robot reports goes through three steps.
-
-1. **See.** The robot's camera frame goes to a vision model, which returns structured JSON: hazards, whether a person is present, whether the path is clear, and a recommended action.
-2. **Decide.** Nemotron Nano returns typed fleet actions (`halt`, `reroute`, `quarantine_zone`, `alert_human`, …) with a confidence score. Three kinds of event go to Nemotron Ultra instead:
-   - a hazard the fleet hasn't seen
-   - a person in the lane
-   - a Nano answer below the confidence threshold τ
-3. **Remember.** Ultra's decision is stored against the map cell, with an expiry.
-   - The next robot at that cell gets the decision in Nano's prompt, and no Ultra call is made.
-   - If what that robot sees differs, Nano lowers its confidence and the decision goes back to Ultra.
-   - Decisions about people are never reused.
+```mermaid
+flowchart TD
+    E["Event from a robot<br/>task, lidar, camera frame"] --> P["Perception<br/>hazards, person present, path clear"]
+    P --> Q1{"Person in<br/>the lane?"}
+    Q1 -- yes --> ULTRA["Nemotron Ultra"]
+    Q1 -- no --> Q2{"Ultra already decided<br/>this hazard at this cell?"}
+    Q2 -- "no: new hazard" --> ULTRA
+    Q2 -- "yes" --> NANO["Nemotron Nano<br/>with the stored decision"]
+    NANO --> Q3{"Confidence<br/>at least tau?"}
+    Q3 -- no --> ULTRA
+    Q3 -- yes --> ACT["Typed fleet action<br/>halt, reroute, quarantine_zone,<br/>alert_human, proceed"]
+    ULTRA --> STORE[("Store decision<br/>by map cell, with expiry")]
+    STORE --> ACT
+    ACT --> PLAN["Deterministic planner<br/>owns every path"]
+```
 
 **Safety invariants:**
-- **People escalate.** A person in the lane always goes to Ultra; fleet memory and peers never settle it.
-- **Schema first.** Model outputs are constrained by a strict JSON schema and then validated again. An invalid answer is retried once, then the robot makes a safe stop.
+
+- **People escalate.** A person in the lane always goes to Ultra. Fleet memory and peers never settle it, and decisions about people are never reused.
+- **Schema first.** Model outputs are constrained by a strict JSON schema and validated again. An invalid answer is retried once, then the robot makes a safe stop.
 - **Planner owns motion.** A deterministic A* + CBS planner computes every trajectory. Models choose actions, never paths or coordinates.
 
-**Peer handoff.** When two robots pass, each hands the other the decisions it holds, with a hop count and an expiry. The point is dead zones: Wi-Fi fades between tall metal racks and at the end of cold aisles.
-- Today the handoff copies decisions in fleet memory.
-- Next: an offline mode, where a robot knows only what its peers handed it.
+**Peer handoff.** When two robots pass, each hands the other the decisions it holds, with a hop count and an expiry, for the dead zones where Wi-Fi fades between tall metal racks.
+
+## Night Shift: how the fleet learns
+
+```mermaid
+flowchart LR
+    SUP["Nemotron Super<br/>writes incident episodes<br/>24 hazard types"] --> EP["Episode at one map cell<br/>first sighting, repeat,<br/>variant, routine"]
+    EP --> T["Nemotron Ultra<br/>decides each event<br/>production prompt and schema"]
+    T --> DS[("Training set<br/>split by hazard type")]
+    DS --> FT["LoRA fine-tune of Nano<br/>Nebius AI Cloud<br/>spot H200 via SkyPilot"]
+    FT --> EV["Evaluate on hazard types<br/>Nano never trained on"]
+    EV --> GATE{"Better than<br/>today's Nano?"}
+    GATE -- yes --> PROMOTE["Promote the adapter"]
+    GATE -- no --> KEEP["Keep today's Nano"]
+```
+
+Every training prompt is built exactly as the live pipeline builds it, so a tuned Nano drops into production unchanged. The tool is `tools/night_shift/distill.cjs`.
+
+**What the pilot showed (48 events, 12 episodes, 2026-10-11).** Agreement means Nano chose the same set of action types as Ultra.
+
+| Event | Today's Nano agrees with Ultra |
+|---|---|
+| Repeat sighting, with fleet memory | 12 of 12 |
+| Routine | 12 of 12 |
+| Variant: something changed since the stored decision | 10 of 12 |
+| First sighting of a hazard, no memory | 5 of 12 |
+
+- Fleet memory works: with Ultra's earlier decision in hand, Nano matched it every time.
+- On new hazards Nano was wrong more often than right, and it never reported confidence below the escalation threshold. Its stated confidence does not separate right from wrong, which is why new hazards are routed to Ultra by rule.
+- Ultra cost about $0.0017 per decision (433 tokens in, 425 out).
+
+**Status:** the full set (about 576 episodes) and the first distillation fine-tune are in progress. Results will replace this line.
+
+## The safety trigger: is a person in the way?
+
+"A person in the lane always escalates" needs something to notice the person in time. This is a second fine-tune of Nemotron 3 Nano that reads the people around a robot and the robot's planned path, and answers whether someone will be in its way in the next 5 seconds.
+
+```mermaid
+flowchart LR
+    PL["Planner<br/>planned path, next 5 s"] --> NANO["Nemotron Nano<br/>with LoRA adapter"]
+    TR["People nearby<br/>positions, last 2 s"] --> NANO
+    NANO --> F{"Person in<br/>the way?"}
+    F -- yes --> ESC["Escalate to Ultra"]
+    F -- no --> GO["Carry on"]
+```
+
+Recall at the same false-alarm rate as constant-velocity extrapolation, on held-out recordings (val and test pooled):
+
+| Viewpoint | Constant velocity | Tuned Nano, positions only | Tuned Nano, with the planned path |
+|---|---|---|---|
+| Robot | 74.1% | 74.5% | **80.1%** |
+| Person | 53.9% | 57.6% | **68.5%** |
+| Vehicle | 87.8% | 90.0% | 90.0% |
+
+- The untuned model is at chance on this task; after fine-tuning it writes valid JSON every time (300 of 300).
+- The gain came from what the model is given, not from more data: a first run without the planned path only matched the baseline.
+- The robot result's 95% interval is +0.5 to +11.7 points, and its positives come from 26 episodes, so read it as likely, not settled.
+- Training data: THÖR-MAGNI motion capture (robot and person viewpoints), Waymo Open Motion (vehicle viewpoint), and NVIDIA PhysicalAI-SmartSpaces simulation (train only). Each run is about 70 minutes and about $1 on one spot H200.
+
+Details, costs, an independent review and the negative results are in [docs/FINETUNE_PLAN.md](docs/FINETUNE_PLAN.md). The pipeline is `tools/ego_mix/`.
+
+## Where it runs
+
+```mermaid
+flowchart TB
+    subgraph TF["Nebius Token Factory"]
+        U["Nemotron Ultra<br/>deliberation, teacher"]
+        N["Nemotron Nano<br/>reflex"]
+        SU["Nemotron Super<br/>incident generator"]
+    end
+    subgraph AC["Nebius AI Cloud"]
+        FT["LoRA fine-tunes of Nano<br/>spot H200, SkyPilot"]
+        GE["Perception endpoint<br/>vLLM on H200"]
+        CJ["Cosmos-Predict job<br/>synthetic camera frames"]
+    end
+    subgraph CF["Cloudflare"]
+        API["API and console"]
+        MEM[("Fleet memory and call log<br/>D1, KV, R2")]
+    end
+    API --> U
+    API --> N
+    API --> GE
+    API --> MEM
+    SU --> U
+    U --> FT
+    FT -. "adapter" .-> N
+```
 
 ## Experimental: robotaxis in San Francisco
 
-https://nemofleet.pages.dev/console#sanfrancisco runs the same decision pipeline for a robotaxi fleet on the real streets around Salesforce Tower.
-
-**What's real:**
-- The streets and buildings come from OpenStreetMap. One-way streets are respected.
-- Every model call is real.
-
-**What's simulated:** vehicle motion. The dashcam frames are synthetic, generated with NVIDIA **Cosmos-Predict2.5** (text2world) on a Nebius Serverless Job.
-
-**The scenario:**
-- A double-parked delivery truck blocks Fremont St between Mission and Howard. The first robotaxi to see it gets an Ultra decision, and the next robotaxi reuses that decision from fleet memory.
-- A pedestrian in the 1st & Mission crosswalk always goes to Ultra.
-- Later, a fire engine and a cyclist appear on the same block. Because a person is involved, the stored decision is not reused and the event goes to Ultra.
-
-**Rebuild the map and frames:**
-- Map: `tools/sf_map/build_sf_map.py`, which builds from `tools/sf_map/osm-soma.json` (© OpenStreetMap contributors, ODbL).
-- Frames: `tools/cosmos_dream/sf_frames.sh`.
+https://nemofleet.pages.dev/console#sanfrancisco runs the same decision pipeline for a robotaxi fleet on the real streets around Salesforce Tower. Streets and buildings come from OpenStreetMap; vehicle motion is simulated and the dashcam frames are generated with NVIDIA Cosmos-Predict2.5 on a Nebius Serverless Job. Rebuild with `tools/sf_map/build_sf_map.py` (© OpenStreetMap contributors, ODbL) and `tools/cosmos_dream/sf_frames.sh`.
 
 ## Architecture: today and next
 
@@ -89,7 +182,9 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 | Camera perception | `google/gemma-4-26B-A4B-it` | Our **Nebius Serverless AI Endpoint**: vLLM on one H200 | Live |
 | Camera perception, alternative | `Cosmos3-Super-Reasoner` | Token Factory dedicated endpoint | Wired in; switch with one command |
 | Night Shift Dream: possible futures of each camera frame | `nvidia/Cosmos-Predict2.5-2B` | **Nebius Serverless Job** on one H200 | In progress |
-| Night Shift Gate and Consolidate (LoRA fine-tune of Nano) | Nano + LoRA | Nebius Serverless Jobs | Planned |
+| Night Shift incident generator | `nvidia/nemotron-3-super-120b-a12b` | Nebius **Token Factory** | Live in `tools/night_shift` |
+| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | In progress |
+| Safety trigger: person in the way | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
 | Fleet memory and call log | none | Cloudflare D1, KV and R2 | Live |
 
 **Where Token Factory helped:**
@@ -118,6 +213,10 @@ The console and the landing page show these numbers live from the database.
 | `tools/use_perception.cjs` | Switches the perception model. It switches only after a real image call returns valid JSON |
 | `tools/cosmos_dream/dream.sh` | The Nebius Serverless Job that runs Cosmos-Predict2.5 on the camera frames |
 | `tools/run_scenario.cjs` | Command-line scenario runner, with a dry-run mode |
+| `tools/night_shift/distill.cjs` | Night Shift: Super writes incident episodes, Ultra and Nano decide them with the production prompt, export for fine-tuning |
+| `tools/ego_mix/` | Person-in-the-way fine-tune: dataset adapters, split, baselines, LoRA training and scoring, SkyPilot job |
+| `finetuning/experiments/` | Token Factory fine-tuning experiments on other open models, with experiment tracking |
+| `waymo_viewer/` | Streamlit viewer for Waymo Open Dataset samples (local use; Waymo data is not redistributed) |
 | `tests/qa.cjs` | QA suite: secret scan, syntax checks, build, link check, browser checks of every page at three widths in light and dark, and a local API smoke test |
 | `docs/` | [Architecture slide deck (today vs. next)](docs/NemoFleet-Architecture-Today-vs-Next.pdf), [architecture notes](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
 
@@ -201,7 +300,8 @@ The job generates short clips of possible futures from the camera frames and upl
 
 ## What is not built yet
 
-- **Night Shift Gate and Consolidate.** Gating lessons against normal operations, and the LoRA fine-tune of Nano.
+- **Tuned Nano in the live pipeline.** The adapters are trained and evaluated offline; serving one behind the console is the next step.
+- **Night Shift Gate.** Promoting an adapter automatically only when it beats today's Nano.
 - **Dead-zone offline mode.** Robots that know only what their peers handed them.
 - **Real robots.** Motion on the console's floor view is simulated, and the camera frames are rendered.
 
