@@ -40,6 +40,22 @@ def distill():
             d = json.load(open(os.path.join(res, f)))
             out[name] = tally(d["rows"], lambda r: r["agree"], lambda r: r["kind"])
             out[name + "_seconds_per_decision"] = d["summary"]["seconds_per_decision"]
+        # the autonomy gate: settle without Ultra only when the model's probability of its own actions clears a
+        # threshold chosen on val for a target error rate; coverage and error are then measured on test
+        import math
+        val = json.load(open(os.path.join(res, "decide_decide_v1_val.json")))["rows"]
+        test_rows = json.load(open(os.path.join(res, "decide_decide_v1_test.json")))["rows"]
+        gate = []
+        for target in (0.01, 0.02, 0.05, 0.10):
+            thr = next((t for t in sorted({r["actions_logp"] for r in val})
+                        if (lambda k: k and 1 - sum(r["agree"] for r in k) / len(k) <= target)([r for r in val if r["actions_logp"] >= t])), None)
+            if thr is None:
+                continue
+            kept = [r for r in test_rows if r["actions_logp"] >= thr]
+            gate.append({"target_error": target, "min_probability": round(math.exp(thr), 3), "settled": [len(kept), len(test_rows)],
+                         "wrong": len(kept) - sum(r["agree"] for r in kept)})
+        stated = [r for r in test_rows if isinstance(r.get("stated_confidence"), (int, float)) and r["stated_confidence"] >= 0.62]
+        out["gate"] = {"levels": gate, "stated_confidence": {"settled": [len(stated), len(test_rows)], "wrong": len(stated) - sum(r["agree"] for r in stated)}}
         r = json.load(open(os.path.join(res, "results.json")))["runs"]["decide_v1"]["train"]
         out["fine_tune"] = {"status": "done", "run": "decide-1", "minutes": round(r["seconds"] / 60), "steps": r["steps"]}
     return out

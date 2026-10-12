@@ -128,7 +128,54 @@
         85
       ]
     },
-    "test_untuned_same_harness_seconds_per_decision": 2.72
+    "test_untuned_same_harness_seconds_per_decision": 2.72,
+    "gate": {
+      "levels": [
+        {
+          "target_error": 0.01,
+          "min_probability": 0.988,
+          "settled": [
+            153,
+            332
+          ],
+          "wrong": 0
+        },
+        {
+          "target_error": 0.02,
+          "min_probability": 0.974,
+          "settled": [
+            165,
+            332
+          ],
+          "wrong": 0
+        },
+        {
+          "target_error": 0.05,
+          "min_probability": 0.81,
+          "settled": [
+            201,
+            332
+          ],
+          "wrong": 1
+        },
+        {
+          "target_error": 0.1,
+          "min_probability": 0.026,
+          "settled": [
+            244,
+            332
+          ],
+          "wrong": 20
+        }
+      ],
+      "stated_confidence": {
+        "settled": [
+          330,
+          332
+        ],
+        "wrong": 41
+      }
+    }
   },
   "trigger": {
     "run": "plan-1",
