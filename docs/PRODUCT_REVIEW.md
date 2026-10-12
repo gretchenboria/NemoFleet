@@ -79,3 +79,16 @@ Site and map cells; robot registry; hazard classes; the action vocabulary; expir
 4. **Events endpoint.** Robots post events; "Run scenario" becomes a rehearsal mode.
 
 Items 1 and 2 turn the console from a showcase into a tool. Item 3 turns the fine-tuning work into a product feature. Item 4 removes the last piece of demo mode.
+
+## Implementation status (2026-10-12)
+
+All four items above—plus configurable alarm rules CRUD, dual-adapter serving, and the interactive Spatial Command & Fleet Memory Map—are implemented and covered by `tests/qa.cjs`:
+
+| Item | Implementation |
+|---|---|
+| **1. Incident record with override** | `GET /api/incident`, `POST /api/incident/override`, and `#incident` panel in `site/src/console.body.html`. Links alarm → sighting → camera perception → model decision → fleet actions → stored decision. Operator overrides write a new `source='operator'` precedent for the cell (and never cache person-involved incidents). |
+| **2. Decision book (Fleet memory)** | `GET /api/decisions`, `POST /api/decisions/update`, `POST /api/decisions/revoke`, and `#pane-dec`. Shows `Known by n of m robots`, reuse count, and TTL with **Keep (Pin)**, **Keep longer (+10m)**, and **Stop using (Revoke)**, plus the unified **Recent event decisions across the fleet (Nano, Fleet Memory & Ultra)** table. |
+| **3. Autonomy target & dual-adapter promotion** | `POST /api/autonomy`, `POST /api/adapter`, `tools/night_shift/publish.py`, `tools/ego_mix/serve.py`, and `tools/ego_mix/sky_serve.yaml`. Serves both `decide-1` (decisions + action-token probability gate) and `plan-1` (`in_way` 5 s planned-path safety trigger with calibrated threshold `-0.75`) on one spot H200. |
+| **4. Events intake (`POST /api/events`)** | Authenticated event intake (`EVENTS_TOKEN`) running the full perception → `in_way` trigger → fleet memory → Nano/Ultra gate → alarm rule evaluation pipeline. |
+| **5. Configurable alarm rules CRUD** | `0007_alarm_rules.sql`, `GET /api/rules`, `POST /api/rules/create`, `/update`, `/delete`, `/reset`, and `#pane-rules` UI. Enforces custom and default alarm triggers (`person_in_lane`, `quarantine_action`, `alert_human_action`, `low_confidence`, `high_severity`, `any_hazard`) live in `runEvent`. |
+| **6. Spatial Command & Fleet Memory Map** | `#floor` + `#map-hud` in `site/src/console.body.html`, plus `unhalt` and `release_zone` in `POST /api/actions`. Interactive robot telemetry pills, clickable robots and cells, Fleet Memory sync halos (`MEM`), peer-to-peer antennation arcs, and one-click **Halt / Resume robot** and **Quarantine / Release cell**. |

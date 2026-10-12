@@ -37,27 +37,26 @@ Preflight picks the newest Nemotron Ultra, Nano and Super it finds in your catal
 
 ## 3. Run it from the console
 
-Open https://nemofleet.pages.dev/console. The badge next to the scene switch says **Live · D1 · KV · R2** when the API answers. Anywhere else (a local file, the claude.ai preview) it says **Offline preview** and shows no data.
+Open https://nemofleet.pages.dev/console. The badge next to the scene switch says **Live · D1 · KV · R2** when the API answers. Anywhere else (a local static file preview) it says **Offline preview** and shows no data.
 
 | Control | What it really does |
 |---|---|
-| Warehouse / Data center | Picks the scene. Everything on the page is per scene |
-| **Run scenario** | `POST /api/scenario/start`, then `/scenario/step` once per event (Cosmos on the frame, then Nano or Ultra through the gate), then `/scenario/finish`. The Scenario run panel shows each event's tier, gate reason, decision and latency |
-| **Run Night Shift now** | Loops `POST /api/night-shift/replay`: Ultra re-judges up to 4 un-judged Nano decisions per call until none remain |
-| **Review episodes** | The last 50 Nano and Ultra decisions from D1, with schema result and the replay verdict |
-| Alarm **Acknowledge / Reopen** | Toggles the alarm between open and acked in D1 |
-| Alarm **Release** | Releases the alarm and deletes the scene's zone tags from KV |
-| Quarantine zone, Halt robot R07, Broadcast hazard | Writes a KV tag with a TTL (10 min, 1 h, 10 min) and logs the action in D1 |
-| Escalate to Ultra | One real Ultra call over the open alarms; its quarantine is applied to KV |
-| Roll back Nano | Writes a rollback flag to KV. No LoRA adapter is deployed yet, so Nano itself does not change |
-| Pause fleet / Resume fleet | KV flag. While paused, scenario steps return without making model calls |
-| Apply τ | Stores the escalation threshold in KV (0.30–0.90); the next run uses it |
-| Stop Cosmos endpoint ↗ | Opens the Token Factory console. There is no verified API to stop the endpoint |
+| **Warehouse / Data center / San Francisco** | Picks the site. Everything on the page is scoped per site |
+| **Send test incidents** (`#act-run`) | `POST /api/scenario/start`, then `/scenario/step` once per event (camera perception, person-in-the-way check, fleet-memory lookup, then Nano or Ultra through the gate), then `/scenario/finish` |
+| **Latest run only / Show all runs** (`#scope-toggle`) | Switches the KPI strip and Station 01 readout between the latest run and cumulative multi-run history in D1 |
+| **Audit Nano with Ultra** (`#act-night`) | Loops `POST /api/night-shift/replay`: Ultra re-judges up to 4 un-judged Nano decisions per call until none remain |
+| **Spatial Command & Fleet Memory Map** (`#floor` + `#map-hud`) | Interactive floor canvas showing live robot telemetry pills, clickable robots and map cells, Fleet Memory sync halos (`MEM`) on robots holding the active cell precedent, animated peer-to-peer antennation arcs on pass, cell decision badges (`ULTRA · REROUTE · 3×`, `QUARANTINED`, `OPERATOR · 1×`), and one-click spatial actions (**Halt / Resume robot**, **Quarantine / Release cell**, **Cell rule** jump) |
+| **Incident panel — Accept / Override / Release** (`#incident`) | Clicking any open alarm opens the linked sighting, camera perception, model decision, fleet actions, and stored precedent. **Override** writes a new `operator` precedent for that cell (never cached when a person is involved) |
+| **Fleet memory tab** (`#pane-dec`) | Lists every stored cell precedent with `Known by n of m robots`, reuse count, and TTL; supports **Keep (Pin)**, **Keep longer (+10m)**, and **Stop using (Revoke)**, plus the unified **Recent event decisions across the fleet (Nano, Fleet Memory & Ultra)** table |
+| **Alarm rules tab** (`#pane-rules`) | Full CRUD (`Create`, `Edit`, `Enable/Disable`, `Delete`, `Reset defaults`) for automatic alarm triggers (`person_in_lane`, `quarantine_action`, `alert_human_action`, `low_confidence`, `high_severity`, `any_hazard`) enforced live in `runEvent` |
+| **Autonomy level & Promote / Hold** (`#auto`, `#adapters`) | Sets the acceptable error-rate target (`≤ 1%`, `≤ 2%`, `≤ 5%`, `≤ 10%`) backed by the measured action-token probability gate, and promotes or holds the dual-LoRA Nano endpoint (`decide-1` + `plan-1`) |
+| **Quarantine zone, Halt robot, Broadcast hazard** | Writes a KV tag with a TTL (10 min, 1 h, 10 min) and logs the action in D1 |
+| **Pause fleet / Resume fleet** (`#act-pause`) | KV flag. While paused, scenario steps and posted events return without making model calls |
 
 Notes:
-- The floor map is a labelled simulation. Quarantine zones and halted robots on it come from live KV tags.
-- KV listings are eventually consistent, so a new tag can take up to a minute to appear in the tag list.
-- If Cosmos is not Ready, each frame row says "Cosmos unavailable" and the run continues; the model is told the camera content is unknown.
+- Robot motion on the floor map is simulated; quarantine zones, halted robots, stored cell decisions, and peer handoff counts come from live D1 and KV state.
+- KV listings are eventually consistent, so a new tag can take a few seconds to appear in the raw tag list.
+- If the perception endpoint is unreachable, each frame row reports it and the run continues with camera content marked unknown.
 
 ### Deploying the console and API
 

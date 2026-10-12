@@ -124,7 +124,8 @@ const decisionRow = (p, t = now()) => ({ id: p.id, cell: p.hazard_key, situation
 
 // Autonomy target: the share of self-settled decisions that may differ from Ultra. Only the levels measured for the tuned
 // Nano (config/night_shift.json distill.gate.levels) can be chosen. It is the gate for the tuned adapter; the served Nano is gated by stated confidence and tau.
-async function gateLevels(env, req) { try { return (await (await asset(env, req, '/config/night_shift.json')).json()).distill?.gate?.levels || []; } catch { return []; } }
+async function nightShift(env, req) { try { return await (await asset(env, req, '/config/night_shift.json')).json(); } catch { return {}; } }
+async function gateLevels(env, req) { return (await nightShift(env, req)).distill?.gate?.levels || []; }
 // The tuned Nano adapter: configured in config/models.yaml (reflex_tuned), its token in the env var it names, promoted per scene by the operator.
 // It is serving a scene only when all three hold.
 async function adapterFor(env, req, scene, m) {
@@ -165,9 +166,51 @@ async function decideTuned(env, t, scene, run_id, robot, event, context) {
   const call_id = await logCall(env, { scene, run_id, ts: now(), tier: 'nano', model: t.model, robot, event, latency_ms, usage, input: context, output: content, valid: !errs.length, errors: errs, fallback: errs.length ? 'served_nano' : null, decision: errs.length ? null : { ...d, actions_probability: prob } });
   return errs.length ? { decision: null, model: t.model, errors: errs, call_id } : { decision: d, model: t.model, latency_ms, call_id, actions_probability: prob };
 }
+const IN_WAY_SYSTEM = 'You watch the people around a moving ego (a robot or a person) in a data center or AI factory. Answer with one JSON object and nothing else.';
+async function inWayTuned(t, thr, tracks) {
+  const t0 = Date.now(), cut = thr?.score ?? 0;
+  try {
+    const r = await fetch(`${t.base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${t.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ task: 'in_way', messages: [{ role: 'system', content: IN_WAY_SYSTEM }, { role: 'user', content: tracks }] }), signal: AbortSignal.timeout(10000) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || typeof j.score !== 'number') throw new Error(`HTTP ${r.status}`);
+    return { in_way: j.score > cut, score: j.score, probability: j.probability ?? null, threshold: cut, latency_ms: j.latency_ms ?? (Date.now() - t0) };
+  } catch (e) { return { in_way: false, score: null, threshold: cut, error: e.message, latency_ms: Date.now() - t0 }; }
+}
 async function tauFor(env, scene, sc) { const t = Number(await env.TAGS.get(`${scene}:tau`)); return t >= 0.3 && t <= 0.9 ? t : sc.tau; }
 async function applyZones(env, scene, decision, by, run_id) {
   for (const a of decision.actions) if (a.type === 'quarantine_zone') for (const c of a.cells || []) await env.TAGS.put(`${scene}:zone:${c}`, JSON.stringify({ by, run_id, at: now() }), { expirationTtl: Math.max(60, a.ttl_s || 600) });
+}
+
+const DEFAULT_RULES = [
+  { key: 'safety', name: 'Person or safety event', sev: 'crit', when_kind: 'safety', match_text: '', when_label: 'Perception reports a person in the lane, or a robot reports a safety event', response: 'Goes to Ultra; never settled from fleet memory', operator_action: 'Confirm the zone is clear, then release', builtin: 1 },
+  { key: 'hazard', name: 'Hazard sighting', sev: 'warn', when_kind: 'hazard', match_text: '', when_label: "Perception reports a hazard on the robot's path", response: 'Ultra decides once; the decision is stored for that map cell', operator_action: 'Acknowledge; quarantine the zone if needed', builtin: 1 },
+  { key: 'unknown_hazard', name: 'Unknown hazard', sev: 'warn', when_kind: 'unknown_hazard', match_text: '', when_label: 'A robot reports a hazard and no camera result is available', response: 'Ultra decides; safe stop if there is no valid decision', operator_action: 'Review the call log', builtin: 1 },
+  { key: 'operator', name: 'Operator quarantine or pause', sev: 'info', when_kind: 'operator', match_text: '', when_label: 'An operator quarantines a zone or pauses the fleet', response: 'Zone closed for 10 min, or no model calls until resumed', operator_action: 'Release when clear', builtin: 1 },
+];
+const RULE_KINDS = ['safety', 'hazard', 'unknown_hazard', 'operator', 'custom'];
+const ruleRow = r => ({ id: r.id, scene: r.scene, name: r.name, sev: r.sev, when_kind: r.when_kind, match_text: r.match_text || '', when_label: r.when_label, response: r.response, operator_action: r.operator_action, enabled: !!r.enabled, builtin: !!r.builtin, created_at: r.created_at, updated_at: r.updated_at });
+async function ensureRulesTable(env) {
+  await env.MEMORY.prepare('CREATE TABLE IF NOT EXISTS alarm_rules (id TEXT PRIMARY KEY, scene TEXT NOT NULL, name TEXT NOT NULL, sev TEXT NOT NULL, when_kind TEXT NOT NULL, match_text TEXT, when_label TEXT NOT NULL, response TEXT NOT NULL, operator_action TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, builtin INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)').run();
+}
+async function seedRules(env, scene) {
+  await ensureRulesTable(env);
+  const t = now();
+  for (let i = 0; i < DEFAULT_RULES.length; i++) {
+    const d = DEFAULT_RULES[i], ts = new Date(Date.now() + i).toISOString();
+    await env.MEMORY.prepare('INSERT OR REPLACE INTO alarm_rules (id, scene, name, sev, when_kind, match_text, when_label, response, operator_action, enabled, builtin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(`rule-${scene}-${d.key}`, scene, d.name, d.sev, d.when_kind, d.match_text, d.when_label, d.response, d.operator_action, 1, 1, ts, t).run();
+  }
+  await env.TAGS.put(`${scene}:rules_seeded`, '1');
+}
+async function rulesFor(env, scene) {
+  await ensureRulesTable(env);
+  let rows = (await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE scene = ? ORDER BY builtin DESC, created_at ASC').bind(scene).all()).results;
+  if (!rows.length && !(await env.TAGS.get(`${scene}:rules_seeded`))) {
+    await seedRules(env, scene);
+    rows = (await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE scene = ? ORDER BY builtin DESC, created_at ASC').bind(scene).all()).results;
+  }
+  return rows.map(ruleRow);
 }
 
 // a random 52-bit integer per posted event: unique without a counter, and still an exact JS/SQLite integer
@@ -178,7 +221,7 @@ const EVENT_KINDS = ['routine', 'first_sighting', 'repeat_sighting', 'variant', 
 // Shared by the rehearsal runner (POST scenario/step) and by robots posting their own events (POST events).
 async function runEvent(env, req, scene, run_id, i, ev, sc) {
   if (await env.TAGS.get(`${scene}:pause`)) return J({ t: ev.t, robot: ev.robot, tier: 'paused', model_calls: 0, note: 'fleet paused by operator; no model call made' });
-  const tau = await tauFor(env, scene, sc);
+  const tau = await tauFor(env, scene, sc), rules = await rulesFor(env, scene), activeRules = rules.filter(r => r.enabled);
   if (ev.kind === 'peer_handshake') {
     const prev = await env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
     if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, robot, origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -186,22 +229,25 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
     await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
     return J({ t: ev.t, robot: ev.robot, tier: 'peer', model_calls: 0, note: prev ? `received precedent (hop ${(prev.hops || 0) + 1})` : 'no precedent yet to pass on' });
   }
-  const m = await models(env, req);
+  const m = await models(env, req), ad = await adapterFor(env, req, scene, m);
   let seen = null, perception_error = null;
   const pref = {}, at = { event_index: i };
   if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame, pref).catch(e => { perception_error = e.message; return null; });
-  const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
-  let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
+  const in_way = ev.tracks && ad?.serving ? await inWayTuned({ base: m.reflex_tuned.base_url.replace(/\/+$/, ''), key: env[m.reflex_tuned.api_key_env] }, (await nightShift(env, req)).trigger?.threshold, ev.tracks) : null;
+  const hay = `${ev.robot} ${ev.where} ${ev.cell || ''} ${ev.kind} ${ev.text} ${JSON.stringify(seen?.hazards || [])}`.toLowerCase();
+  const customRule = activeRules.find(r => r.when_kind === 'custom' && r.match_text && hay.includes(r.match_text.toLowerCase()));
+  const safety = ev.kind === 'safety' || !!(seen && seen.person_present && ev.kind !== 'variant') || !!in_way?.in_way;
+  let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '') +
+    (in_way?.score != null ? `\nPerson-in-the-way trigger (plan-1): ${in_way.in_way ? 'person in the way' : 'clear'} (score ${in_way.score}, threshold ${in_way.threshold}).` : '');
   // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
   // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
   const hazard = ['first_sighting', 'repeat_sighting', 'variant'].includes(ev.kind) || !!(seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length);
   const memo = hazard && ev.cell && !safety ? await lookupDecision(env, scene, ev.cell) : null;
   if (memo) ctx += `\nFleet memory: ${memo.source === 'operator' ? 'the operator' : 'Ultra'} already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
-  const novel = hazard && !memo;
-  let tier = safety || novel ? 'ultra' : 'nano', out = null, memory = null, created = null, tuned = null, level = null;
+  const novel = hazard && !memo, ruleEscalate = !!(customRule && /ultra|escalate/i.test(customRule.response));
+  let tier = safety || novel || ruleEscalate ? 'ultra' : 'nano', out = null, memory = null, created = null, tuned = null, level = null;
   // Nano tier only: when the tuned adapter is promoted and serving for this scene it answers first; the served Nano is the fallback.
-  const ad = tier === 'nano' ? await adapterFor(env, req, scene, m) : null;
-  if (ad?.serving) {
+  if (tier === 'nano' && ad?.serving) {
     const t = m.reflex_tuned; level = (await autonomyFor(env, req, scene, ad)).level;
     out = await decideTuned(env, { base: t.base_url.replace(/\/+$/, ''), key: env[t.api_key_env], model: t.id || t.adapter }, scene, run_id, ev.robot, ev.kind, ctx);
     tuned = { model: out.model, used: !!out.decision, actions_probability: out.actions_probability ?? null, min_probability: level?.min_probability ?? null, fallback: out.decision ? null : out.errors.join('; ') };
@@ -219,16 +265,18 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
     await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id, at);
   } else {
     await action(env, scene, 'decision', out.decision, tier, run_id, at);
-    if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, robot, origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null, ev.robot, null).run();
+    if (tier === 'ultra' && !safety) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, robot, origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null, ev.robot, null).run();
     await applyZones(env, scene, out.decision, tier, run_id);
   }
   const link = { event_index: i, event: { robot: ev.robot, where: ev.where, text: ev.text, cell: ev.cell || null, kind: ev.kind, frame: ev.frame || null }, safety, call_id: out.call_id, perception_id: pref.id || null,
     precedent_id: created || memo?.id || null, precedent_link: created ? 'created' : memo ? 'reused' : null };
-  if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
-  else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
-  else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
-  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? (g?.by === 'probability' ? 'low_probability' : 'low_confidence') : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, tuned, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
+  const byKind = k => activeRules.find(r => r.when_kind === k);
+  if (customRule) await alarm(env, scene, customRule.sev, `${customRule.name}: ${ev.robot} · ${ev.where}`, out.decision ? `${tier === 'ultra' ? 'Ultra' : 'Nano'}: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : customRule.response, run_id, link);
+  else if (safety && byKind('safety')) await alarm(env, scene, byKind('safety').sev, `${seen?.person_present || in_way?.in_way ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
+  else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length && byKind('hazard')) await alarm(env, scene, byKind('hazard').sev, `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
+  else if (novel && byKind('unknown_hazard')) await alarm(env, scene, byKind('unknown_hazard').sev, `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
+  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? (g?.by === 'probability' ? 'low_probability' : 'low_confidence') : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, in_way, tuned, rule: customRule?.id || null, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
 }
 
 async function incident(env, id) {
@@ -268,15 +316,15 @@ const routes = {
       q('SELECT * FROM actions WHERE scene = ? ORDER BY created_at DESC LIMIT 10', scene),
       q('SELECT id, run_id, ts, tier, model, robot, event, latency_ms, prompt_tokens, completion_tokens, valid, decision_json, replay_json FROM calls WHERE scene = ? ORDER BY ts DESC LIMIT 200', scene),
       q('SELECT frame, robot, model, called_at, latency_ms, result_json FROM perception WHERE scene = ? ORDER BY called_at DESC LIMIT 40', scene),
-      q("SELECT COUNT(*) n, SUM(source = 'peer') peer FROM precedents WHERE scene = ? AND (expires_at IS NULL OR expires_at > ?)", scene, now()),
+      q("SELECT COUNT(*) n, SUM(source = 'peer') peer FROM precedents WHERE scene = ? AND safety = 0 AND (expires_at IS NULL OR expires_at > ?)", scene, now()),
       q('SELECT * FROM night_shift WHERE id LIKE ? ORDER BY started_at DESC LIMIT 8', `${scene}/%`)]);
     const tags = (await env.TAGS.list({ prefix: `${scene}:` })).keys.map(k => ({ name: k.name, expires: k.expiration ? new Date(k.expiration * 1000).toISOString() : null }));
     const peer_total = (await env.MEMORY.prepare("SELECT COUNT(*) n FROM precedents WHERE scene = ? AND source = 'peer'").bind(scene).first()).n;
-    const sc = await scenario(env, req, scene), tau = await tauFor(env, scene, sc), adapter = await adapterFor(env, req, scene);
+    const sc = await scenario(env, req, scene), tau = await tauFor(env, scene, sc), adapter = await adapterFor(env, req, scene), rules = await rulesFor(env, scene);
     // Fleet memory: Ultra calls avoided, and what an Ultra call costs on average (real calls only).
     const memory = await env.MEMORY.prepare("SELECT SUM(type = 'memory_hit') hits, SUM(type = 'memory_override') overrides FROM actions WHERE scene = ?").bind(scene).first();
     const ultra = await env.MEMORY.prepare("SELECT COUNT(*) n, AVG(latency_ms) ms, AVG(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)) tokens FROM calls WHERE scene = ? AND tier = 'ultra' AND valid = 1").bind(scene).first();
-    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, adapter, autonomy: await autonomyFor(env, req, scene, adapter), paused: !!(await env.TAGS.get(`${scene}:pause`)),
+    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, adapter, rules, autonomy: await autonomyFor(env, req, scene, adapter), paused: !!(await env.TAGS.get(`${scene}:pause`)),
       memory: { hits: memory?.hits || 0, overrides: memory?.overrides || 0, ultra_calls: ultra?.n || 0, ultra_avg_ms: ultra?.ms ?? null, ultra_avg_tokens: ultra?.tokens ?? null } });
   },
   'POST alarms/ack': async (env, req, url, body) => { await env.MEMORY.prepare("UPDATE alarms SET status = CASE status WHEN 'acked' THEN 'open' ELSE 'acked' END, updated_at = ? WHERE id = ?").bind(now(), body.id).run(); return J({ ok: true }); },
@@ -291,10 +339,13 @@ const routes = {
   'POST actions': async (env, req, url, body) => {
     const { scene, type } = body; if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
     let alarm_id = null;
-    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); alarm_id = await alarm(env, scene, 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min'); }
+    const opRule = (type === 'quarantine_zone' || type === 'pause_fleet') ? (await rulesFor(env, scene)).find(r => r.when_kind === 'operator' && r.enabled) : null;
+    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); if (opRule) alarm_id = await alarm(env, scene, opRule.sev || 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min'); }
+    else if (type === 'release_zone') { await env.TAGS.delete(`${scene}:zone:${body.zone}`); }
     else if (type === 'halt') { await env.TAGS.put(`${scene}:halt:${body.robot}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 3600 }); }
+    else if (type === 'unhalt') { await env.TAGS.delete(`${scene}:halt:${body.robot}`); }
     else if (type === 'broadcast_hazard') { await env.TAGS.put(`${scene}:tag:broadcast-${Date.now()}`, JSON.stringify({ message: body.message || 'operator broadcast', at: now() }), { expirationTtl: 600 }); }
-    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); alarm_id = await alarm(env, scene, 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
+    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); if (opRule) alarm_id = await alarm(env, scene, opRule.sev || 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
     else if (type === 'resume_fleet') { await env.TAGS.delete(`${scene}:pause`); }
     else if (type === 'set_tau') { const t = Number(body.tau); if (!(t >= 0.3 && t <= 0.9)) return J({ error: 'tau must be in [0.30, 0.90]' }, 400); await env.TAGS.put(`${scene}:tau`, String(t)); }
     else if (type === 'set_autonomy') {
@@ -338,13 +389,13 @@ const routes = {
     const { scene } = body, errs = [];
     if (!SCENARIOS[scene]) return J({ error: `scene must be one of ${Object.keys(SCENARIOS).join(', ')}` }, 400);
     for (const k of ['robot', 'where', 'kind', 'text']) if (typeof body[k] !== 'string' || !body[k].trim()) errs.push(`"${k}" is required`);
-    for (const k of ['device', 'cell', 'frame', 'from', 'run_id']) if (body[k] != null && (typeof body[k] !== 'string' || !body[k].trim())) errs.push(`"${k}" must be a non-empty string`);
+    for (const k of ['device', 'cell', 'frame', 'from', 'run_id', 'tracks']) if (body[k] != null && (typeof body[k] !== 'string' || !body[k].trim())) errs.push(`"${k}" must be a non-empty string`);
     if (typeof body.kind === 'string' && body.kind.trim() && !EVENT_KINDS.includes(body.kind)) errs.push(`"kind" must be one of ${EVENT_KINDS.join(', ')}`);
     if (body.frame != null && !/^[\w-]+$/.test(String(body.frame))) errs.push('"frame" must be a camera frame name');
     if (errs.length) return J({ error: errs.join('; '), errors: errs }, 400);
     const sc = await scenario(env, req, scene), t = now(), run_id = body.run_id || `events-${scene}-${t.slice(0, 10)}`;
     await env.MEMORY.prepare('INSERT OR IGNORE INTO runs (id, scenario, scene, dry_run, started_at, r2_prefix) VALUES (?,?,?,?,?,?)').bind(run_id, 'events', scene, 0, t, `calls/${scene}/`).run();
-    const ev = { t, robot: body.robot.trim(), device: body.device || null, where: body.where.trim(), cell: body.cell || null, kind: body.kind, text: body.text.trim().slice(0, 2000), frame: body.frame || null, from: body.from || 'fleet' };
+    const ev = { t, robot: body.robot.trim(), device: body.device || null, where: body.where.trim(), cell: body.cell || null, kind: body.kind, text: body.text.trim().slice(0, 2000), frame: body.frame || null, from: body.from || 'fleet', tracks: body.tracks ? body.tracks.trim().slice(0, 4000) : null };
     const res = await runEvent(env, req, scene, run_id, eventIndex(), ev, sc), out = await res.json();
     return J({ run_id, ...out }, res.status);
   },
@@ -353,12 +404,77 @@ const routes = {
     await env.MEMORY.prepare('UPDATE runs SET finished_at = ?, totals_json = ? WHERE id = ?').bind(now(), JSON.stringify(t.results), body.run_id).run();
     return J({ ok: true, totals: t.results });
   },
+  // ---- alarm rules CRUD ----
+  'GET rules': async (env, req, url) => {
+    const scene = url.searchParams.get('scene'); if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
+    return J({ scene, rules: await rulesFor(env, scene) });
+  },
+  'POST rules/create': async (env, req, url, body) => {
+    const { scene } = body; if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
+    await rulesFor(env, scene);
+    const name = String(body.name || '').trim().slice(0, 120);
+    const sev = String(body.sev || 'warn').trim();
+    const when_kind = String(body.when_kind || 'custom').trim();
+    const match_text = String(body.match_text || '').trim().slice(0, 200);
+    const when_label = String(body.when_label || (match_text ? `Event or hazard matches "${match_text}"` : '')).trim().slice(0, 300);
+    const response = String(body.response || 'Ultra decides; stored for map cell').trim().slice(0, 300);
+    const operator_action = String(body.operator_action || 'Inspect and acknowledge').trim().slice(0, 300);
+    if (!name) return J({ error: 'name is required' }, 400);
+    if (!['crit', 'warn', 'info'].includes(sev)) return J({ error: 'sev must be one of crit, warn, info' }, 400);
+    if (!RULE_KINDS.includes(when_kind)) return J({ error: `when_kind must be one of ${RULE_KINDS.join(', ')}` }, 400);
+    if (!when_label) return J({ error: 'when_label is required' }, 400);
+    const id = uid('rl'), t = now();
+    await env.MEMORY.prepare('INSERT INTO alarm_rules (id, scene, name, sev, when_kind, match_text, when_label, response, operator_action, enabled, builtin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(id, scene, name, sev, when_kind, match_text, when_label, response, operator_action, body.enabled === false ? 0 : 1, 0, t, t).run();
+    const row = await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE id = ?').bind(id).first();
+    await action(env, scene, 'rule_create', { rule: id, name, sev, when_kind, match_text }, 'operator');
+    return J({ ok: true, rule: ruleRow(row) });
+  },
+  'POST rules/update': async (env, req, url, body) => {
+    await ensureRulesTable(env);
+    const r = await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE id = ?').bind(body.id || '').first();
+    if (!r) return J({ error: 'rule not found' }, 404);
+    const name = body.name !== undefined ? String(body.name || '').trim().slice(0, 120) : r.name;
+    const sev = body.sev !== undefined ? String(body.sev || '').trim() : r.sev;
+    const when_kind = body.when_kind !== undefined ? String(body.when_kind || '').trim() : r.when_kind;
+    const match_text = body.match_text !== undefined ? String(body.match_text || '').trim().slice(0, 200) : (r.match_text || '');
+    const when_label = body.when_label !== undefined ? String(body.when_label || '').trim().slice(0, 300) : r.when_label;
+    const response = body.response !== undefined ? String(body.response || '').trim().slice(0, 300) : r.response;
+    const operator_action = body.operator_action !== undefined ? String(body.operator_action || '').trim().slice(0, 300) : r.operator_action;
+    const enabled = body.enabled !== undefined ? (body.enabled ? 1 : 0) : r.enabled;
+    if (!name) return J({ error: 'name is required' }, 400);
+    if (!['crit', 'warn', 'info'].includes(sev)) return J({ error: 'sev must be one of crit, warn, info' }, 400);
+    if (!RULE_KINDS.includes(when_kind)) return J({ error: `when_kind must be one of ${RULE_KINDS.join(', ')}` }, 400);
+    if (!when_label) return J({ error: 'when_label is required' }, 400);
+    const t = now();
+    await env.MEMORY.prepare('UPDATE alarm_rules SET name = ?, sev = ?, when_kind = ?, match_text = ?, when_label = ?, response = ?, operator_action = ?, enabled = ?, updated_at = ? WHERE id = ?')
+      .bind(name, sev, when_kind, match_text, when_label, response, operator_action, enabled, t, r.id).run();
+    const updated = await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE id = ?').bind(r.id).first();
+    await action(env, r.scene, 'rule_update', { rule: r.id, name, sev, enabled: !!enabled }, 'operator');
+    return J({ ok: true, rule: ruleRow(updated) });
+  },
+  'POST rules/delete': async (env, req, url, body) => {
+    await ensureRulesTable(env);
+    const r = await env.MEMORY.prepare('SELECT * FROM alarm_rules WHERE id = ?').bind(body.id || '').first();
+    if (!r) return J({ error: 'rule not found' }, 404);
+    await env.MEMORY.prepare('DELETE FROM alarm_rules WHERE id = ?').bind(r.id).run();
+    await action(env, r.scene, 'rule_delete', { rule: r.id, name: r.name }, 'operator');
+    return J({ ok: true, deleted: r.id });
+  },
+  'POST rules/reset': async (env, req, url, body) => {
+    const { scene } = body; if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
+    await ensureRulesTable(env);
+    await env.MEMORY.prepare('DELETE FROM alarm_rules WHERE scene = ?').bind(scene).run();
+    await seedRules(env, scene);
+    await action(env, scene, 'rule_reset', { scene }, 'operator');
+    return J({ ok: true, rules: await rulesFor(env, scene) });
+  },
   // ---- decision book ----
   'GET decisions': async (env, req, url) => {
     const scene = url.searchParams.get('scene'); if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
     const t = now(), since = new Date(Date.now() - 86400e3).toISOString();  // live, plus anything that expired in the last day
     const r = await env.MEMORY.prepare(`SELECT p.*, (SELECT COUNT(*) FROM actions a WHERE a.scene = p.scene AND a.type = 'memory_hit' AND json_extract(a.payload_json, '$.precedent') = p.id) reuse_count
-      FROM precedents p WHERE p.scene = ? AND p.source IN ('ultra', 'operator') AND (p.pinned = 1 OR p.expires_at IS NULL OR p.expires_at > ?) ORDER BY p.created_at DESC LIMIT 100`).bind(scene, since).all();
+      FROM precedents p WHERE p.scene = ? AND p.safety = 0 AND p.source IN ('ultra', 'operator') AND (p.pinned = 1 OR p.expires_at IS NULL OR p.expires_at > ?) ORDER BY p.created_at DESC LIMIT 100`).bind(scene, since).all();
     // fleet awareness: the robot that met the hazard plus every robot holding a copy, out of the scene's robots
     const copies = (await env.MEMORY.prepare("SELECT origin_id, robot FROM precedents WHERE scene = ? AND source = 'peer' AND origin_id IS NOT NULL AND robot IS NOT NULL AND revoked_at IS NULL").bind(scene).all()).results;
     const fleet = new Set((await scenario(env, req, scene)).events.flatMap(e => [e.robot, e.from]).filter(Boolean));

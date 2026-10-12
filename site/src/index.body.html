@@ -78,10 +78,10 @@
       <tbody>
         <tr><td><span class="chip" style="background:var(--s2)"></span>Deliberation on new or unsafe events</td><td>Nemotron 3 Ultra 550B</td><td>Token Factory · Responses API · strict schema</td><td>Live</td></tr>
         <tr><td><span class="chip" style="background:var(--s1)"></span>Reflex decisions, reuse of precedents</td><td>Nemotron 3 Nano 30B</td><td>Token Factory · Responses API · strict schema</td><td>Live</td></tr>
-        <tr><td><span class="chip" style="background:var(--s15)"></span>Camera perception</td><td>Gemma 3 27B · Cosmos3 Super Reasoner</td><td>Token Factory · serverless / dedicated endpoint</td><td>Gemma live · Cosmos wired, waiting on its endpoint</td></tr>
-        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift replay: Ultra re-judges Nano</td><td>Nemotron 3 Ultra 550B</td><td>Token Factory</td><td>Live</td></tr>
-        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift dream, gate, LoRA consolidate</td><td>Ultra · Nano + LoRA</td><td>Nebius Serverless Jobs · MLflow</td><td>Planned</td></tr>
-        <tr><td><span class="chip" style="background:var(--ink-3)"></span>Fleet memory and call log</td><td>none</td><td>Cloudflare D1 · KV · R2</td><td>Live</td></tr>
+        <tr><td><span class="chip" style="background:var(--s15)"></span>Camera perception</td><td>Gemma 3 27B · Gemma 4 26B · Cosmos3 Super Reasoner</td><td>Token Factory · Nebius Serverless AI Endpoint</td><td>Live (one-command switch)</td></tr>
+        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift replay &amp; episode distillation</td><td>Nemotron 3 Ultra 550B · Super 120B</td><td>Token Factory</td><td>Live</td></tr>
+        <tr><td><span class="chip" style="background:var(--warn)"></span>Night Shift consolidate &amp; safety trigger</td><td>Nano 30B + dual LoRA (<code>decide-1</code>, <code>plan-1</code>)</td><td>Nebius AI Cloud · spot H200 via SkyPilot</td><td>Trained, evaluated &amp; served when promoted</td></tr>
+        <tr><td><span class="chip" style="background:var(--ink-3)"></span>Fleet memory, alarm rules &amp; call log</td><td>none</td><td>Cloudflare D1 · KV · R2</td><td>Live</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -93,10 +93,10 @@
     <div class="sec-head"><span class="eyebrow">Night Shift</span><h2>The fleet learns overnight</h2>
       <p class="lead">Fleet memory helps the next robot within minutes. Night Shift turns the day's decisions into a better reflex model for tomorrow.</p></div>
     <div class="pipeline">
-      <div class="stage"><span class="n">01 REPLAY · LIVE</span><h3>Re-judge the day</h3><span class="svc">Token Factory</span><p class="small">Ultra re-judges Nano's decisions and flags disagreements. The disagreement rate guides tomorrow's threshold τ.</p></div>
-      <div class="stage"><span class="n">02 DREAM · PLANNED</span><h3>Simulate variants</h3><span class="svc">Serverless Jobs fan-out</span><p class="small">Ultra writes variants of the hardest episodes, and jobs run them through the planner.</p></div>
-      <div class="stage"><span class="n">03 GATE · PLANNED</span><h3>Keep only safe lessons</h3><span class="svc">Serverless Jobs</span><p class="small">A lesson must fix its variants without making normal operations worse.</p></div>
-      <div class="stage"><span class="n">04 CONSOLIDATE · PLANNED</span><h3>Train and promote</h3><span class="svc">H200 job · MLflow</span><p class="small">LoRA fine-tune of Nano, promoted only if it beats today's model.</p></div>
+      <div class="stage"><span class="n">01 REPLAY · LIVE</span><h3>Re-judge the day</h3><span class="svc">Token Factory</span><p class="small">Ultra re-judges Nano's decisions and flags disagreements across stored runs.</p></div>
+      <div class="stage"><span class="n">02 DREAM · LIVE</span><h3>Generate variants</h3><span class="svc">Token Factory · Serverless Jobs</span><p class="small">Nemotron Super writes 519 multi-step hazard episodes; Cosmos-Predict2.5 renders synthetic frames.</p></div>
+      <div class="stage"><span class="n">03 GATE · LIVE</span><h3>Calibrate the gate</h3><span class="svc">Action-token probability</span><p class="small">Settles 64% of unseen-hazard events with 1.9% error at the ≤ 5% target; people always escalate.</p></div>
+      <div class="stage"><span class="n">04 CONSOLIDATE · LIVE</span><h3>Train and promote</h3><span class="svc">Nebius spot H200 · SkyPilot</span><p class="small">Dual-LoRA Nano reaches 88% agreement with Ultra (vs. 65% untuned) and 80.1% robot <code>in_way</code> recall.</p></div>
     </div>
   </div>
 </section>

@@ -78,6 +78,15 @@ def trigger():
         neg = sorted((r["score"] for r in rows if not r["label"]), reverse=True)
         thr = neg[min(len(neg) - 1, int(b_far * len(neg)))]
         m_rec, m_far = rates(rows, lambda r: r["score"] > thr)
+        if emb == "robot":
+            # operating point for the live trigger: threshold on the score chosen on val at the baseline's val
+            # false-alarm rate, then measured on test
+            v = [r for r in rows if (r["seq"], r["t"]) in {(x["seq"], x["t"]) for x in load(os.path.join(R, "plan-1"), "ego_mix_plan", "val", os.path.join(ROOT, "data/ego_mix_plan"))}]
+            t = [r for r in rows if r not in v]
+            vneg = sorted((r["score"] for r in v if not r["label"]), reverse=True)
+            cut = vneg[min(len(vneg) - 1, int(rates(v, lambda r: r["base"])[1] * len(vneg)))]
+            rec, far = rates(t, lambda r: r["score"] > cut)
+            out["threshold"] = {"score": round(cut, 3), "test_recall": round(rec, 3), "test_false_alarm_rate": round(far, 3), "test_positives": sum(r["label"] for r in t)}
         out["viewpoints"][emb] = {"positives": sum(r["label"] for r in rows), "baseline_recall": round(b_rec, 3), "tuned_recall": round(m_rec, 3), "false_alarm_rate": round(b_far, 3)}
     g = json.load(open(os.path.join(R, "plan-1/results.json")))["runs"]["ego_mix_plan"]
     out.update(valid_json=[g["generation"]["json_valid"], g["generation"]["n"]], minutes=round(g["train"]["seconds"] / 60), train_samples=16080)

@@ -197,42 +197,51 @@ Every item on the slides is marked live, wired, in progress, planned or simulate
 | Camera perception, alternative | `Cosmos3-Super-Reasoner` | Token Factory dedicated endpoint | Wired in; switch with one command |
 | Night Shift Dream: possible futures of each camera frame | `nvidia/Cosmos-Predict2.5-2B` | **Nebius Serverless Job** on one H200 | In progress |
 | Night Shift incident generator | `nvidia/nemotron-3-super-120b-a12b` | Nebius **Token Factory** | Live in `tools/night_shift` |
-| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained, evaluated and served behind the pipeline on a spot H200 when promoted |
-| Safety trigger: person in the way | Nano + LoRA | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained and evaluated; not yet served live |
-| Fleet memory and call log | none | Cloudflare D1, KV and R2 | Live |
+| Night Shift Consolidate: LoRA fine-tune of Nano on Ultra's decisions | Nano + LoRA (`decide-1`) | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained, evaluated (88% agreement vs. 65% untuned) and served behind the live pipeline when promoted |
+| Safety trigger: person in the way (5 s planned-path horizon) | Nano + LoRA (`plan-1`) | Nebius **AI Cloud**, spot H200 via SkyPilot | Trained, evaluated (80.1% robot recall vs. 74.1% baseline) and co-served on the same H200 endpoint (`task="in_way"`, calibrated threshold `-0.75`) |
+| Fleet memory, alarm rules and call log | none | Cloudflare D1, KV and R2 | Live |
 
 **Where Token Factory helped:**
-- One API key and one base URL for Ultra and Nano. That let us tier the models by cost and latency without running any GPUs for them.
+- One API key and one base URL for Ultra, Nano and Super. That let us tier the models by cost and latency without running standing GPUs for baseline inference.
 - The Responses API's strict `json_schema` output removed most malformed decisions before our own validator ran.
-- Perception runs per token on Token Factory, so the live demo needs no GPU of its own. Gemma 4 isn't served there; it can run on a Serverless AI Endpoint in the same Nebius account.
+- Perception runs per token on Token Factory, so the live demo needs no standing GPU of its own. Gemma 4 isn't served there; it can run on a Serverless AI Endpoint in the same Nebius account.
 
-**Measured on 2026-10-08, live site, both scenarios:**
+**Measured on the live site across both scenarios:**
 - Ultra decisions took 1.1–1.9 s each.
-- Gemma 4 perception took 0.7–1.2 s per frame.
-- Every Nano and Ultra decision passed the schema.
-- In each scenario, the repeat sighting of the hazard was settled by fleet memory with no Ultra call. Fleet memory also carries across runs.
+- Camera perception took 0.7–1.2 s per frame.
+- Every Nano and Ultra decision passed the strict `FleetAction` schema.
+- In a clean 7-event data-center run (`hall-b-coolant-leak`), **85.7% (6 of 7 events)** are settled on the fleet (`4 Nano`, `2 Peer handoffs`, `1 Ultra` for the first sighting of the coolant leak; when a technician enters the lane, the safety invariant routes directly to Ultra and never stores a precedent).
 
-The console and the landing page show these numbers live from the database.
+The console and the landing page show these numbers live from the database, with a toggle between **Latest run only** and **All runs** history.
+
+## Operator console (`https://nemofleet.pages.dev/console`)
+
+- **Spatial Command & Fleet Memory Map (`#floor` + `#map-hud`):** Interactive floor canvas with clickable robots and map cells, live robot telemetry pills, **Fleet Memory sync rings (`MEM`)** around robots holding the active cell precedent, animated **peer-to-peer antennation arcs** when robots pass within handshake range, cell decision badges (`ULTRA · REROUTE · 3×`, `QUARANTINED`, `OPERATOR · 1×`), and one-click spatial controls (**Halt / Resume robot**, **Quarantine / Release cell**, **Cell rule** jump).
+- **Stored decisions / Fleet memory (`#pane-dec`):** Inspect every precedent stored per map cell (with `Known by n of m robots`, reuse count, and expiry countdown), **Keep (Pin)**, **Keep longer (+10m)**, or **Stop using (Revoke)**, alongside the unified **Recent event decisions across the fleet (Nano, Fleet Memory & Ultra)** table.
+- **Incident record & operator override (`#incident`):** Clicking any alarm opens the linked sighting, camera perception, model decision, fleet actions, and stored precedent. Operators can **Accept** the model decision or **Override** it with typed actions—writing a new `operator` precedent for that cell (while person-involved incidents are never stored for reuse).
+- **Configurable alarm rules (`#pane-rules`):** Full CRUD (`Create`, `Edit`, `Enable/Disable`, `Delete`, `Reset defaults`) for automatic alarm triggers (`person_in_lane`, `quarantine_action`, `alert_human_action`, `low_confidence`, `high_severity`, `any_hazard`) enforced live as events run.
+- **Autonomy service level & dual-adapter promotion (`#auto`, `#adapters`):** Set the acceptable disagreement target (`≤ 1%`, `≤ 2%`, `≤ 5%`, `≤ 10%`) backed by the measured action-token probability gate (`config/night_shift.json`), and **Promote** or **Hold** the dual-adapter Nano endpoint.
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| `functions/api/[[path]].js` | Backend API on Cloudflare Pages Functions: perception, fleet memory, the Nano/Ultra gate, alarms, actions, Night Shift replay |
-| `config/models.yaml` | The single source of model ids, including the perception options and which one is active |
-| `scenarios/*.json` | The two scenarios: the warehouse spill (`aisle4-spill`) and the data-center coolant leak (`hall-b-coolant-leak`) |
+| `functions/api/[[path]].js` | Backend API on Cloudflare Pages Functions: perception, fleet memory, the Nano/Ultra gate, dual-adapter routing (`decide` + `in_way`), incident overrides, stored-decision lifecycle, alarm rules CRUD, Night Shift replay |
+| `config/models.yaml` | Single source of model IDs, perception options, and the dual-adapter tuned Nano endpoint |
+| `config/night_shift.json` | Measured Night Shift evaluation and calibration artifact written by `tools/night_shift/publish.py` |
+| `scenarios/*.json` | The three site scenarios: warehouse spill (`aisle4-spill`), data-center coolant leak (`hall-b-coolant-leak`), and San Francisco robotaxis (`sf-soma`) |
 | `site/` | Landing page, operator console, video and docs pages. Build with `node site/build.cjs`; output goes to `site/dist/` |
-| `cloudflare/migrations/` | D1 schema: precedents keyed by map cell, runs, calls, perception, alarms, actions |
+| `cloudflare/migrations/` | D1 schema (`0001`–`0007`): precedents keyed by map cell, runs, calls, perception, alarms, actions, settings, and alarm rules |
 | `tools/preflight.cjs` | Checks the key and the model catalog, and makes one real call to each model |
-| `tools/use_perception.cjs` | Switches the perception model. It switches only after a real image call returns valid JSON |
-| `tools/cosmos_dream/dream.sh` | The Nebius Serverless Job that runs Cosmos-Predict2.5 on the camera frames |
+| `tools/use_perception.cjs` | Switches the perception model only after a real image call returns valid JSON |
+| `tools/cosmos_dream/dream.sh` | Nebius Serverless Job that runs Cosmos-Predict2.5 on the camera frames |
 | `tools/run_scenario.cjs` | Command-line scenario runner, with a dry-run mode |
-| `tools/night_shift/distill.cjs` | Night Shift: Super writes incident episodes, Ultra and Nano decide them with the production prompt, export for fine-tuning |
-| `tools/ego_mix/` | Person-in-the-way fine-tune: dataset adapters, split, baselines, LoRA training and scoring, SkyPilot job |
+| `tools/night_shift/` | `distill.cjs` (Super episode generator + Ultra/Nano distillation), `gate_eval.py` (action-token probability gate), `publish.py` (writes `config/night_shift.json`), `analyze.py` |
+| `tools/ego_mix/` | Person-in-the-way & decision LoRA pipeline: dataset adapters (`adapt_magni.py`, `adapt_waymo.py`, `adapt_smartspaces.py`), `train.py`, `score.py`, `serve.py` (dual-adapter HTTP server), `sky_serve.yaml` |
 | `finetuning/experiments/` | Token Factory fine-tuning experiments on other open models, with experiment tracking |
 | `waymo_viewer/` | Streamlit viewer for Waymo Open Dataset samples (local use; Waymo data is not redistributed) |
-| `tests/qa.cjs` | QA suite: secret scan, syntax checks, build, link check, browser checks of every page at three widths in light and dark, and a local API smoke test |
-| `docs/` | [Architecture slide deck (today vs. next)](docs/NemoFleet-Architecture-Today-vs-Next.pdf), [architecture notes](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
+| `tests/qa.cjs` | 132-check QA suite: secret scan, syntax checks, build, link check, multi-viewport light/dark browser checks, and end-to-end live API + console integration tests |
+| `docs/` | [Architecture slide deck (today vs. next)](docs/NemoFleet-Architecture-Today-vs-Next.pdf), [fine-tune plan & results](docs/FINETUNE_PLAN.md), [architecture notes](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
 
 ## Setup
 
@@ -312,12 +321,26 @@ nebius ai job create --parent-id <project-id> --name nemofleet-cosmos-dream \
 
 The job generates short clips of possible futures from the camera frames and uploads them, with its log, to a private Hugging Face dataset.
 
+### Dual-adapter Nano serving on a Nebius spot H200 (SkyPilot)
+
+To serve both fine-tuned LoRA adapters (`decide-1` for decisions + action-token probability gate, and `plan-1` for the 5-second `in_way` safety trigger) on a single `NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` instance:
+
+```bash
+sky launch -y -c nemo-serve tools/ego_mix/sky_serve.yaml \
+  --env HF_TOKEN="$HF_TOKEN" --env SERVE_TOKEN="$TUNED_ENDPOINT_TOKEN"
+```
+
+When you are finished testing, tear down the spot GPU cluster and clear `base_url` in `config/models.yaml` so the live pipeline automatically falls back to Token Factory's serverless Nano:
+
+```bash
+bash tools/ego_mix/stop_serving.sh
+```
+
 ## What is not built yet
 
-- **Always-on serving of the tuned Nano.** It runs behind the pipeline when its spot endpoint is up and the adapter is promoted; otherwise the pipeline uses the served Nano.
-- **Night Shift Gate.** Promoting an adapter automatically only when it beats today's Nano.
-- **Dead-zone offline mode.** Robots that know only what their peers handed them.
-- **Real robots.** Motion on the console's floor view is simulated, and the camera frames are rendered.
+- **24/7 standing GPU for the tuned Nano.** The dual-adapter H200 endpoint runs on a spot instance via SkyPilot when launched and promoted; when torn down between runs (`stop_serving.sh`), the pipeline seamlessly falls back to Token Factory's serverless Nano.
+- **Dead-zone offline mode.** Partitioned simulation where a robot knows only what its peers handed it over local radio, measured against the same run with no handshakes.
+- **Physical robot hardware.** Motion on the console's floor view is simulated, and the camera frames are rendered.
 
 ## Feedback on Nebius and NVIDIA tools
 

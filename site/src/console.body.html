@@ -237,11 +237,23 @@ details.older .alarms-old { display: grid; margin-top: 4px; }
 table.log tr.off td { color: var(--muted); }
 table.log tr.hit td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 
+/* guided operator workflow strip */
+.guide { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)) auto; gap: 8px 10px; align-items: stretch; background: var(--panel); border-radius: var(--r); padding: 8px 12px; box-shadow: inset 3px 0 0 var(--accent); font-size: 12.5px; min-width: 0; }
+.guide-h { font-family: var(--f-display); font-weight: 700; font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent-ink); align-self: center; padding-right: 2px; }
+.gstep { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 7px; padding: 5px 9px; text-align: left; display: grid; gap: 1px; min-width: 0; align-content: start; }
+.gstep:hover { border-color: var(--accent); }
+.gstep b { font-size: 12.5px; font-weight: 600; display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.gstep b .gn { font-family: var(--f-mono); font-size: 11px; color: var(--accent-ink); flex: none; }
+.gstep span { color: var(--muted); font-size: 11.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.guide-x { align-self: center; }
+@media (max-width: 1100px) { .guide { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide-h { grid-column: 1 / 2; } .guide-x { grid-column: 2 / 3; justify-self: end; } }
+@media (max-width: 520px) { .guide { grid-template-columns: minmax(0, 1fr); } .guide-h, .guide-x { grid-column: 1 / -1; justify-self: start; } }
+
 /* actions */
 .act-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .halt { display: inline-flex; } .halt select { border-radius: 7px 0 0 7px; border-right: 0; padding-right: 4px; font-family: var(--f-mono); font-size: 12px; } .halt button { border-radius: 0 7px 7px 0; }
 /* not connected: say so once and show only what does not need the API (published Night Shift results) */
-.wrap:not(.live) .readout, .wrap:not(.live) .stage-grid, .wrap:not(.live) .details, .wrap:not(.live) .ns-foot, .wrap:not(.live) .stage.replay { display: none; }
+.wrap:not(.live) .guide, .wrap:not(.live) .readout, .wrap:not(.live) .stage-grid, .wrap:not(.live) .details, .wrap:not(.live) .ns-foot, .wrap:not(.live) .stage.replay { display: none; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .tags span { font-family: var(--f-mono); font-size: 11px; background: var(--panel); border-radius: 4px; padding: 1px 6px; color: var(--ink-2); }
 .kv { display: grid; gap: 4px; }
@@ -348,13 +360,31 @@ table.log th, table.rt th { text-align: left; font-family: var(--f-display); fon
 table.log td, table.rt td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
 table.log td { font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.rt td { vertical-align: top; }
+table.rt tr.off td { opacity: .52; }
+.rule-acts { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
+.rule-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; padding: 12px 14px; margin-bottom: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; }
+.rule-form label { display: grid; gap: 4px; font-weight: 500; color: var(--ink-2); }
+.rule-form input, .rule-form select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: 34px; }
+.rule-form .rf-full { grid-column: 1 / -1; }
+.rule-form .rf-actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+.sub-sec { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.sub-sec h3 { font-family: var(--f-display); font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.map-hud { display: grid; gap: 6px; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; min-width: 0; }
+.map-bots { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.bot-pill { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 3px 8px; font-family: var(--f-mono); font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.bot-pill:hover, .bot-pill[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.bot-pill i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.bot-pill .mtag { font-family: var(--f-display); font-size: 9.5px; font-weight: 700; letter-spacing: .05em; padding: 0 4px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent-ink); }
+.map-sel { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; color: var(--ink-2); padding-top: 4px; border-top: 1px solid var(--line); min-width: 0; }
+.map-sel .ms-info { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.map-sel .ms-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 table.log td.wrapc { white-space: normal; min-width: 220px; }
 table.log tr.new td { animation: flash 1.4s ease-out; }
 @keyframes flash { from { background: var(--info-bg); } to { background: transparent; } }
 
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--panel);
   padding: 10px 16px; border-radius: 9px; font-weight: 600; font-size: 14px; max-width: calc(100% - 32px); z-index: 20; }
-dialog.ep { border: 0; border-radius: 12px; padding: 0; width: min(1100px, calc(100% - 24px)); max-height: calc(100% - 40px); background: var(--panel); color: var(--ink); }
+dialog.ep { border: 0; border-radius: 12px; padding: 0; width: min(1100px, calc(100% - 40px)); max-height: calc(100% - 40px); background: var(--panel); color: var(--ink); }
 dialog.ep::backdrop { background: rgba(10, 14, 12, .5); }
 dialog.ep .dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
 dialog.ep .dh h2 { font-size: 17px; }
@@ -396,16 +426,38 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       <h1>NemoFleet <span>Ops</span></h1>
       <span class="site"><span id="site-label">—</span> · <span id="clock" class="num">--:--:--</span></span>
       <span class="mode" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
-      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-sanfrancisco" data-scene="sanfrancisco" aria-pressed="false">San Francisco</button></div>
+      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false" title="Switch to the Data Center Hall B scenario">Data center</button><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false" title="Switch to the Fulfillment Warehouse scenario">Warehouse</button><button id="scene-sanfrancisco" data-scene="sanfrancisco" aria-pressed="false" title="Switch to the San Francisco Robotaxi scenario">San Francisco</button></div>
     </div>
     <div class="top-actions">
+      <button class="btn link" id="act-guide" hidden title="Show the 4-step operator workflow guide">Workflow guide</button>
       <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener">Stop endpoint ↗</a>
-      <button class="btn link danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
-      <button class="btn quiet" id="act-night">Run Night Shift now</button>
-      <button class="btn primary" id="act-run">Run rehearsal</button>
+      <button class="btn link danger" id="act-pause" data-confirm="Confirm: pause the fleet?" title="Temporarily halt robot motion and stop model calls for this site">Pause fleet</button>
+      <button class="btn quiet" id="act-night" title="Night Shift replay: Nemotron Ultra re-checks Nano's recent decisions and flags any disagreements">Audit Nano with Ultra</button>
+      <button class="btn primary" id="act-run" title="Sends this site's 7 scripted robot incidents through the live Nemotron models (Nano, fleet memory, and Ultra) one event at a time">Send test incidents</button>
     </div>
   </header>
   <div class="banner" id="banner" hidden></div>
+
+  <nav class="guide" id="guide" aria-label="Guided operator workflow">
+    <span class="guide-h">How to use</span>
+    <button type="button" class="gstep" id="g-step1" title="Send the site's 7 scripted incidents through live Nano, fleet memory, and Ultra">
+      <b><span class="gn">01</span>Send test incidents</b>
+      <span id="g-sub1">Run 7 events through live Nano, fleet memory &amp; Ultra</span>
+    </button>
+    <button type="button" class="gstep" id="g-step2" title="Click any open alarm to inspect camera perception, model rationale, or apply an operator override">
+      <b><span class="gn">02</span>Inspect an alarm</b>
+      <span id="g-sub2">See camera view, model decision, or override it</span>
+    </button>
+    <button type="button" class="gstep" id="g-step3" title="Open the Fleet memory tab to see stored map-cell decisions that Nano reuses across robots">
+      <b><span class="gn">03</span>Check fleet memory</b>
+      <span id="g-sub3">Manage cell decisions Ultra saved for Nano to reuse</span>
+    </button>
+    <button type="button" class="gstep" id="g-step4" title="Scroll to Night Shift to audit Nano against Ultra and configure the autonomy gate">
+      <b><span class="gn">04</span>Audit &amp; set autonomy</b>
+      <span id="g-sub4">Replay Nano decisions with Ultra &amp; set error gate</span>
+    </button>
+    <button type="button" class="btn link guide-x" id="guide-close" aria-label="Dismiss workflow guide" title="Hide this workflow guide">Hide ×</button>
+  </nav>
 
   <section class="loop" aria-label="The loop: decide once, share, learn overnight" id="loop"></section>
   <section class="readout" aria-label="Fleet summary" id="kpis"></section>
@@ -413,47 +465,52 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   <div class="stage-grid">
     <aside class="rail rail-left" aria-label="Run and decisions">
       <section class="panel" aria-labelledby="h-run">
-        <div class="ph"><h2 id="h-run">Event by event</h2><span class="sub" id="run-sub"></span></div>
+        <div class="ph"><h2 id="h-run" title="Step-by-step log of the current or most recent incident run">Event by event</h2><span class="sub" id="run-sub"></span></div>
         <div class="runlist" id="runlist"></div>
       </section>
       <section class="panel" aria-labelledby="h-tier">
-        <div class="ph"><h2 id="h-tier">Who settled it</h2><span class="sub" id="tier-sub"></span></div>
+        <div class="ph"><h2 id="h-tier" title="Share of events for this site settled by Nano, fleet memory, peer handoff, or Ultra">Who settled it</h2><span class="alarm-head"><span class="sub" id="tier-sub"></span><button type="button" class="btn link" id="scope-toggle" title="Toggle KPIs and Who settled it between the latest run and all historical runs in D1">Latest run only</button></span></div>
         <div class="funnel" id="funnel"></div>
       </section>
     </aside>
 
     <section class="panel floor-panel" aria-labelledby="h-floor">
-      <div class="ph"><h2 id="h-floor">Floor</h2><span class="sub" id="floor-sub">Simulation</span></div>
+      <div class="ph"><h2 id="h-floor">Floor</h2><span class="sub" id="floor-sub">Interactive spatial command · click any robot or map cell to inspect &amp; act</span></div>
       <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
       <div class="legend">
-        <span><i style="background:var(--map-ok)"></i>Robot</span>
-        <span><i style="background:var(--map-crit)"></i>Halted</span>
-        <span><i style="background:rgba(56,160,220,.7)"></i>Hazard</span>
-        <span><i style="background:#f5d90a"></i>Person</span>
+        <span><i style="background:var(--map-ok)"></i>Robot (click to inspect)</span>
+        <span><i style="background:transparent;box-shadow:0 0 0 2px var(--accent)"></i>Synced with fleet memory</span>
+        <span><i style="background:var(--map-crit)"></i>Halted (live KV tag)</span>
+        <span><i style="background:rgba(56,160,220,.7)"></i>Hazard / cell rule (click)</span>
+        <span><i style="background:#f5d90a"></i>Person (always Ultra)</span>
+      </div>
+      <div class="map-hud" id="map-hud">
+        <div class="map-bots" id="map-bots" role="group" aria-label="Select a robot on the floor"></div>
+        <div class="map-sel" id="map-sel">Click any robot or highlighted map cell on the floor to inspect its live state, fleet memory sync, and take spatial action.</div>
       </div>
       <div class="cam-strip" aria-labelledby="h-cams">
-        <div class="ph"><h3 id="h-cams">Robot cameras</h3><span class="sub">Rendered frames · <span id="cams-model">—</span></span></div>
+        <div class="ph"><h3 id="h-cams">Robot cameras</h3><span class="sub">Rendered frames · live VLM output from D1 · <span id="cams-model">—</span></span></div>
         <div class="cams" id="cams"></div>
       </div>
     </section>
 
     <aside class="rail rail-right" aria-label="Alarms and actions">
       <section class="panel" aria-labelledby="h-alarms">
-        <div class="ph"><h2 id="h-alarms">Alarms <span class="count num"><span id="open-count">0</span> open</span></h2>
-          <span class="alarm-head"><button class="btn link" id="act-episodes">Episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
+        <div class="ph"><h2 id="h-alarms" title="Live alarms from D1. Click any alarm title or 'Incident' to inspect or override.">Alarms <span class="count num"><span id="open-count">0</span> open</span></h2>
+          <span class="alarm-head"><button class="btn link" id="act-episodes" title="View recent model decisions and Night Shift replay verdicts from Ultra">Episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?" title="Clear all open alarms and quarantine zones for this site">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
         <div class="incident" id="incident" aria-live="polite" hidden></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
-        <div class="ph"><h2 id="h-quick">Actions</h2></div>
+        <div class="ph"><h2 id="h-quick">Operator actions</h2><span class="sub">Writes live KV tags &amp; D1 audit log</span></div>
         <div class="act-grid">
-          <button class="btn sm" id="q-btn" data-action="quarantine_zone">Quarantine zone</button>
-          <span class="halt"><label class="sr-only" for="halt-robot">Robot to halt</label><select id="halt-robot" class="btn sm"></select><button class="btn sm" id="halt-btn" data-action="halt">Halt</button></span>
-          <button class="btn sm" id="esc-btn" data-action="escalate">Escalate to Ultra</button>
-          <button class="btn sm" id="bc-btn" data-action="broadcast_hazard">Broadcast hazard</button>
+          <button class="btn sm" id="q-btn" data-action="quarantine_zone" title="Close the hazard zone on the map for 10 minutes so robots route around it">Quarantine zone</button>
+          <span class="halt"><label class="sr-only" for="halt-robot">Robot to halt</label><select id="halt-robot" class="btn sm" title="Choose a robot to halt"></select><button class="btn sm" id="halt-btn" data-action="halt" title="Stop the selected robot immediately for 1 hour">Halt</button></span>
+          <button class="btn sm" id="esc-btn" data-action="escalate" title="Send open alarms to Nemotron Ultra right now for a fresh fleet-wide decision">Escalate to Ultra</button>
+          <button class="btn sm" id="bc-btn" data-action="broadcast_hazard" title="Broadcast a hazard warning tag to all robots in this site">Broadcast hazard</button>
         </div>
-        <div class="kv"><div class="label">Active fleet tags</div><div class="tags" id="tags"><span>—</span></div></div>
-        <div class="kv"><div class="label">Recent actions</div><div class="empty" id="actions-log">—</div></div>
+        <div class="kv"><div class="label" title="Live Cloudflare KV tags currently enforced on the floor">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
+        <div class="kv"><div class="label" title="Most recent model and operator actions recorded in D1">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
       </section>
     </aside>
   </div>
@@ -467,36 +524,36 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
     <div class="ns-learn" id="ns-learn"></div>
     <div class="ns-foot">
-      <div class="auto" id="adapters" hidden><table aria-label="Adapters"><thead><tr><th>Adapter</th><th>Measured</th><th>Status</th><th aria-label="Manage"></th></tr></thead><tbody id="adapter-rows"></tbody></table></div>
+      <div class="auto" id="adapters" hidden><table aria-label="Adapters"><thead><tr><th title="Fine-tuned LoRA adapter trained overnight on Ultra's decisions">Adapter (fine-tuned model)</th><th title="Measured accuracy on held-out test recordings">Measured on held-out test recordings</th><th title="Whether this adapter is currently answering live requests for this site">Live status</th><th aria-label="Manage"></th></tr></thead><tbody id="adapter-rows"></tbody></table></div>
       <div class="auto" id="auto">
-        <div class="auto-row"><span class="label" id="auto-label">Autonomy target</span><div class="auto-levels" id="auto-levels" role="group" aria-labelledby="auto-label"></div><span class="sub" id="auto-unit"></span></div>
-        <table aria-label="Measured gates"><thead><tr><th>Gate</th><th>Settles without Ultra</th><th>Differ from Ultra</th></tr></thead><tbody id="auto-evidence"></tbody></table>
+        <div class="auto-row"><span class="label" id="auto-label" title="Maximum allowed disagreement rate between fine-tuned Nano and Ultra before escalating to Ultra">Autonomy target (max error rate)</span><div class="auto-levels" id="auto-levels" role="group" aria-labelledby="auto-label"></div><span class="sub" id="auto-unit"></span></div>
+        <table aria-label="Measured gates"><thead><tr><th title="Escalation rule used to decide when Nano settles an event vs escalates to Ultra">Escalation gate</th><th title="Held-out test events settled by Nano without calling Ultra">Settles without Ultra</th><th title="Held-out test events where Nano settled the event but differed from Ultra">Differ from Ultra</th></tr></thead><tbody id="auto-evidence"></tbody></table>
         <div class="gate-line" id="gate-line"></div>
       </div>
-      <div class="tau"><label for="tau" class="label">Current gate τ</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" disabled><span class="num mono" id="tau-v">—</span><span class="sub" id="tau-note"></span></div>
-      <button class="btn sm" id="tau-save">Apply τ</button>
+      <div class="tau" title="When using standard Nano (stated confidence gate), Nano escalates to Ultra whenever its self-reported confidence is below τ"><label for="tau" class="label">Confidence threshold τ (fallback gate)</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" disabled><span class="num mono" id="tau-v">—</span><span class="sub" id="tau-note"></span></div>
+      <button class="btn sm" id="tau-save" title="Save this confidence threshold τ for future events at this site">Apply τ</button>
     </div>
   </section>
 
   <section class="panel details" aria-label="System details">
     <div class="tablist" role="tablist" aria-label="System details">
       <button role="tab" id="tab-svc" aria-controls="pane-svc" aria-selected="true">Models and services</button>
-      <button role="tab" id="tab-dec" aria-controls="pane-dec" aria-selected="false" tabindex="-1">Decisions</button>
+      <button role="tab" id="tab-dec" aria-controls="pane-dec" aria-selected="false" tabindex="-1" title="Reusable cell decisions saved by Ultra or an operator, plus all recent robot event decisions across Nano and Ultra">Fleet memory &amp; decisions</button>
       <button role="tab" id="tab-learn" aria-controls="pane-learn" aria-selected="false" tabindex="-1">Learning and usage</button>
-      <button role="tab" id="tab-log" aria-controls="pane-log" aria-selected="false" tabindex="-1">Model call log</button>
+      <button role="tab" id="tab-log" aria-controls="pane-log" aria-selected="false" tabindex="-1" title="Every individual model call (Nano, Ultra, and camera perception) recorded in D1">Model call log (all tiers)</button>
       <button role="tab" id="tab-rules" aria-controls="pane-rules" aria-selected="false" tabindex="-1">Alarm rules</button>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-svc" aria-labelledby="tab-svc" tabindex="0">
-      <div class="pane-head"><h2 id="h-svc" class="sr-only">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
+      <div class="pane-head"><h2 id="h-svc" class="sr-only">Models and services</h2><span class="sub">Live endpoints &amp; D1/KV/R2 bindings</span><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
       <div class="svc" id="svc"></div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-learn" aria-labelledby="tab-learn" tabindex="0" hidden>
       <div class="charts">
-        <div><div class="ph"><h3 id="h-learn">Learning curve</h3><span class="sub">Ultra share of model decisions, % by run</span></div>
+        <div><div class="ph"><h3 id="h-learn">Learning curve</h3><span class="sub">Real D1 runs · % of events that needed Ultra</span></div>
           <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra share of model decisions by scenario run"></svg></div>
-        <div><div class="ph"><h3 id="h-peer">Fleet memory</h3></div>
+        <div><div class="ph"><h3 id="h-peer">Fleet memory</h3><span class="sub">Live D1 &amp; KV reuse totals</span></div>
           <div class="stats" id="stats"></div></div>
         <div><div class="ph"><h3 id="h-cost">Usage today</h3><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
           <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
@@ -505,31 +562,49 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-dec" aria-labelledby="tab-dec" tabindex="0" hidden>
-      <div class="pane-head"><h2 class="sr-only">Stored decisions</h2><span class="sub">Newest first</span></div>
-      <div class="logbox"><table class="log"><thead><tr><th>Cell</th><th>Seen</th><th>Decision</th><th>By</th><th>Age</th><th>Expires</th><th>Reused</th><th>Known by</th><th aria-label="Manage"></th></tr></thead><tbody id="dec"></tbody></table></div>
+      <div class="pane-head"><h2 class="sr-only">Stored decisions (fleet memory)</h2><span class="sub">Reusable cell rules (Fleet memory) · When Ultra or an operator resolves a non-person hazard at a map cell, that rule is stored here so Nano can reuse it for the next robot at that cell without calling Ultra again</span></div>
+      <div class="logbox"><table class="log"><thead><tr><th title="Map cell or floor zone where the hazard was reported">Map cell</th><th title="What the robot and camera reported when this decision was recorded">Situation seen</th><th title="Action saved for this cell">Decision stored</th><th title="Who created this stored decision: Ultra (on first sighting) or Operator (via incident override)">Decided by</th><th title="How long ago this decision was recorded">Age</th><th title="Whether Nano can currently reuse this decision, and when it expires unless kept longer">Expires in</th><th title="How many times Nano reused this decision for later robots instead of calling Ultra">Times reused</th><th title="How many robots in this scene hold a copy via peer handoff">Known by</th><th aria-label="Manage" title="Keep (pin) indefinitely, extend expiry time, or stop using (revoke)">Controls</th></tr></thead><tbody id="dec"></tbody></table></div>
+      <div class="sub-sec">
+        <div class="pane-head"><h3>Recent event decisions across the fleet (Nano, Fleet Memory &amp; Ultra)</h3><span class="sub" id="dec-ev-sub">Every robot event decision from D1 · shows which events Nano settled vs escalated to Ultra · <button type="button" class="more" id="dec-to-log">Open full model call log</button></span></div>
+        <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Robot</th><th>Event type</th><th>Settled by</th><th>Model</th><th>Action decided</th><th>Latency</th></tr></thead><tbody id="dec-events"></tbody></table></div>
+      </div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-log" aria-labelledby="tab-log" tabindex="0" hidden>
-      <div class="pane-head"><h2 id="h-log" class="sr-only">Model call log</h2><span class="sub">Newest first</span></div>
+      <div class="pane-head"><h2 id="h-log" class="sr-only">Model call log</h2><span class="sub" id="log-sub">Real D1 call records · newest first</span></div>
       <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-rules" aria-labelledby="tab-rules" tabindex="0" hidden>
-      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds</h2></div>
+      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds</h2><span class="sub">Live routing &amp; alarm rules stored in D1 for this site · enforced on every robot event</span><span class="rule-acts"><button type="button" class="btn sm primary" id="rule-new-btn" title="Create a custom alarm rule for this site">+ New alarm rule</button><button type="button" class="btn sm quiet" id="rule-reset-btn" data-confirm="Confirm: reset rules to defaults?" title="Restore the 4 built-in alarm rules for this site">Reset defaults</button></span></div>
+      <form class="rule-form" id="rule-form" hidden>
+        <input type="hidden" id="rf-id" value="">
+        <label>Alarm name<input id="rf-name" maxlength="120" placeholder="e.g. Unattended equipment in aisle" required></label>
+        <label>Severity<select id="rf-sev"><option value="crit">Critical</option><option value="warn" selected>Warning</option><option value="info">Info</option></select></label>
+        <label>Trigger type<select id="rf-kind"><option value="custom" selected>Custom keyword / cell match</option><option value="safety">Person or safety event</option><option value="hazard">Hazard sighting</option><option value="unknown_hazard">Unknown hazard</option><option value="operator">Operator quarantine or pause</option></select></label>
+        <label id="rf-match-wrap">Match keyword or cell<input id="rf-match" maxlength="200" placeholder="e.g. forklift, cart, C2-end, coolant"></label>
+        <label class="rf-full">Fires when (description)<input id="rf-when" maxlength="300" placeholder="e.g. Robot or camera reports unattended equipment near a spill" required></label>
+        <label>Automatic response<input id="rf-resp" maxlength="300" value="Ultra decides; stored for map cell" required></label>
+        <label>Operator action<input id="rf-op" maxlength="300" value="Acknowledge; quarantine zone if needed" required></label>
+        <div class="rf-actions">
+          <button type="submit" class="btn sm primary" id="rf-save">Save rule</button>
+          <button type="button" class="btn sm quiet" id="rf-cancel">Cancel</button>
+        </div>
+      </form>
       <div class="rulebox"><table class="rt">
-      <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
-      <tbody>
-        <tr><td>Person or safety event</td><td><span class="sev crit">Critical</span></td><td>Perception reports a person in the lane, or a robot reports a safety event</td><td>Goes to Ultra; never settled from fleet memory</td><td>Confirm the zone is clear, then release</td></tr>
-        <tr><td>Hazard sighting</td><td><span class="sev warn">Warning</span></td><td>Perception reports a hazard on the robot's path</td><td>Ultra decides once; the decision is stored for that map cell</td><td>Acknowledge; quarantine the zone if needed</td></tr>
-        <tr><td>Unknown hazard</td><td><span class="sev warn">Warning</span></td><td>A robot reports a hazard and no camera result is available</td><td>Ultra decides; safe stop if there is no valid decision</td><td>Review the call log</td></tr>
-        <tr><td>Operator quarantine or pause</td><td><span class="sev info">Info</span></td><td>An operator quarantines a zone or pauses the fleet</td><td>Zone closed for 10 min, or no model calls until resumed</td><td>Release when clear</td></tr>
+      <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th><th>Controls</th></tr></thead>
+      <tbody id="rules-body">
+        <tr><td>Person or safety event</td><td><span class="sev crit">Critical</span></td><td>Perception reports a person in the lane, or a robot reports a safety event</td><td>Goes to Ultra; never settled from fleet memory</td><td>Confirm the zone is clear, then release</td><td>—</td></tr>
+        <tr><td>Hazard sighting</td><td><span class="sev warn">Warning</span></td><td>Perception reports a hazard on the robot's path</td><td>Ultra decides once; the decision is stored for that map cell</td><td>Acknowledge; quarantine the zone if needed</td><td>—</td></tr>
+        <tr><td>Unknown hazard</td><td><span class="sev warn">Warning</span></td><td>A robot reports a hazard and no camera result is available</td><td>Ultra decides; safe stop if there is no valid decision</td><td>Review the call log</td><td>—</td></tr>
+        <tr><td>Operator quarantine or pause</td><td><span class="sev info">Info</span></td><td>An operator quarantines a zone or pauses the fleet</td><td>Zone closed for 10 min, or no model calls until resumed</td><td>Release when clear</td><td>—</td></tr>
       </tbody>
     </table></div>
     </div>
   </section>
 </div>
 <dialog class="ep" id="episodes" aria-labelledby="h-ep">
-  <div class="dh"><h2 id="h-ep">Episodes · <span id="ep-scene"></span></h2><button class="btn sm" id="ep-close">Close</button></div>
+  <div class="dh"><h2 id="h-ep">Episodes (Night Shift replay) · <span id="ep-scene"></span></h2><button class="btn sm" id="ep-close">Close</button></div>
   <div class="db"><p class="empty" id="ep-note">Loading…</p>
     <table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Robot</th><th>Event</th><th>Latency</th><th>Schema</th><th>Decision</th><th>Night Shift replay (Ultra)</th></tr></thead><tbody id="ep-body"></tbody></table></div>
 </dialog>
@@ -589,47 +664,92 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const parse = s => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
   const tagNames = () => (ST?.tags || []).map(t => t.name);
 
-  // decision events = (run, robot, event) groups over Nano/Ultra calls; peer handshakes come from peer precedents
-  function derive() {
-    const calls = ST?.calls || [], evs = new Map();
-    for (const c of calls) if (c.tier === 'nano' || c.tier === 'ultra') {
-      const k = c.run_id ? `${c.run_id}|${c.robot}|${c.event}` : `op|${c.id}`;
-      const e = evs.get(k) || { run: c.run_id, event: c.event, ts: c.ts, tiers: new Set() };
-      e.tiers.add(c.tier); if (c.ts < e.ts) e.ts = c.ts; evs.set(k, e);
+  // Active reusable cell decisions: live, non-safety precedents (newest per map cell, matching lookupDecision in the API)
+  function activeDecisions() {
+    const seen = new Set(), out = [];
+    for (const d of DEC?.decisions || []) if (d.status === 'live' && !d.safety) {
+      if (d.cell) { if (seen.has(d.cell)) continue; seen.add(d.cell); }
+      out.push(d);
     }
-    const list = [...evs.values()], peer = ST?.precedents?.peer_total || 0;
-    const nanoOnly = list.filter(e => !e.tiers.has('ultra')).length;
+    return out;
+  }
+  const memCount = () => DEC ? activeDecisions().length : (ST?.precedents?.n ?? 0);
+
+  let SCOPE_LATEST = false, SEL_BOT = null, ACTIVE_BOT = null;
+  // decision events = (run, robot, event) groups over Nano/Ultra calls; peer handshakes come from peer precedents
+  function derive(onlyLatest = SCOPE_LATEST) {
+    const allCalls = ST?.calls || [], latestRun = allCalls.find(c => c.run_id && (c.tier === 'nano' || c.tier === 'ultra'))?.run_id || null;
+    const calls = onlyLatest && latestRun ? allCalls.filter(c => c.run_id === latestRun) : allCalls;
+    const list = [], byKey = new Map();
+    for (const c of [...calls].reverse()) if (c.tier === 'nano' || c.tier === 'ultra') {
+      const k = c.run_id ? `${c.run_id}|${c.robot}|${c.event}` : `op|${c.id}`, t = Date.parse(c.ts) || 0, prev = byKey.get(k);
+      if (prev && (!/^events-/.test(c.run_id || '') || Math.abs(t - prev.lastTs) < 90000)) {
+        prev.tiers.add(c.tier); prev.lastTs = t;
+      } else {
+        const e = { run: c.run_id, robot: c.robot, event: c.event, ts: c.ts, lastTs: t, tiers: new Set([c.tier]) };
+        list.push(e); byKey.set(k, e);
+      }
+    }
+    const peer = onlyLatest && latestRun
+      ? (SCN?.events ? SCN.events.filter(e => e.kind === 'peer_handshake').length : (ST?.precedents?.peer || 0))
+      : (ST?.precedents?.peer_total || 0);
+    const nanoList = list.filter(e => !e.tiers.has('ultra'));
+    const nanoMem = nanoList.filter(e => /sighting|variant/.test(e.event)).length;
+    const nanoRoutine = nanoList.length - nanoMem;
+    const nanoOnly = nanoList.length;
     const ultraSafety = list.filter(e => e.tiers.has('ultra') && e.event === 'safety').length;
     const ultraOther = list.filter(e => e.tiers.has('ultra') && e.event !== 'safety').length;
     const lat = t => calls.filter(c => c.tier === t && c.latency_ms != null).map(c => c.latency_ms);
-    return { calls, list, peer, nanoOnly, ultraSafety, ultraOther, total: list.length + peer, nanoLat: lat('nano'), ultraLat: lat('ultra'),
-      tokens: calls.reduce((s, c) => s + (c.prompt_tokens || 0) + (c.completion_tokens || 0), 0) };
+    return { calls, list, peer, nanoOnly, nanoMem, nanoRoutine, ultraSafety, ultraOther, total: list.length + peer, nanoLat: lat('nano'), ultraLat: lat('ultra'),
+      latestRun, tokens: calls.reduce((s, c) => s + (c.prompt_tokens || 0) + (c.completion_tokens || 0), 0) };
+  }
+
+  // ---- guided workflow strip ----
+  function renderGuide() {
+    const g = $('guide'), btn = $('act-guide'); if (!g) return;
+    let dismissed = false; try { dismissed = localStorage.getItem('nf-guide-dismissed') === '1'; } catch (e) {}
+    g.hidden = dismissed; if (btn) btn.hidden = !dismissed;
+    if (!ST) return;
+    const d = derive(false), openN = (ST.alarms || []).filter(a => a.status === 'open').length, mc = memCount(), hits = ST.memory?.hits ?? 0;
+    $('g-sub1').textContent = BUSY ? 'Running scripted events live…' : d.list.length ? 'Run 7 scripted events live (latest run shown below)' : 'Run 7 events through live Nano, fleet memory & Ultra';
+    $('g-sub2').textContent = openN ? `${openN} open alarm${openN === 1 ? '' : 's'} — click to inspect camera & decision` : 'See camera view, model decision, or override it';
+    $('g-sub3').textContent = `${mc} active cell decision${mc === 1 ? '' : 's'} · ${hits} Ultra call${hits === 1 ? '' : 's'} avoided`;
+    $('g-sub4').textContent = ST.autonomy?.level ? `Gate at ${per100(ST.autonomy.level.target_error)}% max error · click to review or audit` : 'Audit Nano decisions with Ultra & set error gate';
   }
 
   // ---- KPIs ----
   function renderKpis() {
-    const d = derive(), tags = tagNames(), halted = tags.filter(t => t.includes(':halt:')).length, zones = tags.filter(t => t.includes(':zone:')).length;
-    const ultraN = d.ultraSafety + d.ultraOther, hits = ST?.memory?.hits ?? 0, mem = ST?.memory;
+    const d = derive(SCOPE_LATEST), dLat = derive(true), tags = tagNames(), halted = tags.filter(t => t.includes(':halt:')).length, zones = tags.filter(t => t.includes(':zone:')).length;
+    const ultraN = d.ultraSafety + d.ultraOther, latUltraN = dLat.ultraSafety + dLat.ultraOther, hits = ST?.memory?.hits ?? 0, mem = ST?.memory, mc = memCount();
+    const scopeLabel = SCOPE_LATEST ? 'latest run' : 'all runs';
     // 01 decide once and 02 share come from the API state; 03 learn overnight comes from config/night_shift.json
-    const decide = `<div class="st decide"><div class="st-h"><span class="idx">01</span><h2>Decide once</h2><span class="who">Nemotron Ultra</span></div>
-      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? ultraN : DASH}</span></span><span class="d"><b>Ultra decisions</b>${ST ? `${d.ultraOther} new or unsure · ${d.ultraSafety} with a person` : ''}</span></div>
-      <span class="f">${d.ultraLat.length ? `p50 ${fmtMs(quant(d.ultraLat, .5))} · ${d.ultraLat.length} calls` : ''}</span></div>`;
-    const share = `<div class="st share"><div class="st-h"><span class="idx">02</span><h2>Share</h2><span class="who">Fleet memory</span></div>
-      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? hits : DASH}</span></span><span class="d"><b>Ultra calls avoided</b>${!ST ? '' : hits && mem.ultra_avg_tokens != null ? `≈ ${Math.round(hits * mem.ultra_avg_tokens).toLocaleString('en-US')} Ultra tokens, ${fmtMs(hits * mem.ultra_avg_ms)} saved` : ''}</span></div>
-      <span class="f">${ST ? `${ST.precedents?.n ?? 0} decisions in memory · newest known by ${aware()} robots · ${mem?.overrides ?? 0} reuse declined` : ''}</span></div>`;
+    const decide = `<div class="st decide" title="Station 01: Nemotron Ultra (System 2) is called only on a first hazard sighting, when Nano is uncertain, or when a person is present"><div class="st-h"><span class="idx">01</span><h2>Decide once</h2><span class="who">Nemotron Ultra</span></div>
+      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? ultraN : DASH}</span></span><span class="d"><b>Ultra decisions (${scopeLabel})</b>${ST ? `${d.ultraOther} new or unsure · ${d.ultraSafety} with a person` : ''}</span></div>
+      <span class="f">${!ST ? '' : (!SCOPE_LATEST && dLat.total ? `Latest run: ${latUltraN} Ultra (${dLat.ultraSafety} person, ${dLat.ultraOther} new) · ` : '') + (d.ultraLat.length ? `p50 ${fmtMs(quant(d.ultraLat, .5))} · ${d.ultraLat.length} calls` : '')}</span></div>`;
+    const share = `<div class="st share" title="Station 02: Once Ultra decides a hazard at a map cell, Fleet Memory stores it so Nano can reuse it for the next robot at that cell without calling Ultra"><div class="st-h"><span class="idx">02</span><h2>Share</h2><span class="who">Fleet memory</span></div>
+      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? (SCOPE_LATEST ? dLat.nanoMem : hits) : DASH}</span></span><span class="d"><b>Ultra calls avoided (${scopeLabel})</b>${!ST ? '' : hits && mem.ultra_avg_tokens != null ? `≈ ${Math.round((SCOPE_LATEST ? dLat.nanoMem : hits) * mem.ultra_avg_tokens).toLocaleString('en-US')} Ultra tokens, ${fmtMs((SCOPE_LATEST ? dLat.nanoMem : hits) * mem.ultra_avg_ms)} saved` : ''}</span></div>
+      <span class="f">${ST ? `${mc} active cell decision${mc === 1 ? '' : 's'} in memory · newest known by ${aware()} robots · ${mem?.overrides ?? 0} escalated on scene change` : ''}</span></div>`;
     $('loop').innerHTML = decide + share + learnStation();
     $('loop').querySelector('.more')?.addEventListener('click', () => $('night').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
+    const latPct = fmtPct(pct(dLat.nanoOnly + dLat.peer, dLat.total));
     const k = [
-      ['Settled on the fleet', fmtPct(pct(d.nanoOnly + d.peer, d.total)), d.total ? `of ${d.total} events, no Ultra call` : ''],
-      ['Nano p50', fmtMs(quant(d.nanoLat, .5)), d.nanoLat.length ? `${d.nanoLat.length} calls` : ''],
-      ['Tokens', d.calls.length ? d.tokens.toLocaleString('en-US') : DASH, d.calls.length ? `${d.calls.length} model calls` : ''],
-      ['Halted robots', ST ? String(halted) : DASH, ST ? `${zones} zone${zones === 1 ? '' : 's'} quarantined${ST.paused ? ' · <span class="bad">fleet paused</span>' : ''}` : ''],
+      ['Settled on the fleet', fmtPct(pct(d.nanoOnly + d.peer, d.total)), d.total ? `of ${d.total} events (${scopeLabel})${!SCOPE_LATEST && dLat.total ? ` · latest run: ${latPct}` : ''}` : '', 'Share of events handled by Nano, fleet memory reuse, or peer handoff without calling Ultra'],
+      ['Nano p50', fmtMs(quant(d.nanoLat, .5)), d.nanoLat.length ? `${d.nanoLat.length} calls (${scopeLabel})` : '', 'Median response latency for Nemotron Nano (System 1) across stored calls'],
+      ['Tokens', d.calls.length ? d.tokens.toLocaleString('en-US') : DASH, d.calls.length ? `${d.calls.length} model calls (${scopeLabel})` : '', 'Total prompt + completion tokens across Nano, Ultra, and perception calls in D1'],
+      ['Halted robots', ST ? String(halted) : DASH, ST ? `${zones} zone${zones === 1 ? '' : 's'} quarantined${ST.paused ? ' · <span class="bad">fleet paused</span>' : ''}` : '', 'Live robot halts and quarantined zones enforced in Cloudflare KV'],
     ];
-    $('kpis').innerHTML = k.map(([l, v, s]) => `<div class="kpi"><span class="label">${l}</span><span class="v num">${v}</span>${s ? `<span class="d">${s}</span>` : ''}</div>`).join('');
-    const rows = [['Nano, on the robot', d.nanoOnly, '--s1'], ['Peer handoff', d.peer, '--s15'], ['Ultra, new or unsure', d.ultraOther, '--s2'], ['Ultra, person present', d.ultraSafety, '--crit']];
-    $('funnel').innerHTML = `<div class="mixbar" role="img" aria-label="Share of decisions settled at each step">${d.total ? rows.filter(r => r[1]).map(([n, v, c]) => `<b style="flex:${v};background:var(${c})" title="${n}"></b>`).join('') : ''}</div>` +
-      rows.map(([n, v, c]) => `<div class="frow"><i style="background:var(${c})"></i><span>${n}</span><span class="num">${fmtPct(pct(v, d.total))}</span></div>`).join('');
-    $('tier-sub').textContent = d.total ? `${d.total} events` : '';
+    $('kpis').innerHTML = k.map(([l, v, s, tip]) => `<div class="kpi" title="${esc(tip || '')}"><span class="label">${l}</span><span class="v num">${v}</span>${s ? `<span class="d">${s}</span>` : ''}</div>`).join('');
+    const rows = [
+      ['Nano alone (routine)', d.nanoRoutine, '--s1'],
+      ['Nano + fleet memory (reused)', d.nanoMem, '--accent'],
+      ['Peer handoff (robot-to-robot)', d.peer, '--s15'],
+      ['Ultra, new or unsure', d.ultraOther, '--s2'],
+      ['Ultra, person present', d.ultraSafety, '--crit'],
+    ];
+    $('funnel').innerHTML = `<div class="mixbar" role="img" aria-label="Share of decisions settled at each step">${d.total ? rows.filter(r => r[1]).map(([n, v, c]) => `<b style="flex:${v};background:var(${c})" title="${n}: ${v} of ${d.total}"></b>`).join('') : ''}</div>` +
+      rows.map(([n, v, c]) => `<div class="frow" title="${v} of ${d.total} events"><i style="background:var(${c})"></i><span>${n}</span><span class="num">${fmtPct(pct(v, d.total))}</span></div>`).join('');
+    $('tier-sub').textContent = d.total ? `${d.total} events (${scopeLabel})` : '';
+    const stBtn = $('scope-toggle'); if (stBtn) stBtn.textContent = SCOPE_LATEST ? 'Show all runs' : 'Latest run only';
     const pb = $('act-pause'); if (!pb.classList.contains('confirming')) { pb.textContent = ST?.paused ? 'Resume fleet' : 'Pause fleet'; pb.dataset.confirm = ST?.paused ? '' : 'Confirm: pause the fleet?'; }
   }
 
@@ -638,16 +758,16 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const human = t => String(t || '').replace(/\b([a-z]+(?:_[a-z]+)+)\b/g, w => w.replace(/_/g, ' ')).replace(/^\w/, c => c.toUpperCase());
   function alarmEl(a) {
     const el = document.createElement('div'); el.className = 'alarm' + (a.status === 'acked' ? ' acked' : ''); el.dataset.sev = a.sev;
-    el.innerHTML = `<div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t" title="${esc(human(a.title))}">${esc(human(a.title))}</span><span class="when">${hhmmss(a.created_at)}</span></div>` +
+    el.innerHTML = `<div class="row1"><span class="sev ${a.sev}">${sevName[a.sev]}</span><span class="t" title="Click to inspect full incident record: ${esc(human(a.title))}">${esc(human(a.title))}</span><span class="when">${hhmmss(a.created_at)}</span></div>` +
       (a.meta ? `<div class="meta" title="${esc(a.meta)}">${esc(human(a.meta))}</div>` : '') + `<div class="acts"></div>`;
     const acts = el.querySelector('.acts');
-    const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
+    const add = (label, cls, fn, tip) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; if (tip) b.title = tip; wire(b, fn); acts.appendChild(b); };
     if (INC?.alarm.id === a.id) el.classList.add('sel');
     el.querySelector('.t').addEventListener('click', () => LIVE ? openIncident(a.id) : offline());
-    add('Incident', 'incident', async () => { await openIncident(a.id); });
-    add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
-    add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared`; });
-    if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); });
+    add('Incident', 'incident', async () => { await openIncident(a.id); }, 'Inspect camera perception, model decision, fleet actions, or override');
+    add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; }, 'Mark this alarm as seen by the operator');
+    add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared`; }, 'Clear this alarm and reopen any quarantined floor zones');
+    if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); }, 'Open the Night Shift replay log for this site');
     return el;
   }
   function renderAlarms() {
@@ -670,7 +790,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const fmtActs = l => (l || []).map(a => esc(fmtAct(a))).join('<br>');
   const span = s => s >= 86400 ? Math.round(s / 86400) + ' d' : s >= 3600 ? Math.round(s / 3600) + ' h' : s >= 60 ? Math.round(s / 60) + ' min' : Math.max(0, Math.round(s)) + ' s';
   const WHO = { ultra: 'Ultra', nano: 'Nano', operator: 'Operator' };
-  const decState = d => d.status === 'revoked' ? 'Revoked' : d.status === 'superseded' ? 'Replaced' : d.pinned ? 'Pinned' : d.status === 'expired' ? 'Expired' : d.expires_at ? 'in ' + span((new Date(d.expires_at) - Date.now()) / 1000) : DASH;
+  const decState = d => d.status === 'revoked' ? 'Revoked' : d.status === 'superseded' ? 'Replaced' : d.pinned ? 'Pinned (kept)' : d.status === 'expired' ? 'Expired' : d.expires_at ? 'in ' + span((new Date(d.expires_at) - Date.now()) / 1000) : DASH;
   async function openIncident(id) { INC = await api('incident?id=' + encodeURIComponent(id)); INC_FORM = false; renderIncident(); $('incident').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); }
   function closeIncident() { INC = null; renderIncident(); }
   function showDecision(id) { selectTab($('tab-dec'), true); const r = document.querySelector(`#dec tr[data-id="${CSS.escape(id)}"]`); document.querySelectorAll('#dec tr.hit').forEach(x => x.classList.remove('hit')); if (r) { r.classList.add('hit'); r.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); } }
@@ -680,7 +800,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     box.hidden = !r; if (!r) { box.innerHTML = ''; return; }
     const a = r.alarm, e = r.event, p = r.perception?.result, d = r.decision, s = r.stored_decision, o = r.override, row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
     const sub = t => `<span class="sub">${t}</span>`;
-    const link = x => `<button class="btn link" data-dec="${esc(x.id)}">Cell ${esc(x.cell || DASH)} · ${decState(x)}</button>`;
+    const link = x => `<button class="btn link" data-dec="${esc(x.id)}" title="Jump to this stored decision in the Fleet memory tab">Cell ${esc(x.cell || DASH)} · ${decState(x)}</button>`;
     box.innerHTML = `<div class="ih"><h3><span class="sev ${a.sev}">${sevName[a.sev]}</span> ${esc(human(a.title))}</h3><button class="btn link" id="inc-close">Close</button></div><dl>` +
       row('Raised', `${hhmmss(a.created_at)} · ${esc(a.status)}${a.person ? ' · person' : ''}`) +
       row('Event', e ? `${esc(e.robot || DASH)} · ${esc(e.where || DASH)}${e.cell ? ' · cell ' + esc(e.cell) : ''}${sub(esc(e.text || ''))}` : a.meta ? esc(human(a.meta)) : '') +
@@ -692,11 +812,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       `</dl><div class="acts" id="inc-acts"></div><form class="ovr" id="inc-form" ${INC_FORM ? '' : 'hidden'}></form>`;
     $('inc-close').addEventListener('click', closeIncident);
     box.querySelectorAll('[data-dec]').forEach(b => b.addEventListener('click', () => showDecision(b.dataset.dec)));
-    const acts = $('inc-acts'), btn = (label, id, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.id = id; b.textContent = label; acts.appendChild(b); if (fn) wire(b, fn); return b; };
+    const acts = $('inc-acts'), btn = (label, id, cls, fn, tip) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.id = id; b.textContent = label; if (tip) b.title = tip; acts.appendChild(b); if (fn) wire(b, fn); return b; };
     const again = async () => { INC = await api('incident?id=' + encodeURIComponent(a.id)); renderIncident(); };
-    btn(a.status === 'acked' ? 'Reopen' : 'Accept', 'inc-accept', a.status === 'acked' ? 'quiet' : 'primary', async () => { await api('alarms/ack', { id: a.id }); await again(); return a.status === 'acked' ? 'Alarm reopened' : 'Decision accepted'; });
-    btn('Override', 'inc-override', 'quiet').addEventListener('click', () => { INC_FORM = !INC_FORM; $('inc-form').hidden = !INC_FORM; if (INC_FORM) $('ov-type').focus(); });
-    btn('Release', 'inc-release', 'quiet danger', async () => { const x = await api('alarms/release', { id: a.id }); closeIncident(); return `Alarm released · ${x.released_zones} zone tag${x.released_zones === 1 ? '' : 's'} cleared`; });
+    btn(a.status === 'acked' ? 'Reopen' : 'Accept', 'inc-accept', a.status === 'acked' ? 'quiet' : 'primary', async () => { await api('alarms/ack', { id: a.id }); await again(); return a.status === 'acked' ? 'Alarm reopened' : 'Decision accepted'; }, 'Accept the model decision and acknowledge this alarm');
+    btn('Override', 'inc-override', 'quiet', null, 'Replace the model decision with an operator action (saved to Fleet memory if this is a non-person cell hazard)').addEventListener('click', () => { INC_FORM = !INC_FORM; $('inc-form').hidden = !INC_FORM; if (INC_FORM) $('ov-type').focus(); });
+    btn('Release', 'inc-release', 'quiet danger', async () => { const x = await api('alarms/release', { id: a.id }); closeIncident(); return `Alarm released · ${x.released_zones} zone tag${x.released_zones === 1 ? '' : 's'} cleared`; }, 'Clear this alarm and release any quarantined zones');
     // override: one action from the model vocabulary, its fields, and a note
     const f = $('inc-form'), first = d?.actions?.[0] || {}, pre = { robot: e?.robot, cells: e?.cell, ...first, cells: (first.cells || (e?.cell ? [e.cell] : [])).join(', ') };
     f.innerHTML = `<label>Action<select id="ov-type">${Object.keys(r.vocabulary).map(t => `<option value="${t}"${t === first.type ? ' selected' : ''}>${esc(human(t))}</option>`).join('')}</select></label><div id="ov-fields" style="display:grid;gap:6px"></div>` +
@@ -724,18 +844,20 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       box.dataset.sig = levels.map(l => l.target_error).join(); box.innerHTML = '';
       for (const l of levels) { const b = document.createElement('button'); b.className = 'btn sm quiet'; b.dataset.target = l.target_error; b.textContent = per100(l.target_error);
         b.setAttribute('aria-label', `At most ${per100(l.target_error)} in 100`);
+        b.title = `Allow at most ${per100(l.target_error)}% of Nano's self-settled decisions to differ from Ultra (requires action token probability ≥ ${l.min_probability})`;
         wire(b, async () => { const on = ST?.autonomy?.target_error === l.target_error; await api('actions', { scene: SCENE, type: 'set_autonomy', target_error: on ? null : l.target_error }); return on ? 'Autonomy target cleared' : `Autonomy target: at most ${per100(l.target_error)} in 100`; });
         box.appendChild(b); }
     }
     box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(au?.target_error === Number(b.dataset.target))));
     $('auto-unit').textContent = 'in 100 may differ from Ultra';
-    const lv = levels.find(l => l.target_error === au?.target_error), ev = (name, x) => `<tr><td>${name}</td><td>${fmtInt(x.settled[0])} of ${fmtInt(x.settled[1])}</td><td>${fmtInt(x.wrong)}</td></tr>`;
-    $('auto-evidence').innerHTML = (lv ? ev(`Probability, target ${per100(lv.target_error)}%`, lv) : '') + (g.stated_confidence ? ev('Stated confidence', g.stated_confidence) : '');
-    $('gate-line').innerHTML = ST ? `<span><b>In force:</b> ${au?.in_force === 'stated_confidence' ? 'stated confidence' : esc(au?.in_force || DASH)}, τ ${Number(ST.tau).toFixed(2)}</span><span><b>Ready:</b> ${lv ? `probability gate, target ${per100(lv.target_error)}%` : 'no target set'}</span>` : '';
+    const lv = levels.find(l => l.target_error === au?.target_error), ev = (name, x, tip) => `<tr title="${esc(tip || '')}"><td>${name}</td><td>${fmtInt(x.settled[0])} of ${fmtInt(x.settled[1])}</td><td>${fmtInt(x.wrong)}</td></tr>`;
+    $('auto-evidence').innerHTML = (lv ? ev(`Probability, target ${per100(lv.target_error)}%`, lv, `Calibrated token-probability gate (p ≥ ${lv.min_probability}) on the fine-tuned Nano adapter`) : '') +
+      (g.stated_confidence ? ev('Stated confidence', g.stated_confidence, 'Standard Nano self-reported confidence compared against threshold τ (overconfident on 98.7% of events)') : '');
+    $('gate-line').innerHTML = ST ? `<span title="Which escalation rule is currently active for live events at this site"><b>In force:</b> ${au?.in_force === 'stated_confidence' ? 'stated confidence' : esc(au?.in_force || DASH)}, τ ${Number(ST.tau).toFixed(2)}</span><span title="Calibrated probability gate configured for the fine-tuned Nano adapter"><b>Ready:</b> ${lv ? `probability gate, target ${per100(lv.target_error)}%` : 'no target set'}</span>` : '';
   }
 
   // ---- adapters: measured evidence (config/night_shift.json) and serving status (API state) ----
-  const aware = () => { const d = (DEC?.decisions || []).find(x => x.status === 'live' && !x.safety); return d ? `${d.known_by} of ${d.robots_total}` : DASH; };
+  const aware = () => { const d = activeDecisions()[0]; return d ? `${d.known_by} of ${d.robots_total}` : DASH; };
   const adState = a => !a || !a.configured ? 'Not serving' : !a.key ? 'Not serving · token missing' : a.promoted ? 'Serving' : 'On hold';
   const pct1 = v => (100 * v).toFixed(1) + '%';
   function renderAdapters() {
@@ -749,42 +871,107 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
         (lv ? `<span class="sub">Gate at ${per100(lv.target_error)}%: settles ${fmtInt(lv.settled[0])} of ${fmtInt(lv.settled[1])} · ${fmtInt(lv.wrong)} differ</span>` : ''), adState(a));
       r.dataset.adapter = 'decision';
       const b = document.createElement('button'), can = !!(a && a.configured && a.key); b.className = 'btn sm' + (a?.promoted ? ' quiet' : ''); b.id = 'adapter-toggle'; b.textContent = a?.promoted ? 'Hold' : 'Promote';
-      if (!can && !a?.promoted) { b.disabled = true; b.title = adState(a); }
+      b.title = !can && !a?.promoted ? `${adState(a)} — configure the fine-tuned Nano endpoint to promote` : a?.promoted ? 'Place fine-tuned adapter on hold and revert to standard Nano' : 'Promote fine-tuned Nano adapter to serve live events for this site';
+      if (!can && !a?.promoted) b.disabled = true;
       wire(b, async () => { await api('actions', { scene: SCENE, type: a?.promoted ? 'hold_adapter' : 'promote_adapter' }); return a?.promoted ? 'Adapter on hold' : 'Adapter promoted'; });
       r.lastElementChild.appendChild(b);
     }
-    if (tr?.viewpoints) row('Person in the way', tr.run, 'Recall ' + Object.entries(tr.viewpoints).map(([k, v]) => `${esc(k)} ${pct1(v.baseline_recall)} → ${pct1(v.tuned_recall)}`).join(' · '), 'Not serving').dataset.adapter = 'person';
+    if (tr?.viewpoints) {
+      const th = tr.threshold ? `<span class="sub">Calibrated score ≥ ${tr.threshold.score}: test recall ${pct1(tr.threshold.test_recall)} at ${pct1(tr.threshold.test_false_alarm_rate)} false alarms</span>` : '';
+      row('Person in the way', tr.run, 'Recall ' + Object.entries(tr.viewpoints).map(([k, v]) => `${esc(k)} ${pct1(v.baseline_recall)} → ${pct1(v.tuned_recall)}`).join(' · ') + th, adState(a)).dataset.adapter = 'person';
+    }
   }
   // ---- morning brief: last replay and what each adapter is doing ----
   function renderBrief() {
     const box = $('brief'); box.hidden = !(LIVE && ST); if (box.hidden) return;
     const rep = (ST.night_shift || []).find(r => r.stage === 'replay'), met = rep ? parse(rep.metrics_json) : null, at = rep && (rep.finished_at || rep.started_at);
-    const parts = [rep ? `<b>Replay</b> ${esc(new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}${met ? ` · ${fmtInt(met.disagree ?? 0)} of ${fmtInt(met.rejudged ?? 0)} disagree` : ''}` : '<b>Replay</b> none yet'];
-    if (NS?.distill?.test_tuned) parts.push(`<b>${esc(ST.adapter?.label || 'Decisions')}</b> ${esc(adState(ST.adapter).toLowerCase())}`);
-    if (NS?.trigger?.viewpoints) parts.push('<b>Person in the way</b> not serving');
-    box.innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+    const parts = [rep ? `<span title="Latest Night Shift replay where Ultra audited Nano's decisions"><b>Replay</b> ${esc(new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}${met ? ` · ${fmtInt(met.disagree ?? 0)} of ${fmtInt(met.rejudged ?? 0)} disagree` : ''}</span>` : '<span><b>Replay</b> none yet</span>'];
+    if (NS?.distill?.test_tuned) parts.push(`<span title="Status of the fine-tuned Nano decision adapter for this site"><b>${esc(ST.adapter?.label || 'Decisions')}</b> ${esc(adState(ST.adapter).toLowerCase())}</span>`);
+    if (NS?.trigger?.viewpoints) parts.push(`<span title="Status of the ego-trajectory pedestrian collision adapter"><b>Person in the way</b> ${esc(adState(ST.adapter).toLowerCase())}</span>`);
+    box.innerHTML = parts.join('');
   }
 
   // ---- decision book: stored decisions for this scene ----
   function renderDecisions() {
     const body = $('dec'), list = DEC?.decisions || [], hit = body.querySelector('tr.hit')?.dataset.id;
     if (body.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;  // do not rebuild under an open menu
-    body.innerHTML = list.length ? '' : `<tr><td colspan="9" class="empty">${LIVE ? 'No stored decisions' : 'No data'}</td></tr>`;
+    body.innerHTML = list.length ? '' : `<tr><td colspan="9" class="empty">${LIVE ? 'No stored decisions in fleet memory yet' : 'No data'}</td></tr>`;
+    const activeIds = new Set(activeDecisions().map(x => x.id));
     for (const d of list) {
-      const tr = document.createElement('tr'), live = d.status === 'live', gone = d.status === 'revoked' || d.status === 'superseded'; tr.dataset.id = d.id; tr.dataset.status = d.status;
-      if (!live) tr.className = 'off'; if (d.id === hit) tr.classList.add('hit');
-      tr.innerHTML = `<td class="mono">${esc(d.cell || DASH)}</td><td class="wrapc">${esc(d.situation)}</td><td class="wrapc">${fmtActs(d.decision?.actions)}</td><td>${WHO[d.source] || esc(d.source)}</td>` +
-        `<td class="num">${span((Date.now() - new Date(d.created_at)) / 1000)}</td><td class="num">${decState(d)}</td><td class="num">${d.safety ? 'Person · never' : d.reuse_count}</td><td class="num" data-k="known">${d.safety ? DASH : `${d.known_by} of ${d.robots_total} robots`}</td><td><span class="dec-acts"></span></td>`;
-      const acts = tr.querySelector('.dec-acts'), add = (label, op, fn, conf) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.op = op; if (conf) b.dataset.confirm = conf; wire(b, fn); acts.appendChild(b); };
-      if (!gone) {
-        add(d.pinned ? 'Unpin' : 'Pin', 'pin', async () => { await api('decisions/update', { id: d.id, pinned: !d.pinned }); return d.pinned ? 'Decision unpinned' : 'Decision pinned'; });
-        const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Extend, cell ' + (d.cell || '')); sel.dataset.op = 'extend';
-        sel.innerHTML = '<option value="">Extend</option>' + [3600, 28800, 86400, 604800].map(s => `<option value="${s}">${span(s)}</option>`).join('');
+      const tr = document.createElement('tr'), gone = d.status === 'revoked' || d.status === 'superseded';
+      const shadowed = d.status === 'live' && !d.safety && d.cell && !activeIds.has(d.id);
+      const active = d.status === 'live' && !d.safety && !shadowed;
+      tr.dataset.id = d.id; tr.dataset.status = d.status;
+      if (!active) tr.className = 'off'; if (d.id === hit) tr.classList.add('hit');
+      const expText = d.safety ? 'One-time (safety)' : shadowed ? 'Replaced by newer' : decState(d);
+      const expTip = d.safety ? 'Person/safety decisions always go to Ultra and are never reused from fleet memory' : shadowed ? 'A newer decision for this map cell is now active in fleet memory' : 'Time remaining until this stored cell decision expires';
+      const reuseText = d.safety ? 'Person · never' : d.reuse_count;
+      const reuseTip = d.safety ? 'Safety events with a person are never settled from fleet memory' : `Nano reused this decision ${d.reuse_count} time${d.reuse_count === 1 ? '' : 's'} instead of calling Ultra`;
+      tr.innerHTML = `<td class="mono">${esc(d.cell || DASH)}</td><td class="wrapc">${esc(d.situation)}</td><td class="wrapc">${fmtActs(d.decision?.actions)}</td><td title="Only Ultra or an Operator writes to fleet memory; Nano reuses these rows">${WHO[d.source] || esc(d.source)}</td>` +
+        `<td class="num">${span((Date.now() - new Date(d.created_at)) / 1000)}</td><td class="num" title="${esc(expTip)}">${expText}</td><td class="num" title="${esc(reuseTip)}">${reuseText}</td><td class="num" data-k="known" title="Robots in this site holding a copy of this decision">${d.safety ? DASH : `${d.known_by} of ${d.robots_total} robots`}</td><td><span class="dec-acts"></span></td>`;
+      const acts = tr.querySelector('.dec-acts'), add = (label, op, fn, conf, tip) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.op = op; if (conf) b.dataset.confirm = conf; if (tip) b.title = tip; wire(b, fn); acts.appendChild(b); };
+      if (!gone && !d.safety) {
+        add(d.pinned ? 'Unpin' : 'Keep (pin)', 'pin', async () => { await api('decisions/update', { id: d.id, pinned: !d.pinned }); return d.pinned ? 'Decision unpinned' : 'Decision pinned (kept)'; }, null, d.pinned ? 'Allow this decision to expire normally' : 'Keep this decision active indefinitely so Nano continues reusing it');
+        const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Keep longer, cell ' + (d.cell || '')); sel.dataset.op = 'extend'; sel.title = 'Extend how long Nano can keep reusing this decision';
+        sel.innerHTML = '<option value="">Keep longer…</option>' + [3600, 28800, 86400, 604800].map(s => `<option value="${s}">+${span(s)}</option>`).join('');
         sel.addEventListener('change', async () => { const s = Number(sel.value); if (!s) return; if (!LIVE) return offline();
           try { await api('decisions/update', { id: d.id, expires_in_s: s }); say('Expires in ' + span(s)); } catch (e) { say(`Failed: ${e.message}`, 8000); } sel.blur(); refresh(); });
         acts.appendChild(sel);
-        add('Revoke', 'revoke', async () => { await api('decisions/revoke', { id: d.id }); return 'Decision revoked'; }, 'Confirm: revoke?');
+        add('Stop using', 'revoke', async () => { await api('decisions/revoke', { id: d.id }); return 'Decision stopped (revoked)'; }, 'Confirm: stop using?', 'Stop Nano and peer robots from reusing this decision');
       }
+      body.appendChild(tr);
+    }
+    const evBody = $('dec-events');
+    if (evBody) {
+      const evCalls = (ST?.calls || []).filter(c => c.tier === 'nano' || c.tier === 'ultra').slice(0, 25);
+      evBody.innerHTML = evCalls.length ? evCalls.map(c => {
+        const d = parse(c.decision_json);
+        const badge = c.tier === 'nano'
+          ? (/sighting|variant/.test(c.event || '') ? '<span class="tier nano" title="Nano reused a stored Ultra/operator cell decision from fleet memory">S1 · Nano + Fleet memory</span>' : '<span class="tier nano" title="Settled directly by Nemotron Nano">S1 · Nano (routine)</span>')
+          : (c.event === 'safety' ? '<span class="tier ultra" title="Person/safety events always go to Nemotron Ultra">S2 · Ultra (person safety)</span>' : '<span class="tier ultra" title="First sighting or escalated to Nemotron Ultra">S2 · Ultra (new / unsure)</span>');
+        return `<tr><td class="mono">${hhmmss(c.ts)}</td><td>${esc(c.robot || DASH)}</td><td>${esc(human(c.event || DASH))}</td><td>${badge}</td><td class="mono">${esc(shortModel(c.model))}</td><td class="wrapc">${d ? esc(d.actions.map(a => human(a.type) + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${d.confidence}` : '<span class="bad">schema reject</span>'}</td><td class="num">${fmtMs(c.latency_ms)}</td></tr>`;
+      }).join('') : `<tr><td colspan="7" class="empty">${LIVE ? 'No event decisions yet — click "Send test incidents" above' : 'No data'}</td></tr>`;
+    }
+  }
+
+  // ---- alarm rules CRUD ----
+  const FALLBACK_RULES = [
+    { id: 'builtin-safety', name: 'Person or safety event', sev: 'crit', when_kind: 'safety', match_text: '', when_label: 'Perception reports a person in the lane, or a robot reports a safety event', response: 'Goes to Ultra; never settled from fleet memory', operator_action: 'Confirm the zone is clear, then release', enabled: true, builtin: true },
+    { id: 'builtin-hazard', name: 'Hazard sighting', sev: 'warn', when_kind: 'hazard', match_text: '', when_label: "Perception reports a hazard on the robot's path", response: 'Ultra decides once; the decision is stored for that map cell', operator_action: 'Acknowledge; quarantine the zone if needed', enabled: true, builtin: true },
+    { id: 'builtin-unknown', name: 'Unknown hazard', sev: 'warn', when_kind: 'unknown_hazard', match_text: '', when_label: 'A robot reports a hazard and no camera result is available', response: 'Ultra decides; safe stop if there is no valid decision', operator_action: 'Review the call log', enabled: true, builtin: true },
+    { id: 'builtin-operator', name: 'Operator quarantine or pause', sev: 'info', when_kind: 'operator', match_text: '', when_label: 'An operator quarantines a zone or pauses the fleet', response: 'Zone closed for 10 min, or no model calls until resumed', operator_action: 'Release when clear', enabled: true, builtin: true },
+  ];
+  function openRuleForm(r) {
+    const f = $('rule-form'); if (!f) return;
+    $('rf-id').value = r?.id || '';
+    $('rf-name').value = r?.name || '';
+    $('rf-sev').value = r?.sev || 'warn';
+    $('rf-kind').value = r?.when_kind || 'custom';
+    $('rf-match').value = r?.match_text || '';
+    $('rf-when').value = r?.when_label || '';
+    $('rf-resp').value = r?.response || 'Ultra decides; stored for map cell';
+    $('rf-op').value = r?.operator_action || 'Acknowledge; quarantine the zone if needed';
+    $('rf-save').textContent = r?.id ? 'Update rule' : 'Create rule';
+    f.hidden = false; $('rf-name').focus();
+  }
+  function renderRules() {
+    const body = $('rules-body'); if (!body) return;
+    const list = ST?.rules?.length ? ST.rules : FALLBACK_RULES;
+    body.innerHTML = '';
+    for (const r of list) {
+      const tr = document.createElement('tr');
+      tr.dataset.ruleId = r.id; tr.dataset.enabled = String(!!r.enabled);
+      if (!r.enabled) tr.className = 'off';
+      const matchBadge = r.match_text ? `<div class="sub mono">Matches: "${esc(r.match_text)}"</div>` : '';
+      const stateBadge = !r.enabled ? ' <span class="pill idle">Disabled</span>' : r.builtin ? '' : ' <span class="pill ok">Custom</span>';
+      tr.innerHTML = `<td><b>${esc(r.name)}</b>${stateBadge}${matchBadge}</td><td><span class="sev ${esc(r.sev)}">${sevName[r.sev] || esc(r.sev)}</span></td><td>${esc(r.when_label)}</td><td>${esc(r.response)}</td><td>${esc(r.operator_action)}</td><td><span class="rule-acts"></span></td>`;
+      const acts = tr.querySelector('.rule-acts');
+      const add = (label, op, fn, conf, tip) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn link'; b.textContent = label; b.dataset.ruleOp = op; if (conf) b.dataset.confirm = conf; if (tip) b.title = tip; wire(b, fn); acts.appendChild(b); };
+      add(r.enabled ? 'Disable' : 'Enable', 'toggle', async () => { await api('rules/update', { id: r.id, enabled: !r.enabled }); return r.enabled ? `Rule "${r.name}" disabled` : `Rule "${r.name}" enabled`; }, null, r.enabled ? 'Temporarily disable this alarm rule' : 'Enable this alarm rule');
+      const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'btn link'; editBtn.textContent = 'Edit'; editBtn.dataset.ruleOp = 'edit'; editBtn.title = 'Edit this alarm rule';
+      editBtn.addEventListener('click', () => LIVE ? openRuleForm(r) : offline());
+      acts.appendChild(editBtn);
+      add('Delete', 'delete', async () => { await api('rules/delete', { id: r.id }); return `Rule "${r.name}" deleted`; }, 'Confirm: delete rule?', 'Delete this alarm rule (use Reset defaults to restore built-in rules)');
       body.appendChild(tr);
     }
   }
@@ -805,13 +992,13 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const pill = (ok, yes, no) => `<span class="pill ${ok ? 'ok' : 'idle'}">${ok ? yes : no}</span>`;
     const key = !!HEALTH?.nebius_key;
     const rows = [
-      ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
-      ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'robots share decisions as they pass', pill(ST, 'Active', 'Offline'), `<b>${ST ? aware() : DASH}</b>robots know the newest`],
-      ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
-      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', m.perception || 'not connected', pill(lastCosmos, 'Responded', 'No response yet'), `<b>${esc(m.perception_billing || DASH)}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
-      ['', 'Fleet memory', 'ops', 'MEMORY', 'decisions stored by map cell', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'Up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>stored decisions`],
-      ['nv', 'Nemotron Super', 'job', 'NIGHT SHIFT', m.scenario_generator || 'not connected', pill(key && m.scenario_generator, 'Configured', 'Not set'), `<b>${NS ? fmtInt(NS.distill.episodes) : DASH}</b>incident episodes`],
-      ['nb', 'Nano fine-tune', 'job', 'NIGHT SHIFT', 'LoRA adapter trained on Ultra\'s decisions', NS ? `<span class="pill ok">${NS.distill.fine_tune.status === 'done' ? 'Trained' : 'Training'}</span>` : '<span class="pill idle">No data yet</span>', `<b>${NS ? fmtInt(NS.distill.events) : DASH}</b>teacher events`],
+      ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1 · FAST REFLEX', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
+      ['', 'Peer exchange', 's15', 'SYSTEM 1.5 · ROBOT HANDOFF', 'robots share decisions as they pass', pill(ST, 'Active', 'Offline'), `<b>${ST ? aware() : DASH}</b>robots know the newest`],
+      ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2 · DELIBERATION', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
+      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION · CAMERA VLM', m.perception || 'not connected', pill(lastCosmos, 'Responded', 'No response yet'), `<b>${esc(m.perception_billing || DASH)}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
+      ['', 'Fleet memory', 'ops', 'MEMORY · D1 + KV + R2', 'reusable hazard decisions stored by map cell', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'Up', 'Offline'), `<b>${ST ? memCount() : DASH}</b>active cell decisions`],
+      ['nv', 'Nemotron Super', 'job', 'NIGHT SHIFT · SCENARIOS', m.scenario_generator || 'not connected', pill(key && m.scenario_generator, 'Configured', 'Not set'), `<b>${NS ? fmtInt(NS.distill.episodes) : DASH}</b>incident episodes`],
+      ['nb', 'Nano fine-tune', 'job', 'NIGHT SHIFT · LORA', 'LoRA adapter trained on Ultra\'s decisions', NS ? `<span class="pill ok">${NS.distill.fine_tune.status === 'done' ? 'Trained' : 'Training'}</span>` : '<span class="pill idle">No data yet</span>', `<b>${NS ? fmtInt(NS.distill.events) : DASH}</b>teacher events`],
     ];
     $('cams-model').textContent = m.perception ? pl : DASH;
     // a GPU endpoint bills while it runs: offer the stop link for whichever one perception uses
@@ -870,7 +1057,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const head = `<div class="st-h"><span class="idx">03</span><h2>Learn overnight</h2><button class="more" type="button">Night Shift results ↓</button></div>`;
     if (!NS) return `<div class="st night">${head}<div class="st-b"><span class="v num nil">${DASH}</span><span class="d"><b>Nano agrees with Ultra</b>no fine-tune results</span></div></div>`;
     const d = NS.distill, t = NS.trigger, before = ratio(d.test_served_nano.all), after = ratio(d.test_tuned?.all), vp = { robot: 'robot view', human: 'person view', vehicle: 'vehicle view' };
-    return `<div class="st night">${head}
+    return `<div class="st night" title="Station 03: Night Shift distills Ultra's decisions into a LoRA adapter for Nano and measures agreement on held-out hazard types">${head}
       <div class="ba"><div><span class="v num">${pc0(before)}</span><span class="cap">today's Nano</span></div><span class="arr" aria-hidden="true">→</span>
         <div class="after${after == null ? ' pending' : ''}"><span class="v num${after == null ? ' nil' : ''}">${pc0(after)}</span><span class="cap">${tunedLabel(d)}</span></div>
         <span class="claim">agreement with Ultra on hazards Nano never trained on</span></div>
@@ -885,15 +1072,15 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const d = NS.distill, t = NS.trigger, tuned = d.test_tuned, kinds = [['first', 'First sighting of a hazard'], ['variant', 'Something changed since the stored decision'], ['repeat', 'Repeat sighting, with fleet memory'], ['routine', 'Routine'], ['person', 'Any event with a person present'], ['all', 'All events']];
     const vp = { robot: 'Robot', human: 'Person', vehicle: 'Vehicle' }, of = p => p && p[1] ? `${p[0]} of ${p[1]}` : '';
     el.innerHTML =
-      `<div><h3>Does Nano decide like Ultra?</h3><p>Agreement with Ultra on ${d.test_events} events from hazard types Nano never trained on.</p>
+      `<div><h3>Does Nano decide like Ultra?</h3><p>Agreement with Ultra on ${d.test_events} held-out events from hazard types Nano never trained on (source: config/night_shift.json).</p>
         <table class="proof"><thead><tr><th class="c1">Event</th><th>Before<small>today's Nano</small></th><th>After<small>${tunedLabel(d)}</small></th>${tuned ? '<th class="chg">Change</th>' : ''}</tr></thead><tbody>${kinds.map(([k, label]) => {
           const a = ratio(d.test_served_nano[k]), b = ratio(tuned?.[k]);
           return `<tr${k === 'all' ? ' class="total"' : ''}><td class="k">${label}</td>${cell(a, '', of(d.test_served_nano[k]))}${cell(b, b == null ? 'none' : 'tuned' + (a != null && b < a ? ' down' : ''), of(tuned?.[k]))}${tuned ? change(a, b) : ''}</tr>`; }).join('')}</tbody></table>
-        <p class="after">Today's Nano reports confidence above the escalation threshold on ${Math.round(100 * d.served_nano_confident_share)}% of events, right or wrong.</p></div>` +
-      `<div><h3>Is a person in the way?</h3><p>Recall at the baseline's false-alarm rate, on held-out recordings.</p>
+        <p class="after">Why stated confidence needs a probability gate: standard Nano reports confidence above τ on ${Math.round(100 * d.served_nano_confident_share)}% of events, right or wrong.</p></div>` +
+      `<div><h3>Is a person in the way?</h3><p>Collision-risk recall at the constant-velocity baseline's false-alarm rate, on held-out recordings.</p>
         <table class="proof"><thead><tr><th class="c1">Viewpoint</th><th>Before<small>constant velocity</small></th><th>After<small>tuned Nano</small></th><th class="chg">Change</th></tr></thead><tbody>${Object.entries(t.viewpoints).map(([k, v]) =>
           `<tr><td class="k">${vp[k] || esc(k)}<span class="sub">${v.positives} positives · ${(100 * v.false_alarm_rate).toFixed(1)}% false alarms</span></td>${cell(v.baseline_recall, '')}${cell(v.tuned_recall, 'tuned' + (v.tuned_recall < v.baseline_recall ? ' down' : ''))}${change(v.baseline_recall, v.tuned_recall)}</tr>`).join('')}</tbody></table>
-        <p class="after">${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON.</p></div>`;
+        <p class="after">${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON${t.threshold ? ` · calibrated threshold ${t.threshold.score} (${(100 * t.threshold.test_recall).toFixed(1)}% test recall)` : ''}.</p></div>`;
   }
   fetch('/config/night_shift.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => { if (d && d.distill && d.trigger) { NS = d; renderKpis(); renderNight(); renderSvc(); } }).catch(() => {});
 
@@ -901,13 +1088,15 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function renderNight() {
     const rows = ST?.night_shift || [], rep = rows.find(r => r.stage === 'replay'), met = parse(rep?.metrics_json) || {};
     const when = rep && (rep.finished_at || rep.started_at);  // shown in the viewer's own time zone, not the UTC night id
-    $('ns-night').textContent = when ? `Last replay ${new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : '';
-    const stage = (cls, h, big, note) => `<li class="stage ${cls}"><h3>${h}</h3><span class="big">${big}</span><span class="note">${note}</span></li>`;
+    $('ns-night').textContent = when ? `Last replay ${new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'Overnight audit & distillation pipeline';
+    const stage = (cls, h, big, note, tip) => `<li class="stage ${cls}" title="${esc(tip || '')}"><h3>${h}</h3><span class="big">${big}</span><span class="note">${note}</span></li>`;
     $('stages').innerHTML =
-      stage('replay' + (rep ? '' : ' off'), 'Replay', rep ? String(met.rejudged ?? 0) : DASH,
-        rep ? `Nano decisions re-judged by Ultra · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}` : 'no replay yet') +
-      stage('consolidate' + (NS ? '' : ' off'), 'Consolidate', NS ? fmtInt(NS.distill.events) : DASH,
-        NS ? `events decided by Ultra · Nano fine-tune ${NS.distill.fine_tune.status === 'done' ? 'done' : 'running'}` : 'no fine-tune results');
+      stage('replay' + (rep ? '' : ' off'), '1. Replay (Ultra audits Nano)', rep ? String(met.rejudged ?? 0) : DASH,
+        rep ? `Nano decisions re-judged by Ultra · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}` : 'no replay yet — click "Audit Nano with Ultra" above',
+        'Ultra reviews Nano decisions from D1 and flags any event where Nano chose the wrong action') +
+      stage('consolidate' + (NS ? '' : ' off'), '2. Consolidate (train LoRA)', NS ? fmtInt(NS.distill.events) : DASH,
+        NS ? `events decided by Ultra · Nano fine-tune ${NS.distill.fine_tune.status === 'done' ? 'done' : 'running'}` : 'no fine-tune results',
+        'Ultra teacher labels are distilled overnight into a LoRA adapter for Nemotron Nano on Nebius AI Cloud');
     renderLearned();
     renderAutonomy(); renderAdapters(); renderBrief();
     const tau = $('tau');
@@ -940,8 +1129,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   // ---- fleet memory stats ----
   function renderStats() {
     const v = x => ST ? String(x) : DASH;
-    const st = [[v(ST?.precedents?.n ?? 0), 'stored decisions'], [ST ? aware() : DASH, 'robots know the newest decision'],
-      [v((ST?.tags || []).length), 'active hazard tags'], [v((ST?.perception || []).length), 'stored perception responses'],
+    const st = [[v(memCount()), 'active cell decisions in memory'], [ST ? aware() : DASH, 'robots know the newest decision'],
+      [v((ST?.tags || []).length), 'active KV floor tags'], [v((ST?.perception || []).length), 'stored camera VLM responses'],
       [v(ST?.memory?.hits ?? 0), 'Ultra calls avoided by reuse'], [v(ST?.memory?.overrides ?? 0), 'reuse declined, sent to Ultra']];
     $('stats').innerHTML = st.map(([a, b]) => `<div class="stat"><div class="v">${a}</div><div class="k">${b}</div></div>`).join('');
   }
@@ -964,7 +1153,9 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const d = parse(c.decision_json); return d ? esc(d.actions.map(a => a.type).join(', ')) + ` · conf ${d.confidence}` : DASH;
   }
   function renderLog() {
-    const calls = (ST?.calls || []).slice(0, 12);
+    const all = ST?.calls || [], calls = all.slice(0, 25);
+    const n = t => all.filter(c => c.tier === t).length;
+    if ($('log-sub')) $('log-sub').textContent = all.length ? `Real D1 call records · showing latest ${calls.length} of ${all.length} (${n('nano')} Nano, ${n('ultra')} Ultra, ${n('perception')} perception) · newest first` : 'Real D1 call records · newest first';
     $('log').innerHTML = calls.length ? calls.map(c => `<tr><td class="mono">${hhmmss(c.ts)}</td><td><span class="tier ${TIER[c.tier][0]}">${TIER[c.tier][1]}</span></td><td class="mono">${esc(shortModel(c.model))}</td><td>${esc(c.robot || DASH)}</td><td>${esc(c.event || DASH)}</td>` +
       `<td class="num">${fmtMs(c.latency_ms)}</td><td class="num">${c.prompt_tokens != null ? ((c.prompt_tokens || 0) + (c.completion_tokens || 0)).toLocaleString('en-US') : DASH}</td><td>${resultOf(c)}</td></tr>`).join('')
       : `<tr><td colspan="8" class="empty">${LIVE ? 'No calls yet' : 'No data'}</td></tr>`;
@@ -974,27 +1165,34 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function renderLastRun() {
     if (RAN || BUSY) return;
     const calls = (ST?.calls || []).filter(c => c.run_id && (c.tier === 'nano' || c.tier === 'ultra')), run = calls[0]?.run_id;
-    if (!run) { $('runlist').innerHTML = `<div class="empty">${LIVE ? 'No runs yet' : 'No data'}</div>`; return; }
-    const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
-    const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
-    const rows = [...byEv.values()];
-    $('run-sub').textContent = `${/^events-/.test(run) ? 'Robot events' : 'Last rehearsal'} · ${rows.length} decisions`;
+    if (!run) { $('runlist').innerHTML = `<div class="empty">${LIVE ? 'No runs yet — click "Send test incidents" above' : 'No data'}</div>`; return; }
+    const rows = [], byEv = new Map();
+    for (const c of calls.filter(c => c.run_id === run).reverse()) {
+      const k = `${c.robot}|${c.event}`, t = Date.parse(c.ts) || 0, prev = byEv.get(k);
+      if (prev && (!/^events-/.test(run) || Math.abs(t - prev.lastTs) < 90000)) {
+        prev.tiers.push(c.tier); prev.lastTs = t; if (c.valid) prev.final = c;
+      } else {
+        const e = { ...c, lastTs: t, tiers: [c.tier], final: c };
+        rows.push(e); byEv.set(k, e);
+      }
+    }
+    $('run-sub').textContent = `${/^events-/.test(run) ? 'Posted robot events (D1)' : 'Latest run (D1)'} · ${rows.length} model decisions`;
     // a hazard event (sighting / variant) that ends on Nano only happens when a stored Ultra precedent for the cell was reused (functions/api scenario/step)
     $('runlist').innerHTML = rows.map(e => { const f = e.final || e, d = parse(f.decision_json), tier = e.tiers.includes('ultra') ? 'ultra' : 'nano';
       const by = tier === 'nano' && /sighting|variant/.test(e.event) ? 'mem' : tier;
       return runRow({ when: hhmmss(e.ts), robot: e.robot || DASH, event: esc(human(e.event)), by, lat: fmtMs(f.latency_ms),
         what: (d ? esc(d.actions.map(a => human(a.type) + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${d.confidence}` : '<span class="err">no valid decision</span>') +
-          (by === 'mem' ? ' · <span class="saved">Ultra call avoided</span>' : '') }); }).join('');
+          (by === 'mem' ? ' · <span class="saved" title="Nano reused an existing Ultra/operator decision from fleet memory for this map cell">Reused fleet memory (Ultra call avoided)</span>' : '') }); }).join('');
   }
   // one row of the run story: robot · event · which step settled it, then what was decided and how long it took
-  const BY = { mem: ['Memory', 'Fleet memory: Nano applied a stored Ultra decision, no Ultra call'], nano: ['Nano', 'Settled by Nemotron Nano (reflex)'], ultra: ['Ultra', 'Escalated to Nemotron Ultra'],
-    peer: ['Peer', 'Peer handshake, no model call'], paused: ['Paused', 'Fleet paused, no model call'], err: ['Failed', 'This step returned an error'] };
+  const BY = { mem: ['Memory', 'Fleet memory: Nano applied a stored Ultra decision, no Ultra call'], nano: ['Nano', 'Settled by Nemotron Nano (System 1 reflex)'], ultra: ['Ultra', 'Escalated to Nemotron Ultra (System 2)'],
+    peer: ['Peer', 'Peer-to-peer robot handshake, no model call'], paused: ['Paused', 'Fleet paused, no model call'], err: ['Failed', 'This step returned an error'] };
   function runRow({ when, robot, event, by, what, lat, pending }) {
     const b = BY[by];
     return `<div class="rrow${by === 'mem' ? ' mem' : by === 'ultra' ? ' ultra' : ''}${pending ? ' pending' : ''}"><span class="who">${esc(robot)}</span><span class="ev">${event}</span>` +
       (b ? `<span class="by ${by}" title="${b[1]}">${b[0]}</span>` : '<span class="by">waiting</span>') + `<span class="what">${what}</span><span class="lat">${lat || ''}<span class="when">${when}</span></span></div>`;
   }
-  function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderDecisions(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
+  function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderDecisions(); renderRules(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); renderGuide(); renderMapHud(); }
   async function refresh() {
     if (!LIVE) { renderAll(); return; }
     const want = SCENE;
@@ -1016,20 +1214,21 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   }
   async function runScenario() {
     if (BUSY) return 'A run is already in progress';
-    BUSY = true; RAN = true; const scene = SCENE, btn = $('act-run'); btn.textContent = 'Running…';
+    BUSY = true; RAN = true; const scene = SCENE, btn = $('act-run'); btn.textContent = 'Sending incidents…'; renderGuide();
     try {
       const s = await api('scenario/start', { scene });
       const out = s.events.map(() => null), errs = s.events.map(() => null);
-      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `Rehearsal · τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
+      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `Live test run · τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
       paint(0);
       for (let i = 0; i < s.events.length; i++) {
+        ACTIVE_BOT = s.events[i]?.robot || null; SEL_BOT = ACTIVE_BOT; renderMapHud();
         try { out[i] = await api('scenario/step', { scene, run_id: s.run_id, i }); } catch (e) { errs[i] = e.message; }
         paint(i + 1); if (scene === SCENE) await refresh();
       }
       const f = await api('scenario/finish', { run_id: s.run_id });
       const failed = errs.filter(Boolean).length;
-      return `Rehearsal finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed` : ''}`;
-    } finally { BUSY = false; btn.textContent = 'Run rehearsal'; }
+      return `Test incidents finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed` : ''}`;
+    } finally { ACTIVE_BOT = null; BUSY = false; btn.textContent = 'Send test incidents'; renderGuide(); renderMapHud(); }
   }
 
   // ---- Night Shift replay loop ----
@@ -1038,9 +1237,9 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     BUSY = true; const btn = $('act-night'), scene = SCENE;
     try {
       let r, rounds = 0, judged = 0;
-      do { btn.textContent = `Replaying… ${judged}`; r = await api('night-shift/replay', { scene }); judged += r.verdicts.length; rounds++; if (scene === SCENE) await refresh(); } while (r.remaining > 0 && r.verdicts.length && rounds < 50);
-      return judged ? `Replay: Ultra re-judged ${judged} Nano decision${judged === 1 ? '' : 's'} · ${r.disagree} disagreement${r.disagree === 1 ? '' : 's'}` : 'Nothing to replay';
-    } finally { BUSY = false; btn.textContent = 'Run Night Shift now'; }
+      do { btn.textContent = `Auditing… ${judged}`; r = await api('night-shift/replay', { scene }); judged += r.verdicts.length; rounds++; if (scene === SCENE) await refresh(); } while (r.remaining > 0 && r.verdicts.length && rounds < 50);
+      return judged ? `Replay: Ultra re-judged ${judged} Nano decision${judged === 1 ? '' : 's'} · ${r.disagree} disagreement${r.disagree === 1 ? '' : 's'}` : 'All recent Nano decisions have already been audited by Ultra';
+    } finally { BUSY = false; btn.textContent = 'Audit Nano with Ultra'; }
   }
 
   // ---- episodes dialog ----
@@ -1049,7 +1248,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     $('ep-scene').textContent = SC.site; $('ep-body').innerHTML = ''; $('ep-note').textContent = 'Loading…';
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
     const { episodes } = await api('episodes?scene=' + SCENE);
-    $('ep-note').textContent = episodes.length ? `${episodes.length} most recent decisions` : 'No episodes yet';
+    $('ep-note').textContent = episodes.length ? `${episodes.length} most recent model decisions (D1) · Night Shift replay checks whether Ultra agrees with Nano` : 'No episodes yet';
     $('ep-body').innerHTML = episodes.map(e => { const d = parse(e.decision_json), v = parse(e.replay_json);
       return `<tr><td class="mono">${hhmmss(e.ts)}</td><td><span class="tier ${TIER[e.tier][0]}">${TIER[e.tier][1]}</span></td><td>${esc(e.robot || DASH)}</td><td>${esc(e.event || DASH)}</td><td class="num">${fmtMs(e.latency_ms)}</td><td>${e.valid ? 'valid' : '<span class="bad">reject</span>'}</td>` +
         `<td class="wrapc">${d ? esc(d.actions.map(a => a.type).join(', ')) + ' · ' + esc(d.rationale || '') : DASH}</td><td class="wrapc">${v ? (v.agree === true ? 'agrees' : v.agree === false ? '<span class="bad">disagrees</span>' : 'unparsed') + ' · ' + esc(v.reason || '') + (v.better_action ? ' · better: ' + esc(v.better_action) : '') : e.tier === 'nano' && e.valid ? 'not replayed yet' : DASH}</td></tr>`; }).join('');
@@ -1074,6 +1273,38 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   try { const saved = $(localStorage.getItem('nemofleet-tab') || ''); if (saved && tabs.includes(saved)) selectTab(saved); } catch (e) {}
   // Night Shift results land in the Night Shift section: bring it into view when the run starts
   $('act-night').addEventListener('click', () => { if (LIVE) $('night').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+  $('dec-to-log')?.addEventListener('click', () => { selectTab($('tab-log'), true); $('pane-log').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); });
+  $('scope-toggle')?.addEventListener('click', () => { SCOPE_LATEST = !SCOPE_LATEST; renderKpis(); });
+  $('guide-close')?.addEventListener('click', () => { try { localStorage.setItem('nf-guide-dismissed', '1'); } catch (e) {} renderGuide(); });
+  $('act-guide')?.addEventListener('click', () => { try { localStorage.removeItem('nf-guide-dismissed'); } catch (e) {} renderGuide(); });
+  $('g-step1')?.addEventListener('click', () => { if (!LIVE) return offline(); $('h-run').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); if (!BUSY) $('act-run').click(); });
+  $('g-step2')?.addEventListener('click', () => { if (!LIVE) return offline(); const a = (ST?.alarms || [])[0]; if (a) openIncident(a.id); else $('h-alarms').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+  $('g-step3')?.addEventListener('click', () => { selectTab($('tab-dec'), true); $('pane-dec').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); });
+  $('g-step4')?.addEventListener('click', () => { $('night').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+
+  // ---- alarm rules form handlers ----
+  $('rule-new-btn')?.addEventListener('click', () => LIVE ? openRuleForm(null) : offline());
+  $('rf-cancel')?.addEventListener('click', () => { $('rule-form').hidden = true; });
+  $('rf-match')?.addEventListener('input', () => { if (!$('rf-when').value.trim() && $('rf-match').value.trim()) $('rf-when').placeholder = `Event or hazard matches "${$('rf-match').value.trim()}"`; });
+  $('rule-form')?.addEventListener('submit', e => e.preventDefault());
+  if ($('rf-save')) wire($('rf-save'), async () => {
+    const f = $('rule-form'); if (!f.reportValidity()) return;
+    const id = $('rf-id').value.trim(), payload = {
+      scene: SCENE,
+      name: $('rf-name').value.trim(),
+      sev: $('rf-sev').value,
+      when_kind: $('rf-kind').value,
+      match_text: $('rf-match').value.trim(),
+      when_label: $('rf-when').value.trim(),
+      response: $('rf-resp').value.trim(),
+      operator_action: $('rf-op').value.trim(),
+    };
+    if (id) { await api('rules/update', { id, ...payload }); f.hidden = true; return `Rule "${payload.name}" updated`; }
+    await api('rules/create', payload); f.hidden = true; return `Rule "${payload.name}" created`;
+  });
+  if ($('rule-reset-btn')) wire($('rule-reset-btn'), async () => {
+    await api('rules/reset', { scene: SCENE }); $('rule-form').hidden = true; return 'Alarm rules reset to defaults';
+  });
 
   // ---- buttons ----
   wire($('act-run'), runScenario);
@@ -1099,7 +1330,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   tau.addEventListener('input', () => { tau.dataset.dirty = '1'; $('tau-v').textContent = Number(tau.value).toFixed(2); });
   wire($('tau-save'), async () => { await api('actions', { scene: SCENE, type: 'set_tau', tau: Number(tau.value) }); delete tau.dataset.dirty; return `τ = ${Number(tau.value).toFixed(2)} saved for the next run`; });
 
-  // ---- floor: motion is simulated (no physical robots); robot ids come from the scenario; zones, halts, hazard and person markers come from live state ----
+  // ---- floor: interactive spatial command + fleet memory sync + antennation ----
   const cv = $('floor'), cx = cv.getContext('2d');
   const CW = cv.width, CH = cv.height;
   const floorImg = new Image();
@@ -1114,6 +1345,56 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const zoneCells = () => tagNames().filter(t => t.startsWith(SCENE + ':zone:')).map(t => t.slice((SCENE + ':zone:').length));
   const hazardOn = () => zoneCells().length > 0 || (ST?.alarms || []).some(a => a.sev === 'warn');
   const personOn = () => (ST?.alarms || []).some(a => a.sev === 'crit' && /^Person/.test(a.title || ''));
+  // which robots know the active cell decision (origin + peer handoffs + memory reusers)
+  function memRobots() {
+    const s = new Set(), top = activeDecisions()[0];
+    if (top?.robot) s.add(top.robot);
+    for (const t of tagNames()) { const m = /:tag:([A-Za-z0-9_-]+)-from-([A-Za-z0-9_-]+)$/.exec(t); if (m) { s.add(m[1]); s.add(m[2]); } }
+    if (top) for (const e of SCN?.events || []) if (e.kind === 'peer_handshake' && e.robot) { s.add(e.robot); if (e.from) s.add(e.from); }
+    for (const c of (ST?.calls || []).slice(0, 20)) if (c.tier === 'nano' && /sighting|variant/.test(c.event || '') && c.robot) s.add(c.robot);
+    return s;
+  }
+  function peerPairs() {
+    const pairs = [], seen = new Set();
+    for (const t of tagNames()) { const m = /:tag:([A-Za-z0-9_-]+)-from-([A-Za-z0-9_-]+)$/.exec(t); if (m && !seen.has(m[1] + '|' + m[2])) { seen.add(m[1] + '|' + m[2]); pairs.push([m[2], m[1]]); } }
+    if (!pairs.length && activeDecisions().length) {
+      for (const e of SCN?.events || []) if (e.kind === 'peer_handshake' && e.from && e.robot) pairs.push([e.from, e.robot]);
+    }
+    return pairs;
+  }
+  function renderMapHud() {
+    const botsEl = $('map-bots'), selEl = $('map-sel'); if (!botsEl || !selEl) return;
+    const ids = scnRobots(), halts = tagNames().filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop()), memSet = memRobots(), topDec = activeDecisions()[0], zCell = scnZone();
+    const zoneQuarantined = zCell && zoneCells().includes(zCell);
+    botsEl.innerHTML = ids.map(id => {
+      const isHalt = halts.includes(id), isMem = memSet.has(id), isSel = SEL_BOT === id;
+      const lastCall = (ST?.calls || []).find(c => c.robot === id && (c.tier === 'nano' || c.tier === 'ultra'));
+      const tierTxt = lastCall ? (lastCall.tier === 'nano' && /sighting|variant/.test(lastCall.event || '') ? 'Mem' : lastCall.tier === 'nano' ? 'Nano' : 'Ultra') : (SCN?.events || []).some(e => e.robot === id && e.kind === 'peer_handshake') && isMem ? 'Peer' : '';
+      return `<button type="button" class="bot-pill" data-bot="${esc(id)}" aria-pressed="${isSel}" title="Click to inspect ${esc(id)} on the floor"><i style="background:var(${isHalt ? '--map-crit' : '--map-ok'})"></i><b>${esc(id)}</b>${tierTxt ? `<span class="sub">${tierTxt}</span>` : ''}${isMem ? '<span class="mtag" title="Holds active Fleet Memory cell rule">MEM</span>' : ''}</button>`;
+    }).join('');
+    botsEl.querySelectorAll('[data-bot]').forEach(b => b.addEventListener('click', () => { SEL_BOT = SEL_BOT === b.dataset.bot ? null : b.dataset.bot; renderMapHud(); }));
+    if (SEL_BOT && ids.includes(SEL_BOT)) {
+      const id = SEL_BOT, isHalt = halts.includes(id), isMem = memSet.has(id);
+      const lastCall = (ST?.calls || []).find(c => c.robot === id && (c.tier === 'nano' || c.tier === 'ultra'));
+      const dec = lastCall ? parse(lastCall.decision_json) : null;
+      const actSummary = dec?.actions ? dec.actions.map(a => human(a.type) + (a.via ? ' via ' + a.via : '') + (a.cells ? ' ' + a.cells.join(',') : '')).join(', ') : 'no model call yet';
+      const tierBadge = lastCall ? (lastCall.tier === 'nano' && /sighting|variant/.test(lastCall.event || '') ? 'S1 · Nano + Fleet memory' : lastCall.tier === 'nano' ? 'S1 · Nano' : 'S2 · Ultra') : (isMem ? 'S1.5 · Peer handoff synced' : 'Idle');
+      selEl.innerHTML = `<div class="ms-info"><b>Robot ${esc(id)}</b> · <span class="${isHalt ? 'bad' : ''}">${isHalt ? 'HALTED' : 'ACTIVE'}</span> · <b>${esc(tierBadge)}</b> (${esc(actSummary)}${lastCall?.latency_ms ? ' · ' + fmtMs(lastCall.latency_ms) : ''})${isMem && topDec ? ` · <span class="saved">Synced with cell ${esc(topDec.cell)}</span>` : ''}</div><div class="ms-acts"></div>`;
+      const acts = selEl.querySelector('.ms-acts');
+      const addBtn = (lbl, cls, key, fn, tip) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.dataset.mapAct = key; b.textContent = lbl; if (tip) b.title = tip; wire(b, fn); acts.appendChild(b); };
+      addBtn(isHalt ? `Resume ${id}` : `Halt ${id}`, isHalt ? 'primary' : 'quiet danger', 'halt', async () => { await api('actions', { scene: SCENE, type: isHalt ? 'unhalt' : 'halt', robot: id }); return isHalt ? `${id} resumed` : `${id} halted`; }, isHalt ? `Clear halt tag and resume ${id}` : `Halt ${id} immediately on the floor`);
+      if (zCell) addBtn(zoneQuarantined ? `Release ${zCell}` : `Quarantine ${zCell}`, 'quiet', 'qcell', async () => { await api('actions', { scene: SCENE, type: zoneQuarantined ? 'release_zone' : 'quarantine_zone', zone: zCell }); return zoneQuarantined ? `Zone ${zCell} released` : `Zone ${zCell} quarantined`; }, 'Toggle floor quarantine zone');
+      if (topDec) { const jb = document.createElement('button'); jb.type = 'button'; jb.className = 'btn link'; jb.textContent = `Cell ${topDec.cell} rule →`; jb.addEventListener('click', () => showDecision(topDec.id)); acts.appendChild(jb); }
+    } else if (topDec) {
+      const act0 = topDec.decision?.actions?.[0]?.type ? human(topDec.decision.actions[0].type).toUpperCase() : 'DECIDED';
+      selEl.innerHTML = `<div class="ms-info"><b>Active cell rule (${esc(topDec.cell)}):</b> ${esc(act0)} by ${WHO[topDec.source] || esc(topDec.source)} · reused <b>${topDec.reuse_count}×</b> by Nano · known by <b>${memSet.size} of ${ids.length}</b> robots on the floor. <span class="sub">(Click any robot above or on the map to control it)</span></div><div class="ms-acts"></div>`;
+      const acts = selEl.querySelector('.ms-acts');
+      if (zCell) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm quiet'; b.textContent = zoneQuarantined ? `Release ${zCell}` : `Quarantine ${zCell}`; wire(b, async () => { await api('actions', { scene: SCENE, type: zoneQuarantined ? 'release_zone' : 'quarantine_zone', zone: zCell }); return zoneQuarantined ? `Zone ${zCell} released` : `Zone ${zCell} quarantined`; }); acts.appendChild(b); }
+      const jb = document.createElement('button'); jb.type = 'button'; jb.className = 'btn link'; jb.textContent = 'Manage in Fleet memory →'; jb.addEventListener('click', () => showDecision(topDec.id)); acts.appendChild(jb);
+    } else {
+      selEl.innerHTML = `<div class="ms-info">Click any robot or highlighted map cell on the floor to inspect its live state, fleet memory sync, and take spatial action.</div>`;
+    }
+  }
   // ---- what the fleet knows, per map cell (rectangles come from the scenario's cells; a cell without one is not drawn) ----
   const cellRect = id => SCN?.cells?.[id] || null;
   function setZone() { const r = cellRect(scnZone()) || Object.values(SCN?.cells || {})[0]; ZONE = r ? { x0: r.x, x1: r.x + r.w, y: r.y + r.h / 2, lanes: r.lanes || [] } : null; }
@@ -1126,24 +1407,66 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function drawCells() {
     for (const { r, decision: d, incident: a } of cellState()) {
       cx.save();
-      if (d) { const op = d.source === 'operator', col = css(op ? '--info' : '--accent'), t = (op ? 'OPERATOR' : 'ULTRA') + (d.pinned ? ' · PINNED' : '');
-        cx.strokeStyle = col; cx.lineWidth = d.pinned ? 4 : 2; cx.strokeRect(r.x + 5, r.y + 5, r.w - 10, r.h - 10);
-        cx.font = '700 10px "JetBrains Mono", Menlo, monospace'; cx.fillStyle = col; cx.fillRect(r.x + 5, r.y + r.h - 21, cx.measureText(t).width + 10, 16); cx.fillStyle = op ? '#ffffff' : '#12171C'; cx.fillText(t, r.x + 10, r.y + r.h - 9); }
+      if (d) {
+        const op = d.source === 'operator', col = css(op ? '--info' : '--accent');
+        const actName = d.decision?.actions?.[0]?.type ? d.decision.actions[0].type.replace(/_/g, ' ').toUpperCase() : '';
+        const t = (op ? 'OPERATOR' : 'ULTRA') + (actName ? ` · ${actName}` : '') + (d.reuse_count ? ` · ${d.reuse_count}×` : '') + (d.pinned ? ' · PINNED' : '');
+        cx.fillStyle = op ? 'rgba(37, 99, 235, 0.10)' : 'rgba(118, 185, 0, 0.12)';
+        cx.fillRect(r.x + 5, r.y + 5, r.w - 10, r.h - 10);
+        cx.strokeStyle = col; cx.lineWidth = d.pinned ? 3.5 : 2; cx.strokeRect(r.x + 5, r.y + 5, r.w - 10, r.h - 10);
+        cx.font = '700 10px "JetBrains Mono", Menlo, monospace';
+        const tw = Math.min(r.w - 12, cx.measureText(t).width + 10);
+        cx.fillStyle = col; cx.fillRect(r.x + 5, r.y + r.h - 21, tw, 16);
+        cx.fillStyle = op ? '#ffffff' : '#12171C'; cx.fillText(t, r.x + 10, r.y + r.h - 9, tw - 8);
+      }
       if (a) { const x = r.x + r.w - 15, y = r.y + 15; cx.fillStyle = css(a.sev === 'crit' ? '--crit' : '--warn'); cx.beginPath(); cx.arc(x, y, 9, 0, 7); cx.fill(); cx.strokeStyle = '#ffffff'; cx.lineWidth = 2; cx.stroke();
         cx.fillStyle = '#ffffff'; cx.font = '700 12px "JetBrains Mono", Menlo, monospace'; cx.fillText('!', x - 3.5, y + 4.5); }
       cx.restore();
     }
   }
   const cellAt = e => { const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * CW / b.width, y = (e.clientY - b.top) * CH / b.height; return cellState().find(s => (s.incident || s.decision) && x >= s.r.x && x <= s.r.x + s.r.w && y >= s.r.y && y <= s.r.y + s.r.h) || null; };
-  cv.addEventListener('click', e => { const s = cellAt(e); if (!s) return; if (!LIVE) return offline(); if (s.incident) openIncident(s.incident.id).catch(err => say(`Failed: ${err.message}`, 8000)); else showDecision(s.decision.id); });
-  cv.addEventListener('mousemove', e => { cv.style.cursor = cellAt(e) ? 'pointer' : ''; });
-  function bot(x, y, dir, fill, id, C) {
-    cx.save(); cx.translate(x, y); cx.globalAlpha = .8;  // motion is simulated: it stays behind what the fleet knows
+  function botAt(e) {
+    const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * CW / b.width, y = (e.clientY - b.top) * CH / b.height;
+    if (SC?.roads && RD) {
+      for (const c of cars) { const [cx0, cy0] = carPos(c); if (Math.hypot(x - cx0, y - cy0) < 20) return c.id; }
+      return null;
+    }
+    for (const r of robots) { const ry = lanes[r.lane]; if (Math.hypot(x - r.x, y - ry) < 22) return r.id; }
+    return null;
+  }
+  cv.addEventListener('click', e => {
+    const s = cellAt(e);
+    if (s) { if (!LIVE) return offline(); if (s.incident) openIncident(s.incident.id).catch(err => say(`Failed: ${err.message}`, 8000)); else showDecision(s.decision.id); return; }
+    const bid = botAt(e);
+    if (bid) { SEL_BOT = SEL_BOT === bid ? null : bid; renderMapHud(); }
+  });
+  cv.addEventListener('mousemove', e => { cv.style.cursor = (cellAt(e) || botAt(e)) ? 'pointer' : ''; });
+  function bot(x, y, dir, fill, id, C, isMem, isSel) {
+    cx.save(); cx.translate(x, y);
+    if (isSel) {
+      cx.save(); cx.strokeStyle = css('--accent'); cx.lineWidth = 2.2; cx.setLineDash([4, 3]);
+      cx.beginPath(); cx.arc(0, -1, 22, 0, Math.PI * 2); cx.stroke(); cx.restore();
+    }
+    if (isMem) {
+      cx.save(); cx.strokeStyle = css('--accent'); cx.lineWidth = 2.5;
+      cx.beginPath(); cx.roundRect(-19, -14, 36, 26, 7); cx.stroke(); cx.restore();
+    }
+    cx.globalAlpha = .88;
     cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-14, -8, 30, 20, 5); cx.fill();
     cx.fillStyle = fill; cx.beginPath(); cx.roundRect(-16, -11, 30, 20, 5); cx.fill();
     cx.lineWidth = 2; cx.strokeStyle = '#ffffff'; cx.stroke();
     cx.fillStyle = 'rgba(0,0,0,.45)'; cx.fillRect(dir > 0 ? 8 : -16, -11, 6, 20);
     cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(-1, -1, 3, 0, 7); cx.fill();
+    cx.restore();
+  }
+  function drawPeerArcs(posMap, now) {
+    const pairs = peerPairs(); if (!pairs.length) return;
+    cx.save();
+    cx.strokeStyle = css('--s15'); cx.lineWidth = 1.8; cx.setLineDash([5, 5]); cx.lineDashOffset = -((now / 45) % 20);
+    for (const [a, b] of pairs) {
+      const p1 = posMap.get(a), p2 = posMap.get(b); if (!p1 || !p2) continue;
+      cx.beginPath(); cx.moveTo(p1[0], p1[1]); cx.lineTo(p2[0], p2[1]); cx.stroke();
+    }
     cx.restore();
   }
   // Robots that share a lane drive through each other, so labels are placed after all bodies are drawn:
@@ -1172,7 +1495,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     if (SC.roads) return frameRoads(now);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const C = { ok: css('--map-ok'), warn: css('--map-warn'), crit: css('--map-crit'), ink: css('--map-ink'), floor: css('--map-floor') };
-    const tags = tagNames(), cells = zoneCells().filter(cellRect), zoneOn = cells.length > 0 && !!ZONE, halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
+    const tags = tagNames(), cells = zoneCells().filter(cellRect), zoneOn = cells.length > 0 && !!ZONE, halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop()), memSet = memRobots();
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
     cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3;
@@ -1197,9 +1520,16 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       if (!reduce && !stop) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) r.dir = 1; }
       if (zoneOn && ZONE.lanes.includes(r.lane) && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; }
     });
+    const posMap = new Map();
+    robots.forEach(r => posMap.set(r.id, [r.x, lanes[r.lane]]));
+    drawPeerArcs(posMap, now);
     const labels = [];
-    robots.forEach(r => { const h = halts.includes(r.id); bot(r.x, lanes[r.lane], r.dir, h ? C.crit : C.ok, null, C); labels.push({ x: r.x, y: lanes[r.lane], text: h ? r.id + ' · HALTED' : r.id, color: h ? C.crit : C.ink }); });
-    halts.filter(h => !robots.some(r => r.id === h)).forEach((h, k) => { const x = SC.halted.x - k * 40, y = lanes[SC.halted.lane]; bot(x, y, 1, C.crit, null, C); labels.push({ x, y, text: h + ' · HALTED', color: C.crit }); });
+    robots.forEach(r => {
+      const h = halts.includes(r.id), isMem = memSet.has(r.id), isSel = SEL_BOT === r.id || ACTIVE_BOT === r.id;
+      bot(r.x, lanes[r.lane], r.dir, h ? C.crit : C.ok, r.id, C, isMem, isSel);
+      labels.push({ x: r.x, y: lanes[r.lane], text: h ? r.id + ' · HALTED' : isMem ? r.id + ' · MEM' : r.id, color: h ? C.crit : C.ink });
+    });
+    halts.filter(h => !robots.some(r => r.id === h)).forEach((h, k) => { const x = SC.halted.x - k * 40, y = lanes[SC.halted.lane]; bot(x, y, 1, C.crit, h, C, false, SEL_BOT === h); labels.push({ x, y, text: h + ' · HALTED', color: C.crit }); });
     labels.forEach((l, i) => l.i = i);
     drawLabels(labels, C);
     if (!reduce) requestAnimationFrame(frame);
@@ -1231,7 +1561,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function frameRoads(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const C = { ok: css('--map-ok'), warn: css('--warn'), crit: css('--crit'), ink: '#16202a' };
-    const tags = tagNames(), zoneOn = zoneCells().some(cellRect), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
+    const tags = tagNames(), zoneOn = zoneCells().some(cellRect), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop()), memSet = memRobots();
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = '#e9ece6'; cx.fillRect(0, 0, CW, CH); }
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.92)'; cx.fillStyle = '#16202a';
     cx.strokeText('SIMULATION', 10, CH - 8); cx.fillText('SIMULATION', 10, CH - 8);
@@ -1267,15 +1597,21 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       while (c.t >= 1) { const over = (c.t - 1) * L; nextEdge(c, zoneOn); const A2 = RD.nodes[c.a], B2 = RD.nodes[c.b]; c.t = over / (Math.hypot(B2[0] - A2[0], B2[1] - A2[1]) || 1); }
     }
     const P = cars.map(carPos);
+    const posMap = new Map();
+    cars.forEach((c, i) => posMap.set(c.id, [P[i][0], P[i][1]]));
+    drawPeerArcs(posMap, now);
     const labels = [];
     cars.forEach((c, i) => {
-      const [x, y, ang] = P[i], h = halts.includes(c.id), fill = h ? C.crit : C.ok;
-      cx.save(); cx.translate(x, y); cx.rotate(ang);
+      const [x, y, ang] = P[i], h = halts.includes(c.id), isMem = memSet.has(c.id), isSel = SEL_BOT === c.id || ACTIVE_BOT === c.id, fill = h ? C.crit : C.ok;
+      cx.save(); cx.translate(x, y);
+      if (isSel) { cx.save(); cx.strokeStyle = css('--accent'); cx.lineWidth = 2; cx.setLineDash([4, 3]); cx.beginPath(); cx.arc(0, 0, 17, 0, Math.PI * 2); cx.stroke(); cx.restore(); }
+      cx.rotate(ang);
+      if (isMem) { cx.save(); cx.strokeStyle = css('--accent'); cx.lineWidth = 2.2; cx.beginPath(); cx.roundRect(-11, -7, 22, 14, 4); cx.stroke(); cx.restore(); }
       cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-8, -3.5, 18, 10, 3); cx.fill();
       cx.fillStyle = fill; cx.beginPath(); cx.roundRect(-9, -5, 18, 10, 3); cx.fill(); cx.lineWidth = 1.6; cx.strokeStyle = '#ffffff'; cx.stroke();
       cx.fillStyle = 'rgba(255,255,255,.85)'; cx.fillRect(3, -3.5, 3.5, 7);       // windshield = heading
       cx.restore();
-      labels.push({ x, y, text: h ? c.id + ' · HALTED' : c.id, color: h ? C.crit : C.ink });
+      labels.push({ x, y, text: h ? c.id + ' · HALTED' : isMem ? c.id + ' · MEM' : c.id, color: h ? C.crit : C.ink });
     });
     labels.forEach((l, i) => l.i = i);
     drawLabels(labels, C);
@@ -1294,15 +1630,15 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       person: { x: 742, y: 352 }, halted: { x: 604, lane: 3 } },
     // robotaxis on SoMa streets: the road graph is OpenStreetMap data
     sanfrancisco: { scenario: 'soma-robotaxi', dir: 'assets/scenes/sanfrancisco/', perception: 'assets/perception/sanfrancisco/index.json', site: 'SoMa, San Francisco · robotaxis',
-      roads: 'assets/scenes/sanfrancisco/roads.json', floorSub: 'Simulation · streets © OpenStreetMap',
+      roads: 'assets/scenes/sanfrancisco/roads.json', floorSub: 'Interactive spatial command on OpenStreetMap streets · click any robotaxi or cell',
       lanes: [], labels: [], person: null, halted: null },
   };
   function applyScene(name) {
     if (!SCENES[name]) name = 'datacenter';
-    SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null; DEC = null; INC = null; renderIncident();
+    SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null; DEC = null; INC = null; SEL_BOT = null; renderIncident();
     $('site-label').textContent = SC.site;
     $('h-floor').textContent = SC.roads ? 'Map' : 'Floor';
-    if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulation';
+    if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Interactive spatial command · click any robot or map cell to inspect & act';
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
     if (!BUSY) { RAN = false; renderLastRun(); }
     lanes = SC.lanes; ZONE = null; SPILL = { x: 700 }; PERSON = SC.person;

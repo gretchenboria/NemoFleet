@@ -49,7 +49,7 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
 try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
 catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
 check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
-for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py']) {
+for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py', 'tools/ego_mix/serve.py', 'tools/ego_mix/fetch_magni_full.py', 'tools/night_shift/publish.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
@@ -246,17 +246,22 @@ const server = http.createServer((req, res) => {
       check('API autonomy: a measured target is stored per scene and returned in state; an unmeasured one is rejected; stated confidence and tau stay in force', au0?.target_error === null && auSet.ok && stA.autonomy.target_error === lvl.target_error && stA.autonomy.level.min_probability === lvl.min_probability && stA.autonomy.in_force === 'stated_confidence' &&
         stA.tau === stA.tau_default && /must be one of/.test(auBad.error || '') && (await get('state?scene=warehouse')).autonomy.target_error === null && stA.actions.some(a => a.type === 'set_autonomy' && a.source === 'operator'), JSON.stringify([au0, stA.autonomy, auBad]));
       // adapter registry: promote or hold; the tuned endpoint and the Token Factory are a local stub (no paid calls)
-      const MJ = path.join(DIST, 'config', 'models.json'), mjOrig = fs.readFileSync(MJ, 'utf8'), mj = JSON.parse(mjOrig), seenBy = { tuned: 0, responses: [] };
+      const MJ = path.join(DIST, 'config', 'models.json'), mjOrig = fs.readFileSync(MJ, 'utf8'), mj = JSON.parse(mjOrig), mjNone = JSON.stringify({ ...mj, reflex_tuned: { ...mj.reflex_tuned, base_url: '' } }), seenBy = { tuned: 0, inway: 0, responses: [] };
       const stubDecision = { actions: [{ type: 'proceed', robot: 'R09' }], confidence: 0.95, rationale: 'stub' };
       const stub = require('http').createServer((rq, rs) => { let b = ''; rq.on('data', c => b += c); rq.on('end', () => {
         const send = (code, o) => { rs.writeHead(code, { 'content-type': 'application/json' }); rs.end(JSON.stringify(o)); };
-        if (rq.url === '/v1/chat/completions') { seenBy.tuned++; if (rq.headers.authorization !== 'Bearer qa-stub-token' || /QA-FAIL/.test(b)) return send(500, { error: 'stub failure' });
+        if (rq.url === '/v1/chat/completions') {
+          if (rq.headers.authorization !== 'Bearer qa-stub-token' || /QA-FAIL/.test(b)) { seenBy.tuned++; return send(500, { error: 'stub failure' }); }
+          if (JSON.parse(b).task === 'in_way') { seenBy.inway++; return send(200, { object: 'in_way', score: /QA-INWAY-POS/.test(b) ? 1.5 : -3.5, probability: /QA-INWAY-POS/.test(b) ? 0.82 : 0.03, latency_ms: 4 }); }
+          seenBy.tuned++;
           return send(200, { choices: [{ message: { content: JSON.stringify(stubDecision, null, 2) } }], actions_probability: /QA-LOWP/.test(b) ? 0.01 : 0.999, latency_ms: 5, usage: { prompt_tokens: 10, completion_tokens: 5 } }); }
         if (rq.url === '/v1/responses') { seenBy.responses.push(JSON.parse(b).model); return send(200, { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(stubDecision) }] }], usage: { input_tokens: 1, output_tokens: 1 } }); }
         send(404, { error: 'no route' }); }); });
       await new Promise(r => stub.listen(0, '127.0.0.1', r));
       try {
-        const stA0 = await get('state?scene=datacenter'), early = await post('actions', { scene: 'datacenter', type: 'promote_adapter' });
+        fs.writeFileSync(MJ, mjNone);
+        let stA0 = null; for (let k = 0; k < 20 && stA0?.adapter?.configured !== false; k++) { await new Promise(r => setTimeout(r, 200)); stA0 = await get('state?scene=datacenter'); }
+        const early = await post('actions', { scene: 'datacenter', type: 'promote_adapter' });
         check('API adapter: with no endpoint configured the tuned adapter is not serving and Promote is refused', stA0.adapter && stA0.adapter.configured === false && stA0.adapter.serving === false && /Not serving/.test(early.error || ''), JSON.stringify([stA0.adapter, early]));
         const stubBase = `http://127.0.0.1:${stub.address().port}/v1`;
         fs.writeFileSync(MJ, JSON.stringify({ ...mj, base: stubBase, reflex_tuned: { ...mj.reflex_tuned, base_url: stubBase } }));
@@ -272,9 +277,12 @@ const server = http.createServer((req, res) => {
         const fb = await ev('QA-FAIL aisle clear.'), stD = await get('state?scene=datacenter');
         check('pipeline: an error from the tuned endpoint falls back to the served Nano and is recorded in the call and action logs', fb.tier === 'nano' && fb.model === mj.reflex && fb.tuned?.used === false && /HTTP 500/.test(fb.tuned.fallback) && seenBy.responses[1] === mj.reflex &&
           stD.calls.some(c => c.model === mj.reflex_tuned.id && c.valid === 0) && stD.actions.some(a => a.type === 'tuned_fallback'), JSON.stringify(fb).slice(0, 300));
+        const iwNeg = (await postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'routine', text: 'QA-HIGH aisle clear.', tracks: 'EGO robot | QA-INWAY-NEG', run_id: 'qa-run' }))[1];
+        const iwPos = (await postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'routine', text: 'QA-HIGH aisle clear.', tracks: 'EGO robot | QA-INWAY-POS', run_id: 'qa-run' }))[1];
+        check('pipeline: person-in-the-way trigger scores tracks against the calibrated threshold and escalates to Ultra when a person is in the way', iwNeg.in_way?.in_way === false && iwNeg.tier === 'nano' && iwPos.in_way?.in_way === true && iwPos.tier === 'ultra' && iwPos.gate === 'safety' && seenBy.inway === 2, JSON.stringify([iwNeg.in_way, iwPos.in_way, iwPos.tier]));
         const hold = await post('actions', { scene: 'datacenter', type: 'hold_adapter' }), stE = await get('state?scene=datacenter');
         check('API adapter: Hold stops serving and stated confidence is back in force', hold.ok && !stE.adapter.promoted && !stE.adapter.serving && stE.autonomy.in_force === 'stated_confidence' && stE.actions.some(a => a.type === 'hold_adapter'), JSON.stringify(stE.adapter));
-      } finally { fs.writeFileSync(MJ, mjOrig); stub.close(); await new Promise(r => setTimeout(r, 1500)); }
+      } finally { fs.writeFileSync(MJ, mjNone); stub.close(); await new Promise(r => setTimeout(r, 1500)); }
       // decision book
       const lookup = c => get('decisions/lookup?scene=datacenter&cell=' + c).then(r => r.decision);
       let book = (await get('decisions?scene=datacenter')).decisions, d1 = book.find(d => d.id === 'pr-qa-1');
@@ -305,6 +313,13 @@ const server = http.createServer((req, res) => {
       check('API decisions: "known by" counts the distinct robots holding a copy, out of the scenario\'s robots', known.known_by === 2 && known.robots_total === 7 && (await get('decisions?scene=datacenter')).decisions.find(d => d.id === 'pr-qa-exp').known_by === 0, JSON.stringify([known.known_by, known.robots_total]));
       const rv = await post('decisions/revoke', { id: 'pr-qa-pin' }), rvRow = (await get('decisions?scene=datacenter')).decisions.find(d => d.id === 'pr-qa-pin');
       check('API decisions/revoke: a revoked decision is kept in the list and ignored by the lookup', rv.ok && rvRow?.revoked === true && rvRow.status === 'revoked' && !(await lookup('QA3')) && !!(await post('decisions/update', { id: 'pr-qa-pin', pinned: true })).error, JSON.stringify(rvRow));
+      // alarm rules CRUD
+      const rl0 = (await get('rules?scene=datacenter')).rules;
+      const rlCreate = await post('rules/create', { scene: 'datacenter', name: 'QA cart check', sev: 'warn', when_kind: 'custom', match_text: 'cart', when_label: 'Cart near spill', response: 'Ultra decides; stored for map cell', operator_action: 'Inspect cart' });
+      const rlUpd = await post('rules/update', { id: rlCreate.rule?.id, sev: 'crit', enabled: false });
+      const rlDel = await post('rules/delete', { id: rlCreate.rule?.id });
+      const rlReset = await post('rules/reset', { scene: 'datacenter' });
+      check('API alarm rules CRUD: seeds 4 default rules, creates custom rule, updates severity/enabled, deletes, and resets', rl0?.length === 4 && rlCreate.ok && rlCreate.rule.name === 'QA cart check' && rlUpd.ok && rlUpd.rule.sev === 'crit' && rlUpd.rule.enabled === false && rlDel.ok && rlReset.ok && rlReset.rules.length === 4, JSON.stringify([rl0?.length, rlCreate, rlUpd, rlDel]));
       errors = [];
       await page.goto(`http://127.0.0.1:${port}/console.html#datacenter`, { waitUntil: 'networkidle0' }); await new Promise(r => setTimeout(r, 1200));
       const live = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, text: document.body.innerText, svc: document.querySelectorAll('#svc .srow').length }));
@@ -326,16 +341,24 @@ const server = http.createServer((req, res) => {
       await page.mouse.click(fb.x + (mapC.x + mapC.w / 2) * fb.w / 1120, fb.y + (mapC.y + mapC.h / 2) * fb.h / 475); await new Promise(r => setTimeout(r, 500));
       const mapV = await page.evaluate(() => ({ tab: document.getElementById('tab-dec').getAttribute('aria-selected'), hit: document.querySelector('#dec tr.hit')?.dataset.id, known: document.querySelector('#dec tr.hit [data-k="known"]')?.textContent, zoneInPage: /zone: \{ x0/.test(document.documentElement.innerHTML) }));
       check('console LIVE: cell rectangles are scenario configuration (only cells the events use); clicking a cell with a stored decision opens it in Decisions with "known by n of m robots"', cellsOk && missed === 'false' && mapV.tab === 'true' && mapV.hit === 'pr-qa-map' && /^\d+ of 7 robots$/.test(mapV.known || '') && !mapV.zoneInPage && !errors.length, JSON.stringify({ cellsOk, missed, mapV }) + errors.join(';'));
+      await page.click('#map-bots [data-bot="R14"]'); await new Promise(r => setTimeout(r, 200));
+      const hudV = await page.evaluate(() => ({ bots: document.querySelectorAll('#map-bots [data-bot]').length, sel: document.getElementById('map-sel')?.innerText.replace(/\s+/g, ' '), haltBtn: !!document.querySelector('#map-sel [data-map-act="halt"]'), qBtn: !!document.querySelector('#map-sel [data-map-act="qcell"]'), scopeBtn: !!document.getElementById('scope-toggle') }));
+      check('console LIVE: Spatial Command Map HUD lists fleet robots, selects robot with Halt/Quarantine controls, and exposes KPI scope toggle', hudV.bots === 7 && /R14/.test(hudV.sel) && hudV.haltBtn && hudV.qBtn && hudV.scopeBtn && !errors.length, JSON.stringify(hudV) + errors.join(';'));
       await page.click('#tab-dec'); await new Promise(r => setTimeout(r, 300));
       const decv = await page.evaluate(() => ({ shown: !document.getElementById('pane-dec').hidden, rows: [...document.querySelectorAll('#dec tr[data-id]')].map(r => r.dataset.status + ':' + r.innerText.replace(/\s+/g, ' ')), pin: document.querySelectorAll('#dec [data-op="pin"]').length, ext: document.querySelectorAll('#dec select[data-op="extend"] option').length, rev: document.querySelectorAll('#dec [data-op="revoke"]').length }));
       check('console LIVE: Decisions view lists stored decisions with Pin, Extend and Revoke, no errors', decv.shown && decv.rows.length >= 4 && decv.rows.some(r => /^live:QA1 .*Reroute.*Operator/.test(r)) && decv.rows.some(r => /^revoked:QA3/.test(r)) && decv.pin >= 2 && decv.ext >= 8 && decv.rev >= 2 && !errors.length, JSON.stringify(decv).slice(0, 400) + errors.join(';'));
+      await page.click('#tab-rules'); await new Promise(r => setTimeout(r, 300));
+      await page.click('#rule-new-btn'); await new Promise(r => setTimeout(r, 100));
+      const rulesV = await page.evaluate(() => ({ shown: !document.getElementById('pane-rules').hidden, formOpen: !document.getElementById('rule-form').hidden, rows: document.querySelectorAll('#rules-body tr[data-rule-id]').length, toggles: document.querySelectorAll('#rules-body [data-rule-op="toggle"]').length, edits: document.querySelectorAll('#rules-body [data-rule-op="edit"]').length, deletes: document.querySelectorAll('#rules-body [data-rule-op="delete"]').length }));
+      await page.click('#rf-cancel');
+      check('console LIVE: Alarm rules view lists rules with Enable/Disable, Edit, Delete, and New rule form, no errors', rulesV.shown && rulesV.formOpen && rulesV.rows === 4 && rulesV.toggles === 4 && rulesV.edits === 4 && rulesV.deletes === 4 && !errors.length, JSON.stringify(rulesV) + errors.join(';'));
       await page.evaluate(() => document.querySelector('[data-op="incident"][data-alarm="al-qa-haz"]').click()); await new Promise(r => setTimeout(r, 1200));
       const incv = await page.evaluate(() => { const b = document.getElementById('incident'); return { shown: !b.hidden, text: b.innerText.replace(/\s+/g, ' '), btns: ['inc-accept', 'inc-override', 'inc-release'].every(i => document.getElementById(i)) }; });
       await page.click('#inc-override'); await page.select('#ov-type', 'alert_human');
       const form = await page.evaluate(() => ({ shown: !document.getElementById('inc-form').hidden, types: document.querySelectorAll('#ov-type option').length, fields: [...document.querySelectorAll('#ov-fields [data-k]')].map(i => i.dataset.k).join(',') }));
       check('console LIVE: incident panel shows the linked record with Accept, Override and Release, no errors', incv.shown && incv.btns && /QA alarm QA1/.test(incv.text) && /cold aisle 3/.test(incv.text) && /A puddle in the aisle/.test(incv.text) && /Quarantine zone/.test(incv.text) && /QA override/.test(incv.text) &&
         form.shown && form.types === 7 && form.fields === 'severity,message' && !errors.length, JSON.stringify({ incv, form }).slice(0, 500) + errors.join(';'));
-    } finally { try { process.kill(-dev.pid); } catch {} }
+    } finally { try { fs.writeFileSync(path.join(DIST, 'config', 'models.json'), JSON.stringify(require(path.join(ROOT, 'tools', 'tf.cjs')).models(), null, 2)); } catch {} try { process.kill(-dev.pid); } catch {} }
   } catch (e) { check('live API checks ran', false, String(e.message).slice(0, 300)); }
   fs.rmSync(state, { recursive: true, force: true });
 

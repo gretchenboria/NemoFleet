@@ -21,15 +21,36 @@ from peft import PeftModel
 import train
 
 TOKEN, PORT, ADAPTER = os.environ.get("SERVE_TOKEN", ""), int(os.environ.get("PORT", "8000")), os.environ.get("ADAPTER_DIR", "")
+# ADAPTERS="decide=/path,inway=/path" serves both tuned adapters from one copy of the base model.
+ADAPTERS = dict(kv.split("=", 1) for kv in os.environ.get("ADAPTERS", "").split(",") if kv) or ({"decide": ADAPTER} if ADAPTER else {})
 tok, model = train.load_model()
-if ADAPTER:
-    model = PeftModel.from_pretrained(model, ADAPTER)
+for name, path in ADAPTERS.items():
+    model = PeftModel.from_pretrained(model, path, adapter_name=name) if not isinstance(model, PeftModel) else (model.load_adapter(path, adapter_name=name), model)[1]
 model.eval()
+_t, _f = tok('{"in_way":true', add_special_tokens=False).input_ids, tok('{"in_way":false', add_special_tokens=False).input_ids
+_k = next(i for i, (a, b) in enumerate(zip(_t, _f)) if a != b)
+IN_WAY_HEAD, TRUE_ID, FALSE_ID = _t[:_k], _t[_k], _f[_k]
+
+
+@torch.no_grad()
+def in_way(messages):
+    """Person-in-the-way score: the gap between the logits of true and false right after {"in_way": ."""
+    if "inway" in ADAPTERS:
+        model.set_adapter("inway")
+    text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    ids = torch.tensor([tok(text, add_special_tokens=False).input_ids + IN_WAY_HEAD], device=train.DEV)
+    with torch.autocast(train.DEV, dtype=torch.bfloat16, enabled=train.DEV == "cuda"):
+        logits = model(input_ids=ids, logits_to_keep=1, use_cache=False).logits[0, -1].float()
+    return (logits[TRUE_ID] - logits[FALSE_ID]).item()
+
+
 LOCK = threading.Lock()
 
 
 @torch.no_grad()
 def decide(messages, max_new_tokens=220):
+    if "decide" in ADAPTERS:
+        model.set_adapter("decide")
     text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     ids = torch.tensor([tok(text, add_special_tokens=False).input_ids], device=train.DEV)
     with torch.autocast(train.DEV, dtype=torch.bfloat16, enabled=train.DEV == "cuda"):
@@ -60,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        self.reply(200, {"status": "ok", "model": train.MODEL, "adapter": os.path.basename(ADAPTER.rstrip("/")) or None})
+        self.reply(200, {"status": "ok", "model": train.MODEL, "adapters": sorted(ADAPTERS)})
 
     def do_POST(self):
         if TOKEN and self.headers.get("authorization") != f"Bearer {TOKEN}":
@@ -68,6 +89,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("content-length", "0"))))
             t0 = time.time()
+            if body.get("task") == "in_way":  # {"task": "in_way", "messages": [system, user]} -> score only
+                with LOCK:
+                    score = in_way(body["messages"])
+                return self.reply(200, {"object": "in_way", "score": round(score, 4), "probability": round(1 / (1 + math.exp(-score)), 4), "latency_ms": round(1000 * (time.time() - t0))})
             with LOCK:
                 content, prob, n_in, n_out = decide(body["messages"], int(body.get("max_tokens", 220)))
             self.reply(200, {"object": "chat.completion", "model": body.get("model") or "nemotron-3-nano-tuned",
@@ -82,5 +107,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"serving on :{PORT} adapter={ADAPTER or 'none'}", flush=True)
+    print(f"serving on :{PORT} adapters={sorted(ADAPTERS) or 'none'}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

@@ -12,6 +12,7 @@ resources:
 workdir: tools/ego_mix
 envs:
   ADAPTER: decide-1/adapter_decide_v1
+  INWAY_ADAPTER: plan-1/adapter_ego_mix_plan
   OUT_REPO: gretchenboria/nemofleet-ego-lora
   MODEL: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16
 secrets:
@@ -26,5 +27,6 @@ run: |
   HF_XET_HIGH_PERFORMANCE=1 $W/venv/bin/python -c "
   import os; from huggingface_hub import snapshot_download
   snapshot_download(os.environ['MODEL'], local_dir='$W/model', allow_patterns=['*.json', '*.safetensors', '*.jinja'])
-  snapshot_download(os.environ['OUT_REPO'], local_dir='$W/adapters', allow_patterns=[os.environ['ADAPTER'] + '/*'])"
-  MODEL_DIR=$W/model ADAPTER_DIR=$W/adapters/$ADAPTER PORT=8000 $W/venv/bin/python serve.py
+  snapshot_download(os.environ['OUT_REPO'], local_dir='$W/adapters', allow_patterns=[os.environ['ADAPTER'] + '/*', os.environ['INWAY_ADAPTER'] + '/*'])"
+  pkill -f 'python.*serve\.py' || true; sleep 2
+  MODEL_DIR=$W/model ADAPTERS="decide=$W/adapters/$ADAPTER,inway=$W/adapters/$INWAY_ADAPTER" PORT=8000 $W/venv/bin/python serve.py

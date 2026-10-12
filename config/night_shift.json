@@ -272,6 +272,12 @@
         "false_alarm_rate": 0.008
       }
     },
+    "threshold": {
+      "score": -0.75,
+      "test_recall": 0.769,
+      "test_false_alarm_rate": 0.137,
+      "test_positives": 91
+    },
     "valid_json": [
       300,
       300
