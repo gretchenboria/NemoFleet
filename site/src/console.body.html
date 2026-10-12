@@ -717,7 +717,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function renderNight() {
     const rows = ST?.night_shift || [], rep = rows.find(r => r.stage === 'replay'), met = parse(rep?.metrics_json) || {};
     const nano = (ST?.calls || []).filter(c => c.tier === 'nano' && c.valid === 1), done = nano.filter(c => c.replay_json).length;
-    $('ns-night').textContent = rep ? `· last run ${rep.night}` : ST ? '· no run yet' : '';
+    const when = rep && (rep.finished_at || rep.started_at);  // shown in the viewer's own time zone, not the UTC night id
+    $('ns-night').textContent = when ? `Last replay ${new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ST ? 'No replay yet.' : '';
     const stage = (h, svc, big, note, off) => `<li class="stage${off ? ' off' : ''}"><h3><span class="idx">${h[0]}</span>${h.slice(2)}</h3><span class="big">${big}</span><span class="note">${note}</span><span class="note">${svc}</span></li>`;
     $('stages').innerHTML =
       stage('1 Replay', 'Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
