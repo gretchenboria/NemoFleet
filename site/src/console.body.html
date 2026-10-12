@@ -190,7 +190,6 @@ canvas#floor { display: block; width: 100%; aspect-ratio: 1120 / 475; }
 .cam .shot { position: relative; }
 .cam img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
 .cam .tagl { position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--f-mono); font-size: 10.5px; color: #fff; background: rgba(10,14,12,.68); padding: 1px 6px; border-radius: 4px; }
-.cam .rec { position: absolute; right: 6px; top: 6px; font-family: var(--f-mono); font-size: 10px; color: #fff; background: rgba(10,14,12,.55); padding: 1px 6px; border-radius: 4px; }
 .cam figcaption { padding: 6px 8px 8px; display: grid; gap: 3px; font-size: 12px; }
 .cam figcaption > span:not(.act):not(.meta):not(.await) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--ink-2); }
 .cam .await { color: var(--muted); }
@@ -222,6 +221,9 @@ details.older .alarms-old { display: grid; margin-top: 4px; }
 
 /* actions */
 .act-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.halt { display: inline-flex; } .halt select { border-radius: 7px 0 0 7px; border-right: 0; padding-right: 4px; font-family: var(--f-mono); font-size: 12px; } .halt button { border-radius: 0 7px 7px 0; }
+/* not connected: say so once and show only what does not need the API (published Night Shift results) */
+.wrap:not(.live) .readout, .wrap:not(.live) .stage-grid, .wrap:not(.live) .details, .wrap:not(.live) .ns-foot, .wrap:not(.live) .stage.replay { display: none; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .tags span { font-family: var(--f-mono); font-size: 11px; background: var(--panel); border-radius: 4px; padding: 1px 6px; color: var(--ink-2); }
 .kv { display: grid; gap: 4px; }
@@ -259,14 +261,13 @@ details.older .alarms-old { display: grid; margin-top: 4px; }
 .night-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); gap: 12px 28px; align-items: start; }
 .night-head .t { display: flex; align-items: baseline; gap: 8px; }
 .night-head h2 { font-size: 16px; }
-.night-head p { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); max-width: 52ch; }
-.stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.night-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); } .night-head p:empty { display: none; }
+.stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stage { padding: 7px 12px 0 0; border-top: 2px solid var(--ink); display: grid; gap: 1px; align-content: start; min-width: 0; }
 .stage h3 { font-size: 13px; font-weight: 700; letter-spacing: .04em; }
-.stage h3 .idx { margin-right: 6px; }
 .stage .big { font-family: var(--f-display); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .stage .note { font-size: 12px; color: var(--muted); line-height: 1.35; }
-.stage.off { border-top-color: var(--line); } .stage.off h3, .stage.off .big { color: var(--muted); }
+.stage.off .big { color: var(--muted); }
 .ns-learn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 36px; }
 .ns-learn > div { min-width: 0; }
 .ns-learn h3 { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
@@ -351,7 +352,6 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
 @media (max-width: 760px) {
   .wrap { padding-inline: 12px; }
   .stage-grid, .charts { grid-template-columns: minmax(0, 1fr); }
-  .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 0; }
   .night { padding: 16px 14px 14px; }
   .m .frac { display: none; }
   table.proof th.c1 { width: 36%; } table.proof td.m { padding-right: 10px; } table.proof th.chg { width: 19%; }
@@ -367,10 +367,10 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       <h1>NemoFleet <span>Ops</span></h1>
       <span class="site"><span id="site-label">—</span> · <span id="clock" class="num">--:--:--</span></span>
       <span class="mode" id="mode" title="Checking for the NemoFleet API">Connecting…</span>
-      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false" title="Second scene: the same pipeline in a fulfillment center">Warehouse</button><button id="scene-sanfrancisco" data-scene="sanfrancisco" aria-pressed="false" title="Experimental: robotaxis on the real streets around Salesforce Tower">San Francisco <span class="exp">(experimental)</span></button></div>
+      <div class="scene-switch" role="group" aria-label="Scene"><button id="scene-datacenter" data-scene="datacenter" aria-pressed="false">Data center</button><button id="scene-warehouse" data-scene="warehouse" aria-pressed="false">Warehouse</button><button id="scene-sanfrancisco" data-scene="sanfrancisco" aria-pressed="false">San Francisco</button></div>
     </div>
     <div class="top-actions">
-      <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener" title="Stop or scale the dedicated endpoint in the Token Factory console. There is no verified API for this.">Stop Cosmos endpoint ↗</a>
+      <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener">Stop endpoint ↗</a>
       <button class="btn link danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
       <button class="btn quiet" id="act-night">Run Night Shift now</button>
       <button class="btn primary" id="act-run">Run scenario</button>
@@ -385,26 +385,25 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     <aside class="rail rail-left" aria-label="Run and decisions">
       <section class="panel" aria-labelledby="h-run">
         <div class="ph"><h2 id="h-run">Event by event</h2><span class="sub" id="run-sub"></span></div>
-        <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
+        <div class="runlist" id="runlist"></div>
       </section>
       <section class="panel" aria-labelledby="h-tier">
-        <div class="ph"><h2 id="h-tier">Who settled it</h2><span class="sub" id="tier-sub">no data yet</span></div>
+        <div class="ph"><h2 id="h-tier">Who settled it</h2><span class="sub" id="tier-sub"></span></div>
         <div class="funnel" id="funnel"></div>
       </section>
     </aside>
 
     <section class="panel floor-panel" aria-labelledby="h-floor">
-      <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulation</span></div>
+      <div class="ph"><h2 id="h-floor">Floor</h2><span class="sub" id="floor-sub">Simulation</span></div>
       <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
       <div class="legend">
-        <span><i style="background:var(--map-ok)"></i>Moving</span>
-        <span><i style="background:var(--map-warn)"></i>Knows a hazard (peer)</span>
+        <span><i style="background:var(--map-ok)"></i>Robot</span>
         <span><i style="background:var(--map-crit)"></i>Halted</span>
-        <span><i style="background:var(--map-peer)"></i>Handshake</span>
+        <span><i style="background:rgba(56,160,220,.7)"></i>Hazard</span>
         <span><i style="background:#f5d90a"></i>Person</span>
       </div>
       <div class="cam-strip" aria-labelledby="h-cams">
-        <div class="ph"><h3 id="h-cams">Robot cameras · perception</h3><span class="sub"><span id="cams-model">—</span> · rendered frames</span></div>
+        <div class="ph"><h3 id="h-cams">Robot cameras</h3><span class="sub">Rendered frames · <span id="cams-model">—</span></span></div>
         <div class="cams" id="cams"></div>
       </div>
     </section>
@@ -412,17 +411,16 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     <aside class="rail rail-right" aria-label="Alarms and actions">
       <section class="panel" aria-labelledby="h-alarms">
         <div class="ph"><h2 id="h-alarms">Alarms <span class="count num"><span id="open-count">0</span> open</span></h2>
-          <span class="alarm-head"><button class="btn link" id="act-episodes">Review episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
+          <span class="alarm-head"><button class="btn link" id="act-episodes">Episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
         <div class="ph"><h2 id="h-quick">Actions</h2></div>
         <div class="act-grid">
           <button class="btn sm" id="q-btn" data-action="quarantine_zone">Quarantine zone</button>
-          <button class="btn sm" id="halt-btn" data-action="halt" data-robot="R07">Halt robot R07</button>
+          <span class="halt"><label class="sr-only" for="halt-robot">Robot to halt</label><select id="halt-robot" class="btn sm"></select><button class="btn sm" id="halt-btn" data-action="halt">Halt</button></span>
           <button class="btn sm" id="esc-btn" data-action="escalate">Escalate to Ultra</button>
           <button class="btn sm" id="bc-btn" data-action="broadcast_hazard">Broadcast hazard</button>
-          <button class="btn sm danger" id="rb-btn" data-action="rollback_nano" data-confirm="Confirm: roll back Nano?">Roll back Nano</button>
         </div>
         <div class="kv"><div class="label">Active fleet tags</div><div class="tags" id="tags"><span>—</span></div></div>
         <div class="kv"><div class="label">Recent actions</div><div class="empty" id="actions-log">—</div></div>
@@ -433,12 +431,12 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   <section class="night" id="night" aria-labelledby="h-ns">
     <div class="night-head">
       <div><div class="t"><span class="idx">03</span><h2 id="h-ns">Night Shift</h2></div>
-        <p>Overnight, Nano is fine-tuned on Ultra's decisions and tested on hazards it never trained on. <span id="ns-night"></span></p></div>
+        <p id="ns-night"></p></div>
       <ol class="stages" id="stages" aria-label="Night Shift stages"></ol>
     </div>
     <div class="ns-learn" id="ns-learn"></div>
     <div class="ns-foot">
-      <div class="tau"><label for="tau" class="label">Escalation threshold τ for next run</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" value="0.62"><span class="num mono" id="tau-v">0.62</span><span class="sub" id="tau-note">—</span></div>
+      <div class="tau"><label for="tau" class="label">Escalation threshold τ</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" disabled><span class="num mono" id="tau-v">—</span><span class="sub" id="tau-note"></span></div>
       <button class="btn sm" id="tau-save">Apply τ</button>
     </div>
   </section>
@@ -452,7 +450,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-svc" aria-labelledby="tab-svc" tabindex="0">
-      <div class="pane-head"><h2 id="h-svc" class="sr-only">Models and services</h2><span class="sub">What runs where, its live status and measured latency</span><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
+      <div class="pane-head"><h2 id="h-svc" class="sr-only">Models and services</h2><span class="brandkey"><span><i style="background:var(--nvidia)"></i>NVIDIA model</span><span><i style="background:var(--nebius);box-shadow:inset 0 0 0 1px var(--nebius-ink)"></i>Nebius service</span></span></div>
       <div class="svc" id="svc"></div>
     </div>
 
@@ -464,8 +462,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
           <div class="stats" id="stats"></div></div>
         <div><div class="ph"><h3 id="h-cost">Usage today</h3><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
           <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
-          <div class="costlegend" id="costlegend"></div>
-          <div class="empty" id="perc-billing"></div></div>
+          <div class="costlegend" id="costlegend"></div></div>
       </div>
     </div>
 
@@ -516,7 +513,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
     return j;
   }
-  const offline = () => say(`Not connected to the NemoFleet API here. Open ${LIVE_URL} to run this for real.`, 6000);
+  const offline = () => say(`Not connected. Live console: ${LIVE_URL}`, 6000);
 
   // a button that confirms first (data-confirm), disables while running, and reports the real result or error
   function wire(btn, fn) {
@@ -572,11 +569,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const ultraN = d.ultraSafety + d.ultraOther, hits = ST?.memory?.hits ?? 0, mem = ST?.memory;
     // 01 decide once and 02 share come from the API state; 03 learn overnight comes from config/night_shift.json
     const decide = `<div class="st decide"><div class="st-h"><span class="idx">01</span><h2>Decide once</h2><span class="who">Nemotron Ultra</span></div>
-      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? ultraN : DASH}</span></span><span class="d"><b>Ultra decisions</b>${ST ? `${d.ultraOther} new or unsure · ${d.ultraSafety} with a person` : 'no data yet'}</span></div>
-      <span class="f">${d.ultraLat.length ? `p50 ${fmtMs(quant(d.ultraLat, .5))} per call · ${d.ultraLat.length} calls · people always go to Ultra` : 'A new hazard, or any person in the lane, goes to Ultra'}</span></div>`;
-    const share = `<div class="st share"><div class="st-h"><span class="idx">02</span><h2>Share</h2><span class="who">Fleet memory, by map cell</span></div>
-      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? hits : DASH}</span></span><span class="d"><b>Ultra calls avoided</b>${!ST ? 'no data yet' : hits && mem.ultra_avg_tokens != null ? `≈ ${Math.round(hits * mem.ultra_avg_tokens).toLocaleString('en-US')} Ultra tokens, ${fmtMs(hits * mem.ultra_avg_ms)} saved` : 'no reuse yet'}</span></div>
-      <span class="f">${ST ? `${ST.precedents?.n ?? 0} decisions in memory · ${d.peer} peer handoffs · ${mem?.overrides ?? 0} reuse declined` : 'The next robot at that cell reuses the decision through Nano'}</span></div>`;
+      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? ultraN : DASH}</span></span><span class="d"><b>Ultra decisions</b>${ST ? `${d.ultraOther} new or unsure · ${d.ultraSafety} with a person` : ''}</span></div>
+      <span class="f">${d.ultraLat.length ? `p50 ${fmtMs(quant(d.ultraLat, .5))} · ${d.ultraLat.length} calls` : ''}</span></div>`;
+    const share = `<div class="st share"><div class="st-h"><span class="idx">02</span><h2>Share</h2><span class="who">Fleet memory</span></div>
+      <div class="st-b"><span class="kpi"><span class="v num${ST ? '' : ' nil'}">${ST ? hits : DASH}</span></span><span class="d"><b>Ultra calls avoided</b>${!ST ? '' : hits && mem.ultra_avg_tokens != null ? `≈ ${Math.round(hits * mem.ultra_avg_tokens).toLocaleString('en-US')} Ultra tokens, ${fmtMs(hits * mem.ultra_avg_ms)} saved` : ''}</span></div>
+      <span class="f">${ST ? `${ST.precedents?.n ?? 0} decisions in memory · ${d.peer} peer handoffs · ${mem?.overrides ?? 0} reuse declined` : ''}</span></div>`;
     $('loop').innerHTML = decide + share + learnStation();
     $('loop').querySelector('.more')?.addEventListener('click', () => $('night').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
     const k = [
@@ -589,7 +586,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const rows = [['Nano, on the robot', d.nanoOnly, '--s1'], ['Peer handoff', d.peer, '--s15'], ['Ultra, new or unsure', d.ultraOther, '--s2'], ['Ultra, person present', d.ultraSafety, '--crit']];
     $('funnel').innerHTML = `<div class="mixbar" role="img" aria-label="Share of decisions settled at each step">${d.total ? rows.filter(r => r[1]).map(([n, v, c]) => `<b style="flex:${v};background:var(${c})" title="${n}"></b>`).join('') : ''}</div>` +
       rows.map(([n, v, c]) => `<div class="frow"><i style="background:var(${c})"></i><span>${n}</span><span class="num">${fmtPct(pct(v, d.total))}</span></div>`).join('');
-    $('tier-sub').textContent = d.total ? `${d.total} events · last 200 calls` : 'no data yet';
+    $('tier-sub').textContent = d.total ? `${d.total} events` : '';
     const pb = $('act-pause'); if (!pb.classList.contains('confirming')) { pb.textContent = ST?.paused ? 'Resume fleet' : 'Pause fleet'; pb.dataset.confirm = ST?.paused ? '' : 'Confirm: pause the fleet?'; }
   }
 
@@ -616,7 +613,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     current.forEach(a => box.appendChild(alarmEl(a)));
     if (older.length) {
       const d = document.createElement('details'); d.className = 'older';
-      d.innerHTML = `<summary>${older.length} earlier alarm${older.length === 1 ? '' : 's'} from previous runs</summary><div class="alarms-old"></div>`;
+      d.innerHTML = `<summary>${older.length} earlier</summary><div class="alarms-old"></div>`;
       older.forEach(a => d.lastElementChild.appendChild(alarmEl(a))); box.appendChild(d);
     }
     $('open-count').textContent = al.filter(a => a.status === 'open').length;
@@ -627,7 +624,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const tags = ST?.tags || [];
     $('tags').innerHTML = tags.length ? tags.map(t => `<span title="${t.expires ? 'expires ' + esc(t.expires) : 'no expiry'}">${esc(t.name.replace(SCENE + ':', ''))}</span>`).join('') : `<span>${ST ? 'none' : DASH}</span>`;
     const acts = ST?.actions || [];
-    $('actions-log').innerHTML = acts.length ? acts.slice(0, 5).map(a => `<div><span class="mono">${hhmmss(a.created_at)}</span> · ${esc(a.source)} · ${esc(human(a.type))}</div>`).join('') : (ST ? 'none yet' : DASH);
+    $('actions-log').innerHTML = acts.length ? acts.slice(0, 5).map(a => `<div><span class="mono">${hhmmss(a.created_at)}</span> · ${esc(a.source)} · ${esc(human(a.type))}</div>`).join('') : (ST ? 'none' : DASH);
   }
 
   // ---- services ----
@@ -641,37 +638,54 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
       ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'robots share decisions as they pass', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
       ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
-      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', (m.perception || 'not connected') + (dedicated ? ' · 4× H200' : ''), pill(lastCosmos, 'Responded', 'No response yet'), `<b>${dedicated ? '$0.37 / min' : /per hour/.test(m.perception_billing || '') ? 'per hour' : 'per token'}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
+      [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', m.perception || 'not connected', pill(lastCosmos, 'Responded', 'No response yet'), `<b>${esc(m.perception_billing || DASH)}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
       ['', 'Fleet memory', 'ops', 'MEMORY', 'decisions stored by map cell', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'Up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>stored decisions`],
       ['nv', 'Nemotron Super', 'job', 'NIGHT SHIFT', m.scenario_generator || 'not connected', pill(key && m.scenario_generator, 'Configured', 'Not set'), `<b>${NS ? fmtInt(NS.distill.episodes) : DASH}</b>incident episodes`],
       ['nb', 'Nano fine-tune', 'job', 'NIGHT SHIFT', 'LoRA adapter trained on Ultra\'s decisions', NS ? `<span class="pill ok">${NS.distill.fine_tune.status === 'done' ? 'Trained' : 'Training'}</span>` : '<span class="pill idle">No data yet</span>', `<b>${NS ? fmtInt(NS.distill.events) : DASH}</b>teacher events`],
     ];
-    $('cams-model').textContent = m.perception ? `${pl} · ${m.perception_billing || ''}` : 'not connected';
-    $('perc-billing').textContent = m.perception ? `${pl}: ${m.perception_billing || 'billing not set'}. Switch models with node tools/use_perception.cjs.` : '';
+    $('cams-model').textContent = m.perception ? pl : DASH;
     // a GPU endpoint bills while it runs: offer the stop link for whichever one perception uses
     const perHour = /per hour/.test(m.perception_billing || ''), ec = $('act-cosmos');
     ec.hidden = !(dedicated || perHour);
-    if (dedicated) { ec.href = 'https://tokenfactory.nebius.com/'; ec.textContent = 'Stop Cosmos endpoint ↗'; }
-    else if (perHour) { ec.href = 'https://console.nebius.com/'; ec.textContent = `Stop ${pl.split(' ').slice(0, 2).join(' ')} endpoint ↗`; ec.title = `${pl} runs on a Nebius Serverless Endpoint billed per hour. Stop it in the Nebius console when you are done.`; }
+    ec.href = dedicated ? 'https://tokenfactory.nebius.com/' : 'https://console.nebius.com/'; ec.title = `${pl}: ${m.perception_billing || ''}`;
     $('svc').innerHTML = rows.map(([c, name, t, tl, id, p, met]) => `<div class="srow ${c}"><div><div class="n">${name} <span class="tier ${t}">${tl}</span></div><div class="id mono">${esc(id)}</div></div><div class="m">${p}${met}</div></div>`).join('');
   }
 
-  // ---- cameras: stored real Cosmos responses only ----
+  // ---- scenario data: robots, camera frames and the hazard zone all come from the scenario file whose events go through the models ----
+  let SCN = null;
+  const scnRobots = () => [...new Set((SCN?.events || []).map(e => e.robot).filter(Boolean))];
+  const scnCams = () => { const seen = new Map(); for (const e of SCN?.events || []) if (e.frame && !seen.has(e.frame)) seen.set(e.frame, [e.frame, e.robot, e.where]); return [...seen.values()]; };
+  // the zone an operator can close: the one the scenario names, else the first hazard's map cell
+  const scnZone = () => { const ev = SCN?.events || []; return ev.map(e => /\bzone ([A-Za-z0-9-]+)/.exec(e.where || '')?.[1]).find(Boolean) || ev.find(e => e.cell)?.cell || null; };
+  function loadScenario() {
+    const sc = SC, done = d => { if (SC !== sc) return; SCN = sc._scn = d; initFleet(); renderCams(); renderTargets(); };
+    if (sc._scn) return done(sc._scn);
+    SCN = null; initFleet(); renderTargets();
+    fetch('scenarios/' + sc.scenario + '.json').then(r => r.ok ? r.json() : null).then(done).catch(() => {});
+  }
+  function renderTargets() {
+    const zone = scnZone(), ids = scnRobots(), sel = $('halt-robot'), keep = sel.value;
+    $('q-btn').textContent = zone ? `Quarantine zone ${zone}` : 'Quarantine zone'; $('q-btn').disabled = !zone; $('bc-btn').disabled = !zone;
+    sel.innerHTML = ids.map(id => `<option>${esc(id)}</option>`).join(''); if (ids.includes(keep)) sel.value = keep;
+    $('halt-btn').disabled = sel.disabled = !ids.length;
+  }
+
+  // ---- cameras: stored real perception responses only ----
   let STATIC_PERC = null;
   function renderCams() {
     const latest = {};
     for (const p of ST?.perception || []) if (!latest[p.frame]) latest[p.frame] = { ...p, result: parse(p.result_json) };
     if (!ST && STATIC_PERC?.results) Object.assign(latest, STATIC_PERC.results);
-    $('cams').innerHTML = SC.cams.map(([nm, robot, where]) => {
+    $('cams').innerHTML = scnCams().map(([nm, robot, where]) => {
       const hit = latest[nm], res = hit && hit.result;
       let cap;
       if (res) {
         const hz = (res.hazards || []).map(h => `<span>${esc(h.type)} · ${esc(h.severity)}</span>`).join('');
         cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
           `<span class="meta">${esc(shortModel(hit.model))} · ${fmtMs(hit.latency_ms)} · conf ${res.confidence ?? DASH} · ${hhmmss(hit.called_at)}</span>`;
-      } else if (hit) cap = `<span class="await">${esc(shortModel(hit.model))} replied but the reply was not valid JSON; raw response stored in R2.</span><span class="meta">${hhmmss(hit.called_at)}</span>`;
-      else cap = `<span class="await">No perception result yet.</span>`;
-      return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${nm}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
+      } else if (hit) cap = `<span class="await">Reply was not valid JSON</span><span class="meta">${esc(shortModel(hit.model))} · ${hhmmss(hit.called_at)}</span>`;
+      else cap = `<span class="await">No result</span>`;
+      return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${esc(nm)}.jpg" alt="${esc(robot)} forward camera, ${esc(where)}"><span class="tagl">${esc(robot)} · ${esc(where)}</span></div><figcaption>${cap}</figcaption></figure>`;
     }).join('');
   }
 
@@ -684,7 +698,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   // 03 in the loop band: before and after, straight from the published result file
   function learnStation() {
     const head = `<div class="st-h"><span class="idx">03</span><h2>Learn overnight</h2><button class="more" type="button">Night Shift results ↓</button></div>`;
-    if (!NS) return `<div class="st night">${head}<div class="st-b"><span class="v num nil">${DASH}</span><span class="d"><b>Nano agrees with Ultra</b>no fine-tune results published</span></div></div>`;
+    if (!NS) return `<div class="st night">${head}<div class="st-b"><span class="v num nil">${DASH}</span><span class="d"><b>Nano agrees with Ultra</b>no fine-tune results</span></div></div>`;
     const d = NS.distill, t = NS.trigger, before = ratio(d.test_served_nano.all), after = ratio(d.test_tuned?.all), vp = { robot: 'robot view', human: 'person view', vehicle: 'vehicle view' };
     return `<div class="st night">${head}
       <div class="ba"><div><span class="v num">${pc0(before)}</span><span class="cap">today's Nano</span></div><span class="arr" aria-hidden="true">→</span>
@@ -697,7 +711,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const change = (a, b) => a == null || b == null ? `<td class="chg">${DASH}</td>` : `<td class="chg ${b > a ? 'up' : b < a ? 'down' : ''}">${b > a ? '+' : b < a ? '−' : ''}${Math.abs(100 * (b - a)).toFixed(1)} pts</td>`;
   function renderLearned() {
     const el = $('ns-learn');
-    if (!NS) { el.innerHTML = '<div class="empty">No fine-tune results published.</div>'; return; }
+    if (!NS) { el.innerHTML = '<div class="empty">No fine-tune results</div>'; return; }
     const d = NS.distill, t = NS.trigger, tuned = d.test_tuned, kinds = [['first', 'First sighting of a hazard'], ['variant', 'Something changed since the stored decision'], ['repeat', 'Repeat sighting, with fleet memory'], ['routine', 'Routine'], ['person', 'Any event with a person present'], ['all', 'All events']];
     const vp = { robot: 'Robot', human: 'Person', vehicle: 'Vehicle' }, of = p => p && p[1] ? `${p[0]} of ${p[1]}` : '';
     el.innerHTML =
@@ -706,32 +720,30 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
           const a = ratio(d.test_served_nano[k]), b = ratio(tuned?.[k]);
           return `<tr${k === 'all' ? ' class="total"' : ''}><td class="k">${label}</td>${cell(a, '', of(d.test_served_nano[k]))}${cell(b, b == null ? 'none' : 'tuned' + (a != null && b < a ? ' down' : ''), of(tuned?.[k]))}${tuned ? change(a, b) : ''}</tr>`; }).join('')}</tbody></table>
         <p class="after">Today's Nano reports confidence above the escalation threshold on ${Math.round(100 * d.served_nano_confident_share)}% of events, right or wrong.</p></div>` +
-      `<div><h3>Is a person in the way?</h3><p>Nano reads the people nearby and the planned path.</p>
+      `<div><h3>Is a person in the way?</h3><p>Recall at the baseline's false-alarm rate, on held-out recordings.</p>
         <table class="proof"><thead><tr><th class="c1">Viewpoint</th><th>Before<small>constant velocity</small></th><th>After<small>tuned Nano</small></th><th class="chg">Change</th></tr></thead><tbody>${Object.entries(t.viewpoints).map(([k, v]) =>
           `<tr><td class="k">${vp[k] || esc(k)}<span class="sub">${v.positives} positives · ${(100 * v.false_alarm_rate).toFixed(1)}% false alarms</span></td>${cell(v.baseline_recall, '')}${cell(v.tuned_recall, 'tuned' + (v.tuned_recall < v.baseline_recall ? ' down' : ''))}${change(v.baseline_recall, v.tuned_recall)}</tr>`).join('')}</tbody></table>
-        <p class="after">Recall at the baseline's false-alarm rate, on held-out recordings. ${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON.</p></div>`;
+        <p class="after">${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON.</p></div>`;
   }
   fetch('/config/night_shift.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => { if (d && d.distill && d.trigger) { NS = d; renderKpis(); renderNight(); renderSvc(); } }).catch(() => {});
 
   // ---- Night Shift ----
   function renderNight() {
     const rows = ST?.night_shift || [], rep = rows.find(r => r.stage === 'replay'), met = parse(rep?.metrics_json) || {};
-    const nano = (ST?.calls || []).filter(c => c.tier === 'nano' && c.valid === 1), done = nano.filter(c => c.replay_json).length;
     const when = rep && (rep.finished_at || rep.started_at);  // shown in the viewer's own time zone, not the UTC night id
-    $('ns-night').textContent = when ? `Last replay ${new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ST ? 'No replay yet.' : '';
-    const stage = (h, svc, big, note, off) => `<li class="stage${off ? ' off' : ''}"><h3><span class="idx">${h[0]}</span>${h.slice(2)}</h3><span class="big">${big}</span><span class="note">${note}</span><span class="note">${svc}</span></li>`;
+    $('ns-night').textContent = when ? `Last replay ${new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : '';
+    const stage = (cls, h, big, note) => `<li class="stage ${cls}"><h3>${h}</h3><span class="big">${big}</span><span class="note">${note}</span></li>`;
     $('stages').innerHTML =
-      stage('1 Replay', 'Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
-        rep ? `decisions re-judged · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}${nano.length ? ` · ${done} of ${nano.length} replayed` : ''}` : 'no replay yet') +
-      stage('2 Dream', 'possible futures of each frame', DASH, 'planned', true) +
-      stage('3 Gate', 'promote only if better', DASH, 'planned', true) +
-      (NS ? stage('4 Consolidate', 'Nano fine-tuned on Ultra', fmtInt(NS.distill.events),
-        `events decided by Ultra${NS.distill.fine_tune.status === 'done' ? '' : ' · fine-tune running'}`)
-        : stage('4 Consolidate', 'Nano fine-tuned on Ultra', DASH, 'no data yet', true));
+      stage('replay' + (rep ? '' : ' off'), 'Replay', rep ? String(met.rejudged ?? 0) : DASH,
+        rep ? `Nano decisions re-judged by Ultra · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}` : 'no replay yet') +
+      stage('consolidate' + (NS ? '' : ' off'), 'Consolidate', NS ? fmtInt(NS.distill.events) : DASH,
+        NS ? `events decided by Ultra · Nano fine-tune ${NS.distill.fine_tune.status === 'done' ? 'done' : 'running'}` : 'no fine-tune results');
     renderLearned();
     const tau = $('tau');
+    tau.disabled = !ST;
     if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }
-    $('tau-note').textContent = ST ? `in use ${Number(ST.tau).toFixed(2)} · scenario default ${Number(ST.tau_default).toFixed(2)}` : DASH;
+    if (!ST) $('tau-v').textContent = DASH;
+    $('tau-note').textContent = ST ? `in use ${Number(ST.tau).toFixed(2)} · default ${Number(ST.tau_default).toFixed(2)}` : '';
   }
 
   // ---- learning curve: Ultra share by run, from real calls ----
@@ -776,7 +788,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   // ---- call log ----
   const TIER = { nano: ['nano', 'S1 · Nano'], ultra: ['ultra', 'S2 · Ultra'], perception: ['cosmos', 'Perception'] };
   function resultOf(c) {
-    if (c.tier === 'perception') return c.valid ? 'perception stored' : 'reply not JSON (raw in R2)';
+    if (c.tier === 'perception') return c.valid ? 'stored' : 'reply not JSON';
     if (c.valid === 0) return '<span class="bad">schema reject</span>';
     const d = parse(c.decision_json); return d ? esc(d.actions.map(a => a.type).join(', ')) + ` · conf ${d.confidence}` : DASH;
   }
@@ -795,7 +807,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
     const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
     const rows = [...byEv.values()];
-    $('run-sub').textContent = `Last run ${run} · ${rows.length} model decisions`;
+    $('run-sub').textContent = `Last run · ${rows.length} decisions`;
     // a hazard event (sighting / variant) that ends on Nano only happens when a stored Ultra precedent for the cell was reused (functions/api scenario/step)
     $('runlist').innerHTML = rows.map(e => { const f = e.final || e, d = parse(f.decision_json), tier = e.tiers.includes('ultra') ? 'ultra' : 'nano';
       const by = tier === 'nano' && /sighting|variant/.test(e.event) ? 'mem' : tier;
@@ -826,8 +838,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const gate = r && r.gate && !['settled', 'fleet_memory'].includes(r.gate) && r.tier !== 'peer' && r.tier !== 'paused' ? `Gate: ${esc(human(r.gate))} · ` : '';
     const what = err ? `<span class="err">${esc(err)}</span>` : !r ? esc(ev.text.slice(0, 110)) + (ev.text.length > 110 ? '…' : '') :
       r.tier === 'peer' || r.tier === 'paused' ? esc(r.note) :
-      gate + (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision after retry → safe stop</span>`) +
-      (r.memory ? (r.memory.ultra_avoided ? ` · <span class="saved">fleet memory: reused Ultra's decision for cell ${esc(r.memory.cell)}, no Ultra call</span>` : ` · fleet memory: precedent for cell ${esc(r.memory.cell)} did not fit, escalated`) : '') +
+      gate + (r.decision ? esc(r.decision.actions.map(a => a.type + (a.robot ? ' ' + a.robot : '') + (a.cells ? ' ' + a.cells.join(',') : '') + (a.via ? ' via ' + a.via : '')).join(' · ')) + ` · conf ${r.decision.confidence}` : `<span class="err">no valid decision · safe stop</span>`) +
+      (r.memory ? (r.memory.ultra_avoided ? ` · <span class="saved">reused Ultra's decision for cell ${esc(r.memory.cell)}</span>` : ` · stored decision for cell ${esc(r.memory.cell)} did not fit`) : '') +
       (r.perception ? ` · ${esc(r.perception_model || 'perception')}: ${esc(r.perception.recommended_action || '?')}` : r.perception_error ? ` · <span class="err">perception unavailable</span>` : '');
     return runRow({ when: `t=${ev.t}s`, robot: ev.robot, event: esc(human(KIND[ev.kind] || ev.kind)), by, what, pending: !r && !err, lat: r && r.latency_ms ? fmtMs(r.latency_ms) : r ? '0 calls' : '' });
   }
@@ -837,7 +849,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     try {
       const s = await api('scenario/start', { scene });
       const out = s.events.map(() => null), errs = s.events.map(() => null);
-      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `${s.run_id} · τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
+      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
       paint(0);
       for (let i = 0; i < s.events.length; i++) {
         try { out[i] = await api('scenario/step', { scene, run_id: s.run_id, i }); } catch (e) { errs[i] = e.message; }
@@ -845,7 +857,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       }
       const f = await api('scenario/finish', { run_id: s.run_id });
       const failed = errs.filter(Boolean).length;
-      return `Run finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed (see Scenario run)` : ''}`;
+      return `Run finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed` : ''}`;
     } finally { BUSY = false; btn.textContent = 'Run scenario'; }
   }
 
@@ -856,7 +868,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     try {
       let r, rounds = 0, judged = 0;
       do { btn.textContent = `Replaying… ${judged}`; r = await api('night-shift/replay', { scene }); judged += r.verdicts.length; rounds++; if (scene === SCENE) await refresh(); } while (r.remaining > 0 && r.verdicts.length && rounds < 50);
-      return judged ? `Replay: Ultra re-judged ${judged} Nano decision${judged === 1 ? '' : 's'} · ${r.disagree} disagreement${r.disagree === 1 ? '' : 's'} in total. ${r.next_stages}` : 'Replay: no un-judged Nano decisions. Run a scenario first.';
+      return judged ? `Replay: Ultra re-judged ${judged} Nano decision${judged === 1 ? '' : 's'} · ${r.disagree} disagreement${r.disagree === 1 ? '' : 's'}` : 'Nothing to replay';
     } finally { BUSY = false; btn.textContent = 'Run Night Shift now'; }
   }
 
@@ -901,34 +913,36 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     return al.length ? `Released ${al.length} alarm${al.length === 1 ? '' : 's'} and cleared zone tags` : 'No alarms to release';
   });
   wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused'; });
-  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined for 10 min`, halt: b => `${b.robot} halted`,
-    broadcast_hazard: () => 'Hazard broadcast to the fleet', rollback_nano: () => 'Rollback requested' };
+  const ACT_MSG = { quarantine_zone: b => `Zone ${b.zone} quarantined for 10 min`, halt: b => `${b.robot} halted`, broadcast_hazard: () => 'Hazard broadcast to the fleet' };
   document.querySelectorAll('[data-action]').forEach(b => wire(b, async () => {
-    const type = b.dataset.action, body = { scene: SCENE, type };
-    if (type === 'quarantine_zone') body.zone = SC.zoneName;
-    if (type === 'halt') body.robot = b.dataset.robot;
-    if (type === 'broadcast_hazard') body.message = `Operator broadcast: hazard at ${SC.zoneName}`;
+    const type = b.dataset.action, body = { scene: SCENE, type }, zone = scnZone();
+    if ((type === 'quarantine_zone' || type === 'broadcast_hazard') && !zone) throw new Error('no zone in this scenario');
+    if (type === 'quarantine_zone') body.zone = zone;
+    if (type === 'halt') { body.robot = $('halt-robot').value; if (!body.robot) throw new Error('no robot selected'); }
+    if (type === 'broadcast_hazard') body.message = `Operator broadcast: hazard at ${zone}`;
     const r = await api('actions', body);
-    if (type === 'escalate') return r.decision ? `Ultra (${fmtMs(r.latency_ms)}): ${r.decision.actions.map(a => a.type).join(', ')} · ${r.decision.rationale || ''}` : 'Ultra returned no valid decision after a retry';
+    if (type === 'escalate') return r.decision ? `Ultra (${fmtMs(r.latency_ms)}): ${r.decision.actions.map(a => a.type).join(', ')} · ${r.decision.rationale || ''}` : 'Ultra returned no valid decision';
     return ACT_MSG[type](body);
   }));
   const tau = $('tau');
   tau.addEventListener('input', () => { tau.dataset.dirty = '1'; $('tau-v').textContent = Number(tau.value).toFixed(2); });
   wire($('tau-save'), async () => { await api('actions', { scene: SCENE, type: 'set_tau', tau: Number(tau.value) }); delete tau.dataset.dirty; return `τ = ${Number(tau.value).toFixed(2)} saved for the next run`; });
 
-  // ---- live floor (simulated motion; zones and halts from KV tags) ----
+  // ---- floor: motion is simulated (no physical robots); robot ids come from the scenario; zones, halts, hazard and person markers come from live state ----
   const cv = $('floor'), cx = cv.getContext('2d');
   const CW = cv.width, CH = cv.height;
   const floorImg = new Image();
   let SC = null, SCENE = 'datacenter', lanes = [], ZONE = null, SPILL = null, PERSON = null, robots = [];
   const CROSS = 731;
-  const rings = [], passed = new Map();
   let last = performance.now();
   function initRobots() {
-    robots = [];
-    for (let i = 0; i < 12; i++) robots.push({ lane: i % lanes.length, x: 60 + (i * 173) % 1000, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22, knows: false, id: 'R' + String([1, 2, 5, 7, 9, 12, 14, 17, 19, 21, 22, 24][i]).padStart(2, '0') });
-    rings.length = 0; passed.clear();
+    robots = lanes.length ? scnRobots().map((id, i) => ({ id, lane: i % lanes.length, x: 100 + (i * 173) % 940, dir: i % 2 ? -1 : 1, v: 34 + (i * 11) % 22 })) : [];
   }
+  const initFleet = () => SC.roads ? (RD && initCars()) : initRobots();
+  // markers are drawn only when the live state reports them: a hazard alarm or closed zone, a person alarm
+  const zoneCells = () => tagNames().filter(t => t.startsWith(SCENE + ':zone:')).map(t => t.slice((SCENE + ':zone:').length));
+  const hazardOn = () => zoneCells().length > 0 || (ST?.alarms || []).some(a => a.sev === 'warn');
+  const personOn = () => (ST?.alarms || []).some(a => a.sev === 'crit' && /^Person/.test(a.title || ''));
   function bot(x, y, dir, fill, id, C) {
     cx.save(); cx.translate(x, y);
     cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-14, -8, 30, 20, 5); cx.fill();
@@ -963,8 +977,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function frame(now) {
     if (SC.roads) return frameRoads(now);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const C = { ok: css('--map-ok'), warn: css('--map-warn'), crit: css('--map-crit'), peer: css('--map-peer'), ink: css('--map-ink'), floor: css('--map-floor') };
-    const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
+    const C = { ok: css('--map-ok'), warn: css('--map-warn'), crit: css('--map-crit'), ink: css('--map-ink'), floor: css('--map-floor') };
+    const tags = tagNames(), cells = zoneCells(), zoneOn = cells.length > 0, halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = C.floor; cx.fillRect(0, 0, CW, CH); }
     cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fillRect(0, 0, CW, CH);
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3;
@@ -975,33 +989,21 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     if (zoneOn) {
       cx.fillStyle = 'rgba(204,52,52,.12)'; cx.fillRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68);
       cx.save(); cx.strokeStyle = C.crit; cx.setLineDash([8, 6]); cx.lineWidth = 2.5; cx.strokeRect(ZONE.x0, zy - 34, ZONE.x1 - ZONE.x0, 68); cx.restore();
-      cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.strokeText(SC.zoneLabel, ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText(SC.zoneLabel, ZONE.x0, zy - 40);
+      cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.strokeStyle = 'rgba(255,255,255,.9)'; const zl = `ZONE ${cells.join(', ')} · QUARANTINED`; cx.strokeText(zl, ZONE.x0, zy - 40); cx.fillStyle = C.crit; cx.fillText(zl, ZONE.x0, zy - 40);
     }
-    cx.fillStyle = 'rgba(56,160,220,.45)'; cx.beginPath(); cx.ellipse(SPILL.x, zy + 2, 30, 13, -.2, 0, 7); cx.fill();
-    cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.stroke();
-    cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(PERSON.x + 2, PERSON.y + 2, 9, 0, 7); cx.fill();
-    cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 9, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.5; cx.stroke();
-    cx.fillStyle = '#3b2f00'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 3.5, 0, 7); cx.fill();
+    if (hazardOn()) { cx.fillStyle = 'rgba(56,160,220,.45)'; cx.beginPath(); cx.ellipse(SPILL.x, zy + 2, 30, 13, -.2, 0, 7); cx.fill();
+      cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.stroke(); }
+    if (personOn()) { cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(PERSON.x + 2, PERSON.y + 2, 9, 0, 7); cx.fill();
+      cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 9, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.5; cx.stroke();
+      cx.fillStyle = '#3b2f00'; cx.beginPath(); cx.arc(PERSON.x, PERSON.y, 3.5, 0, 7); cx.fill(); }
     const paused = !!ST?.paused;
     robots.forEach(r => {
       const stop = paused || halts.includes(r.id);
-      if (!reduce && !stop) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) { r.dir = 1; r.knows = false; } }
-      if (zoneOn && ZONE.lanes.includes(r.lane) && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; r.knows = true; }
+      if (!reduce && !stop) { r.x += r.dir * r.v * dt; if (r.x > CW - 24) r.dir = -1; if (r.x < 92) r.dir = 1; }
+      if (zoneOn && ZONE.lanes.includes(r.lane) && r.x > ZONE.x0 - 22 && r.x < ZONE.x1 + 22) { r.x = r.dir > 0 ? ZONE.x0 - 23 : ZONE.x1 + 23; r.dir *= -1; }
     });
-    for (let i = 0; i < robots.length; i++) for (let j = i + 1; j < robots.length; j++) {
-      const a = robots[i], b = robots[j];
-      if (Math.abs(a.lane - b.lane) === 1 && a.dir !== b.dir && Math.abs(a.x - b.x) < 6) {
-        const key = i + ':' + j;
-        if (now - (passed.get(key) || -1e9) < 1500) continue;
-        passed.set(key, now);
-        if (a.knows !== b.knows) { a.knows = b.knows = true; }
-        rings.push({ x: (a.x + b.x) / 2, y: (lanes[a.lane] + lanes[b.lane]) / 2, age: 0 });
-      }
-    }
-    for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 14 + g.age * 50, 0, 7); cx.stroke(); }
-    cx.globalAlpha = 1;
     const labels = [];
-    robots.forEach(r => { const h = halts.includes(r.id); bot(r.x, lanes[r.lane], r.dir, h ? C.crit : r.knows ? C.warn : C.ok, null, C); labels.push({ x: r.x, y: lanes[r.lane], text: h ? r.id + ' · HALTED' : r.id, color: h ? C.crit : C.ink }); });
+    robots.forEach(r => { const h = halts.includes(r.id); bot(r.x, lanes[r.lane], r.dir, h ? C.crit : C.ok, null, C); labels.push({ x: r.x, y: lanes[r.lane], text: h ? r.id + ' · HALTED' : r.id, color: h ? C.crit : C.ink }); });
     halts.filter(h => !robots.some(r => r.id === h)).forEach((h, k) => { const x = SC.halted.x - k * 40, y = lanes[SC.halted.lane]; bot(x, y, 1, C.crit, null, C); labels.push({ x, y, text: h + ' · HALTED', color: C.crit }); });
     labels.forEach((l, i) => l.i = i);
     drawLabels(labels, C);
@@ -1009,7 +1011,6 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   }
   // ---- experimental San Francisco scene: robotaxis on the real road graph (one-way aware) ----
   let RD = null, cars = [];
-  const AV_IDS = ['AV03', 'AV05', 'AV07', 'AV08', 'AV09', 'AV12', 'AV14', 'AV17', 'AV19', 'AV21', 'AV22', 'AV24'];
   function loadRoads() {
     const sc = SC;
     if (sc._rd) { RD = sc._rd; initCars(); return; }
@@ -1022,8 +1023,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     }).catch(() => {});
   }
   function initCars() {
-    cars = AV_IDS.map((id, i) => { const [a, b] = RD.edges[(i * 67 + 11) % RD.edges.length]; return { id, a, b, t: (i * 0.37) % 1, v: 30 + (i * 7) % 18, knows: false }; });
-    rings.length = 0; passed.clear();
+    cars = scnRobots().map((id, i) => { const [a, b] = RD.edges[(i * 67 + 11) % RD.edges.length]; return { id, a, b, t: (i * 0.37) % 1, v: 30 + (i * 7) % 18 }; });
   }
   function carPos(c) { const A = RD.nodes[c.a], B = RD.nodes[c.b]; return [A[0] + (B[0] - A[0]) * c.t, A[1] + (B[1] - A[1]) * c.t, Math.atan2(B[1] - A[1], B[0] - A[0])]; }
   function nextEdge(c, zoneOn) {
@@ -1035,11 +1035,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   }
   function frameRoads(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const C = { ok: css('--s1'), warn: css('--warn'), crit: css('--crit'), peer: css('--s15'), ink: '#16202a' };
+    const C = { ok: css('--map-ok'), warn: css('--warn'), crit: css('--crit'), ink: '#16202a' };
     const tags = tagNames(), zoneOn = tags.some(t => t.startsWith(SCENE + ':zone:')), halts = tags.filter(t => t.startsWith(SCENE + ':halt:')).map(t => t.split(':').pop());
     if (floorImg.complete && floorImg.naturalWidth) cx.drawImage(floorImg, 0, 0, CW, CH); else { cx.fillStyle = '#e9ece6'; cx.fillRect(0, 0, CW, CH); }
     cx.font = '600 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.92)'; cx.fillStyle = '#16202a';
-    cx.strokeText('REAL STREETS · SIMULATED ROBOTAXIS', 10, CH - 8); cx.fillText('REAL STREETS · SIMULATED ROBOTAXIS', 10, CH - 8);
+    cx.strokeText('SIMULATION', 10, CH - 8); cx.fillText('SIMULATION', 10, CH - 8);
     if (!RD) { if (!reduce) requestAnimationFrame(frame); return; }
     const M = RD.meta;
     if (zoneOn) {
@@ -1049,36 +1049,31 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       const z0 = M.zone[0]; cx.font = '700 11px "JetBrains Mono", Menlo, monospace'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(255,255,255,.92)';
       cx.strokeText(M.zone_label, z0[0] + 14, z0[1] - 8); cx.fillStyle = C.crit; cx.fillText(M.zone_label, z0[0] + 14, z0[1] - 8);
     }
-    // the double-parked truck (hazard) and the pedestrian at the crosswalk
+    // the reported hazard and person, at the places the map data anchors them
     const [hx, hy] = M.hazard;
+    if (hazardOn()) {
     cx.save(); cx.translate(hx, hy); cx.rotate(Math.PI / 4);
     cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(-11, -5, 24, 12); cx.fillStyle = '#ffffff'; cx.strokeStyle = C.warn; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(-12, -6, 24, 12, 2); cx.fill(); cx.stroke();
     cx.restore();
     cx.fillStyle = C.warn; cx.beginPath(); cx.moveTo(hx + 16, hy - 20); cx.lineTo(hx + 26, hy - 4); cx.lineTo(hx + 6, hy - 4); cx.closePath(); cx.fill();
     cx.fillStyle = '#ffffff'; cx.font = '700 11px system-ui, sans-serif'; cx.textAlign = 'center'; cx.fillText('!', hx + 16, hy - 6.5); cx.textAlign = 'start';
+    }
     const [px, py] = M.person;
+    if (personOn()) {
     cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.arc(px + 2, py + 2, 7, 0, 7); cx.fill();
     cx.fillStyle = '#f5d90a'; cx.beginPath(); cx.arc(px, py, 7, 0, 7); cx.fill(); cx.strokeStyle = C.crit; cx.lineWidth = 2.2; cx.stroke();
+    }
     const paused = !!ST?.paused;
     for (const c of cars) {
       if (reduce || paused || halts.includes(c.id)) continue;
       const A = RD.nodes[c.a], B = RD.nodes[c.b], L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1;
       c.t += c.v * dt / L;
       while (c.t >= 1) { const over = (c.t - 1) * L; nextEdge(c, zoneOn); const A2 = RD.nodes[c.a], B2 = RD.nodes[c.b]; c.t = over / (Math.hypot(B2[0] - A2[0], B2[1] - A2[1]) || 1); }
-      const [x, y] = carPos(c); if (Math.hypot(x - hx, y - hy) < 34) c.knows = true;   // saw the truck
     }
     const P = cars.map(carPos);
-    for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
-      if (Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]) > 9) continue;
-      const key = i + ':' + j; if (now - (passed.get(key) || -1e9) < 2500) continue; passed.set(key, now);
-      if (cars[i].knows !== cars[j].knows) cars[i].knows = cars[j].knows = true;
-      rings.push({ x: (P[i][0] + P[j][0]) / 2, y: (P[i][1] + P[j][1]) / 2, age: 0 });
-    }
-    for (let i = rings.length - 1; i >= 0; i--) { const g = rings[i]; g.age += dt || 0.016; if (g.age > 0.9) { rings.splice(i, 1); continue; } cx.strokeStyle = C.peer; cx.globalAlpha = 1 - g.age / 0.9; cx.lineWidth = 3; cx.beginPath(); cx.arc(g.x, g.y, 10 + g.age * 40, 0, 7); cx.stroke(); }
-    cx.globalAlpha = 1;
     const labels = [];
     cars.forEach((c, i) => {
-      const [x, y, ang] = P[i], h = halts.includes(c.id), fill = h ? C.crit : c.knows ? C.warn : C.ok;
+      const [x, y, ang] = P[i], h = halts.includes(c.id), fill = h ? C.crit : C.ok;
       cx.save(); cx.translate(x, y); cx.rotate(ang);
       cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.roundRect(-8, -3.5, 18, 10, 3); cx.fill();
       cx.fillStyle = fill; cx.beginPath(); cx.roundRect(-9, -5, 18, 10, 3); cx.fill(); cx.lineWidth = 1.6; cx.strokeStyle = '#ffffff'; cx.stroke();
@@ -1093,34 +1088,30 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   floorImg.addEventListener('load', () => { if (reduce) frame(performance.now()); });
 
   // ---- scenes ----
+  // per-scene map layout (where lanes and anchors sit on the floor image) and which scenario file feeds it
   const SCENES = {
-    warehouse: { dir: 'assets/scenes/warehouse/', perception: 'assets/perception/warehouse/index.json', site: 'DC-04 Reno · fulfillment center',
-      lanes: [76, 164, 252, 339, 425], labels: [[76, 'AISLE 1'], [164, 'AISLE 2'], [252, 'AISLE 3'], [339, 'AISLE 4'], [425, 'AISLE 5']],
-      zone: { x0: 630, x1: 790, lanes: [3], y: 339 }, zoneLabel: 'ZONE A4 · QUARANTINED', zoneName: 'A4', person: { x: 742, y: 352 }, halted: { x: 604, lane: 3 },
-      cams: [['cam-r14-spill', 'R14', 'aisle 4 · blind corner'], ['cam-r03-person', 'R03', 'aisle 4 · zone A4'], ['cam-r12-forklift', 'R12', 'aisle 4 · blind corner · Day 2'], ['cam-r07-clear', 'R07', 'aisle 2']] },
-    datacenter: { dir: 'assets/scenes/datacenter/', perception: 'assets/perception/datacenter/index.json', site: 'DC-04 · Hall B · data center',
+    datacenter: { scenario: 'hall-b-coolant-leak', dir: 'assets/scenes/datacenter/', perception: 'assets/perception/datacenter/index.json', site: 'DC-04 · Hall B · data center',
       lanes: [100, 124, 226, 250, 352, 376], labels: [[112, 'COLD AISLE 1'], [238, 'COLD AISLE 2'], [364, 'COLD AISLE 3']],
-      zone: { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, zoneLabel: 'ZONE C2 · QUARANTINED', zoneName: 'C2', person: { x: 742, y: 246 }, halted: { x: 604, lane: 2 },
-      cams: [['cam-r14-leak', 'R14', 'cold aisle 2 · row end'], ['cam-r03-person', 'R03', 'cold aisle 2 · zone C2'], ['cam-r12-cart', 'R12', 'cold aisle 2 · row end · Day 2'], ['cam-r07-clear', 'R07', 'cold aisle 1']] },
-    // experimental: robotaxis on real SoMa streets (OpenStreetMap); motion simulated, camera frames synthetic (Cosmos)
-    sanfrancisco: { dir: 'assets/scenes/sanfrancisco/', perception: 'assets/perception/sanfrancisco/index.json', site: 'SoMa, San Francisco · robotaxis (experimental)',
-      roads: 'assets/scenes/sanfrancisco/roads.json', zoneName: 'fremont-mission-howard', zoneText: 'Fremont St (Mission–Howard)', haltRobot: 'AV07',
-      floorSub: 'Simulation · streets from OpenStreetMap',
-      lanes: [], labels: [], zone: null, person: null, halted: null,
-      cams: [['cam-av14-truck', 'AV14', 'Fremont St · Mission–Howard'], ['cam-av03-person', 'AV03', '1st & Mission crosswalk'], ['cam-av12-firetruck', 'AV12', 'Fremont St · later'], ['cam-av07-clear', 'AV07', 'Mission St at 2nd']] },
+      zone: { x0: 630, x1: 790, lanes: [2, 3], y: 238 }, person: { x: 742, y: 246 }, halted: { x: 604, lane: 2 } },
+    warehouse: { scenario: 'aisle4-spill', dir: 'assets/scenes/warehouse/', perception: 'assets/perception/warehouse/index.json', site: 'DC-04 Reno · fulfillment center',
+      lanes: [76, 164, 252, 339, 425], labels: [[76, 'AISLE 1'], [164, 'AISLE 2'], [252, 'AISLE 3'], [339, 'AISLE 4'], [425, 'AISLE 5']],
+      zone: { x0: 630, x1: 790, lanes: [3], y: 339 }, person: { x: 742, y: 352 }, halted: { x: 604, lane: 3 } },
+    // robotaxis on SoMa streets: the road graph is OpenStreetMap data
+    sanfrancisco: { scenario: 'soma-robotaxi', dir: 'assets/scenes/sanfrancisco/', perception: 'assets/perception/sanfrancisco/index.json', site: 'SoMa, San Francisco · robotaxis',
+      roads: 'assets/scenes/sanfrancisco/roads.json', floorSub: 'Simulation · streets © OpenStreetMap',
+      lanes: [], labels: [], zone: null, person: null, halted: null },
   };
   function applyScene(name) {
     if (!SCENES[name]) name = 'datacenter';
     SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null;
     $('site-label').textContent = SC.site;
-    $('q-btn').textContent = SC.zoneText ? `Close ${SC.zoneText}` : `Quarantine zone ${SC.zoneName}`;
-    const hb = $('halt-btn'); hb.dataset.robot = SC.haltRobot || 'R07'; hb.textContent = `Halt robot ${hb.dataset.robot}`;
-    $('h-floor').textContent = SC.roads ? 'Live map' : 'Live floor';
+    $('h-floor').textContent = SC.roads ? 'Map' : 'Floor';
     if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulation';
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
     if (!BUSY) { RAN = false; renderLastRun(); }
     lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person;
-    if (SC.roads) loadRoads(); else initRobots();
+    if (SC.roads) loadRoads();
+    loadScenario();
     floorImg.src = SC.dir + 'floor.jpg';
     renderAll();
     if (!LIVE) fetch(SC.perception).then(r => r.ok ? r.json() : null).then(idx => { if (SC === SCENES[name]) { STATIC_PERC = idx; renderCams(); } }).catch(() => {});
@@ -1131,15 +1122,16 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   document.querySelectorAll('.scene-switch button').forEach(b => b.addEventListener('click', () => { if (BUSY) return say('Wait for the current run to finish before switching scenes'); applyScene(b.dataset.scene); }));
   addEventListener('hashchange', () => { if (!BUSY && location.hash.slice(1) !== SCENE) applyScene(location.hash.slice(1)); });
 
-  // ---- mode: LIVE when /api/health answers, otherwise an offline preview with no data ----
+  // ---- mode: LIVE when /api/health answers; otherwise offline, where only the published Night Shift results are shown ----
   function setMode() {
     const m = $('mode'), b = $('banner');
+    document.querySelector('.wrap').classList.toggle('live', LIVE);
     if (LIVE) {
       m.className = 'mode live'; m.textContent = 'Live'; m.title = 'Connected to the NemoFleet API';
-      b.hidden = HEALTH.nebius_key; b.textContent = 'Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project.';
+      b.hidden = HEALTH.nebius_key; b.textContent = 'Model calls are disabled: no API key is set.';
     } else {
-      m.className = 'mode'; m.textContent = 'Offline preview'; m.title = 'The NemoFleet API is not reachable from this page';
-      b.hidden = false; b.innerHTML = `Offline preview. <a href="${LIVE_URL}">Open the live console</a>.`;
+      m.className = 'mode'; m.textContent = 'Offline'; m.title = 'The NemoFleet API is not reachable from this page';
+      b.hidden = false; b.innerHTML = `Not connected to the NemoFleet API. <a href="${LIVE_URL}">Open the live console</a>.`;
     }
   }
   let initial = location.hash.slice(1);

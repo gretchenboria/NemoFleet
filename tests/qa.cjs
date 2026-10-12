@@ -187,7 +187,7 @@ const server = http.createServer((req, res) => {
   await new Promise(r => setTimeout(r, 800));
   const off = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, banner: !document.getElementById('banner').hidden, text: document.body.innerText,
     kpis: [...document.querySelectorAll('.kpi .v')].map(v => v.textContent) }));
-  check('console offline: labelled "Offline preview" with a banner, and shows no numbers', off.mode === 'Offline preview' && off.banner && off.kpis.every(v => v === '—'), JSON.stringify({ mode: off.mode, kpis: off.kpis }));
+  check('console offline: labelled "Offline" with a banner, and shows no numbers', off.mode === 'Offline' && off.banner && off.kpis.every(v => v === '—'), JSON.stringify({ mode: off.mode, kpis: off.kpis }));
   check('console: no "example only" text anywhere', !/example only/i.test(off.text));
   await page.click('#act-night'); await new Promise(r => setTimeout(r, 200));
   const toast = await page.evaluate(() => { const t = document.getElementById('toast'); return { shown: !t.hidden, text: t.textContent }; });
