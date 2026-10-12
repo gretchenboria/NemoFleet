@@ -7,6 +7,8 @@ Environment:
   ZERO_SHOT  1 to score the untuned model first
   EPOCHS, BATCH, LR, GPU_RATE ($/h, for the cost projection), MAX_RUN_USD (stop rule), GRAD_CKPT
   TINY       1 = random miniature model on CPU, to test this script without a GPU
+  TASK       inway (default) | decide. "decide" trains on any chat JSONL (system, user, assistant) and evaluates
+             by generating the answer; used for Night Shift distillation of Ultra's decisions into Nano.
 
 Scoring is one forward pass per sample: the gap between the logits of `true` and `false` right after
 `{"in_way":`. That gives a ranking, so recall can be read at any false-alarm rate (tools/ego_mix/score.py).
@@ -34,6 +36,7 @@ GPU_RATE, MAX_RUN_USD = float(os.environ.get("GPU_RATE", "1.80")), float(os.envi
 SMOKE_STEPS = int(os.environ.get("SMOKE_STEPS", "50"))
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "0")) or None    # hard cap on training steps in full mode
 EVAL_CAP = int(os.environ.get("EVAL_CAP", "0")) or None      # samples per embodiment in each eval set
+TASK = os.environ.get("TASK", "inway")
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Every nn.Linear that can be adapted, by name: Mamba mixers (in_proj), attention (q/k/v/o_proj) and the
@@ -195,6 +198,52 @@ def generate_check(model, codec, rows, tag):
     return res
 
 
+def action_types(text):
+    try:
+        d = json.loads(text[:text.rindex("}") + 1])
+        return "+".join(sorted({a["type"] for a in d["actions"]})), d.get("confidence")
+    except (ValueError, KeyError, TypeError):
+        return None, None
+
+
+@torch.no_grad()
+def decide_eval(model, codec, rows, tag):
+    """Generate each decision and compare its action types with the teacher's. Also records the probability the
+    model gave to the actions it wrote (everything before "confidence"), a confidence the model cannot talk up."""
+    model.eval()
+    out, t0 = [], time.time()
+    for r in rows:
+        ids = torch.tensor([codec.prefix(r)], device=DEV)
+        with torch.autocast(DEV, dtype=torch.bfloat16, enabled=DEV == "cuda"):
+            gen = model.generate(input_ids=ids, max_new_tokens=220, do_sample=False, pad_token_id=codec.tok.pad_token_id or 0,
+                                 output_scores=True, return_dict_in_generate=True)
+        new = gen.sequences[0, ids.shape[1]:]
+        logp, text, cut = 0.0, "", None
+        for k, (tok_id, step) in enumerate(zip(new.tolist(), gen.scores)):
+            piece = codec.tok.decode(new[:k + 1], skip_special_tokens=True)
+            if cut is None and '"confidence"' in piece:
+                cut = k
+                break
+            logp += torch.log_softmax(step[0].float(), -1)[tok_id].item()
+        text = codec.tok.decode(new, skip_special_tokens=True).strip()
+        got, conf = action_types(text)
+        want, _ = action_types(r["messages"][-1]["content"])
+        out.append({"id": r["meta"]["id"], "kind": r["meta"]["kind"], "category": r["meta"]["category"], "person": r["meta"]["person"],
+                    "valid": got is not None, "agree": got == want, "got": got, "want": want, "stated_confidence": conf,
+                    "actions_logp": round(logp, 4), "text": text[:600]})
+    summary = {"n": len(out), "valid": sum(o["valid"] for o in out), "agree": sum(o["agree"] for o in out),
+               "seconds_per_decision": round((time.time() - t0) / max(len(out), 1), 2)}
+    for kind in ("first", "repeat", "variant", "routine"):
+        mine = [o for o in out if o["kind"] == kind]
+        summary[kind] = f"{sum(o['agree'] for o in mine)}/{len(mine)}"
+    log(f"DECIDE {tag}: {json.dumps(summary)}")
+    for o in out[:2]:
+        log(f"  e.g. {o['text'][:200]!r} | want {o['want']}")
+    os.makedirs(OUT, exist_ok=True)
+    json.dump({"summary": summary, "rows": out}, open(os.path.join(OUT, f"decide_{tag}.json"), "w"))
+    return summary
+
+
 def batches(codec, rows, bs, seed):
     rng = random.Random(seed)
     rows = rows[:]
@@ -283,25 +332,32 @@ def main():
         base.gradient_checkpointing_enable()
     eval_set = os.environ.get("EVAL_SET", "ego_mix")  # folder holding val.jsonl and test.jsonl
     val_all, test_all = load_rows(eval_set, "val"), load_rows(eval_set, "test")
-    val = eval_subset(val_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
-    test = eval_subset(test_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
-    val_loss_rows = eval_subset(val_all, 150, per_emb=16 if smoke else 100)
+    decide = TASK == "decide"
+    if decide:
+        val, test = val_all[:EVAL_CAP or (12 if smoke else None)], test_all[:EVAL_CAP or (12 if smoke else None)]
+        val_loss_rows = val[:200]
+    else:
+        val = eval_subset(val_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
+        test = eval_subset(test_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
+        val_loss_rows = eval_subset(val_all, 150, per_emb=16 if smoke else 100)
+    evaluate = decide_eval if decide else score
     codec = Codec(tok, val_all[0])
     results = {"mode": MODE, "model": MODEL, "targets": TARGETS, "runs": {}}
     if os.environ.get("ZERO_SHOT", "1") == "1":
-        results["zero_shot"] = {"val": score(base, codec, val, "zero_shot_val")}
+        results["zero_shot"] = {"val": evaluate(base, codec, val, "zero_shot_val")}
         if not smoke:
-            results["zero_shot"]["test"] = score(base, codec, test, "zero_shot_test")
+            results["zero_shot"]["test"] = evaluate(base, codec, test, "zero_shot_test")
     for run in os.environ.get("RUNS", "ego_mix").split(","):
         rows = load_rows(run, "train")
         model = add_lora(base, seed=7)
         res = {"train": train(model, codec, rows[:BATCH * SMOKE_STEPS] if smoke else rows, val_loss_rows, run, max_steps=SMOKE_STEPS if smoke else MAX_STEPS)}
         if not smoke:  # score the checkpoint with the lowest val loss, not the last step
             set_peft_model_state_dict(model, load_file(os.path.join(OUT, f"adapter_{run}", "adapter_model.safetensors")))
-        res["val"] = score(model, codec, val, f"{run}_val")
+        res["val"] = evaluate(model, codec, val, f"{run}_val")
         if not smoke:
-            res["test"] = score(model, codec, test, f"{run}_test")
-        res["generation"] = generate_check(model, codec, val[:3] if smoke else random.Random(7).sample(val, min(300, len(val))), run)
+            res["test"] = evaluate(model, codec, test, f"{run}_test")
+        if not decide:
+            res["generation"] = generate_check(model, codec, val[:3] if smoke else random.Random(7).sample(val, min(300, len(val))), run)
         results["runs"][run] = res
         json.dump(results, open(os.path.join(OUT, "results.json"), "w"), indent=2)
         base = model.unload()  # back to the untouched base model for the next run
