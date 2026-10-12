@@ -122,9 +122,64 @@ const parse = t => { try { return JSON.parse(t); } catch { return null; } };
 const decisionRow = (p, t = now()) => ({ id: p.id, cell: p.hazard_key, situation: String(p.situation || '').replace(/\n(Perception|Fleet memory)[\s\S]*$/, '').replace(/\s+/g, ' ').slice(0, 220), decision: parse(p.decision_json), source: p.source, model: p.model, confidence: p.confidence,
   created_at: p.created_at, expires_at: p.expires_at, pinned: !!p.pinned, revoked: !!p.revoked_at, revoked_at: p.revoked_at || null, superseded_by: p.superseded_by || null, safety: !!p.safety, alarm_id: p.alarm_id || null, status: decisionStatus(p, t), reuse_count: p.reuse_count ?? null });
 
+// Autonomy target: the share of self-settled decisions that may differ from Ultra. Only the levels measured for the tuned
+// Nano (config/night_shift.json distill.gate.levels) can be chosen. It is the gate for the tuned adapter; the served Nano is gated by stated confidence and tau.
+async function gateLevels(env, req) { try { return (await (await asset(env, req, '/config/night_shift.json')).json()).distill?.gate?.levels || []; } catch { return []; } }
+async function autonomyFor(env, req, scene) {
+  const t = Number(await env.TAGS.get(`${scene}:autonomy`)), level = t > 0 ? (await gateLevels(env, req)).find(l => l.target_error === t) : null;
+  return { target_error: level ? t : null, level: level || null, in_force: 'stated_confidence' };
+}
 async function tauFor(env, scene, sc) { const t = Number(await env.TAGS.get(`${scene}:tau`)); return t >= 0.3 && t <= 0.9 ? t : sc.tau; }
 async function applyZones(env, scene, decision, by, run_id) {
   for (const a of decision.actions) if (a.type === 'quarantine_zone') for (const c of a.cells || []) await env.TAGS.put(`${scene}:zone:${c}`, JSON.stringify({ by, run_id, at: now() }), { expirationTtl: Math.max(60, a.ttl_s || 600) });
+}
+
+const EVENT_KINDS = ['routine', 'first_sighting', 'repeat_sighting', 'variant', 'safety', 'peer_handshake'];
+// One event through the pipeline: perception, fleet-memory lookup, Nano or Ultra, actions, stored decision, alarm.
+// Shared by the rehearsal runner (POST scenario/step) and by robots posting their own events (POST events).
+async function runEvent(env, req, scene, run_id, i, ev, sc) {
+  if (await env.TAGS.get(`${scene}:pause`)) return J({ t: ev.t, robot: ev.robot, tier: 'paused', model_calls: 0, note: 'fleet paused by operator; no model call made' });
+  const tau = await tauFor(env, scene, sc);
+  if (ev.kind === 'peer_handshake') {
+    const prev = await env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
+    if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
+    await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
+    return J({ t: ev.t, robot: ev.robot, tier: 'peer', model_calls: 0, note: prev ? `received precedent (hop ${(prev.hops || 0) + 1})` : 'no precedent yet to pass on' });
+  }
+  const m = await models(env, req);
+  let seen = null, perception_error = null;
+  const pref = {}, at = { event_index: i };
+  if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame, pref).catch(e => { perception_error = e.message; return null; });
+  const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
+  let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
+  // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
+  // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
+  const hazard = ['first_sighting', 'repeat_sighting', 'variant'].includes(ev.kind) || !!(seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length);
+  const memo = hazard && ev.cell && !safety ? await lookupDecision(env, scene, ev.cell) : null;
+  if (memo) ctx += `\nFleet memory: ${memo.source === 'operator' ? 'the operator' : 'Ultra'} already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
+  const novel = hazard && !memo;
+  let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null, created = null;
+  if (tier === 'nano' && (!out.decision || out.decision.confidence < tau)) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
+  if (memo) {
+    memory = { precedent: memo.id, cell: ev.cell, from: memo.created_at, ultra_avoided: tier === 'nano' && !!out.decision };
+    await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id, at);
+  }
+  if (!out.decision) {  // invalid twice → safe stop (HANDOFF/ARCHITECTURE safety invariant)
+    await env.TAGS.put(`${scene}:halt:${ev.robot}`, JSON.stringify({ by: 'safe_stop', run_id, at: now() }), { expirationTtl: 3600 });
+    await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id, at);
+  } else {
+    await action(env, scene, 'decision', out.decision, tier, run_id, at);
+    if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
+    await applyZones(env, scene, out.decision, tier, run_id);
+  }
+  const link = { event_index: i, event: { robot: ev.robot, where: ev.where, text: ev.text, cell: ev.cell || null, kind: ev.kind, frame: ev.frame || null }, safety, call_id: out.call_id, perception_id: pref.id || null,
+    precedent_id: created || memo?.id || null, precedent_link: created ? 'created' : memo ? 'reused' : null };
+  if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
+  else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
+  else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
+  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
 }
 
 async function incident(env, id) {
@@ -172,7 +227,7 @@ const routes = {
     // Fleet memory: Ultra calls avoided, and what an Ultra call costs on average (real calls only).
     const memory = await env.MEMORY.prepare("SELECT SUM(type = 'memory_hit') hits, SUM(type = 'memory_override') overrides FROM actions WHERE scene = ?").bind(scene).first();
     const ultra = await env.MEMORY.prepare("SELECT COUNT(*) n, AVG(latency_ms) ms, AVG(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)) tokens FROM calls WHERE scene = ? AND tier = 'ultra' AND valid = 1").bind(scene).first();
-    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, paused: !!(await env.TAGS.get(`${scene}:pause`)),
+    return J({ scene, alarms, actions, calls, perception, precedents: { ...precedents[0], peer_total }, night_shift: night, tags, tau, tau_default: sc.tau, autonomy: await autonomyFor(env, req, scene), paused: !!(await env.TAGS.get(`${scene}:pause`)),
       memory: { hits: memory?.hits || 0, overrides: memory?.overrides || 0, ultra_calls: ultra?.n || 0, ultra_avg_ms: ultra?.ms ?? null, ultra_avg_tokens: ultra?.tokens ?? null } });
   },
   'POST alarms/ack': async (env, req, url, body) => { await env.MEMORY.prepare("UPDATE alarms SET status = CASE status WHEN 'acked' THEN 'open' ELSE 'acked' END, updated_at = ? WHERE id = ?").bind(now(), body.id).run(); return J({ ok: true }); },
@@ -193,6 +248,12 @@ const routes = {
     else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); alarm_id = await alarm(env, scene, 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
     else if (type === 'resume_fleet') { await env.TAGS.delete(`${scene}:pause`); }
     else if (type === 'set_tau') { const t = Number(body.tau); if (!(t >= 0.3 && t <= 0.9)) return J({ error: 'tau must be in [0.30, 0.90]' }, 400); await env.TAGS.put(`${scene}:tau`, String(t)); }
+    else if (type === 'set_autonomy') {
+      if (body.target_error == null) await env.TAGS.delete(`${scene}:autonomy`);
+      else { const levels = await gateLevels(env, req), t = Number(body.target_error);
+        if (!levels.some(l => l.target_error === t)) return J({ error: levels.length ? `target_error must be one of ${levels.map(l => l.target_error).join(', ')}` : 'no measured gate levels are published' }, 400);
+        await env.TAGS.put(`${scene}:autonomy`, String(t)); }
+    }
     else if (type === 'rollback_nano') { await env.TAGS.put(`${scene}:adapter`, JSON.stringify({ adapter: 'previous', at: now() })); }
     else if (type === 'escalate') {
       const m = await models(env, req), open = await env.MEMORY.prepare("SELECT title, meta FROM alarms WHERE scene = ? AND status = 'open' ORDER BY created_at DESC LIMIT 3").bind(scene).all();
@@ -212,48 +273,22 @@ const routes = {
   'POST scenario/step': async (env, req, url, body) => {
     const { scene, run_id, i } = body, sc = await scenario(env, req, scene), ev = sc.events[i];
     if (!ev) return J({ error: 'no such event' }, 400);
-    if (await env.TAGS.get(`${scene}:pause`)) return J({ t: ev.t, robot: ev.robot, tier: 'paused', model_calls: 0, note: 'fleet paused by operator; no model call made' });
-    const tau = await tauFor(env, scene, sc);
-    if (ev.kind === 'peer_handshake') {
-      const prev = await env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
-      if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
-      await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
-      return J({ t: ev.t, robot: ev.robot, tier: 'peer', model_calls: 0, note: prev ? `received precedent (hop ${(prev.hops || 0) + 1})` : 'no precedent yet to pass on' });
-    }
-    const m = await models(env, req);
-    let seen = null, perception_error = null;
-    const pref = {}, at = { event_index: i };
-    if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame, pref).catch(e => { perception_error = e.message; return null; });
-    const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
-    let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
-    // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
-    // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
-    const hazard = ['first_sighting', 'repeat_sighting', 'variant'].includes(ev.kind) || !!(seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length);
-    const memo = hazard && ev.cell && !safety ? await lookupDecision(env, scene, ev.cell) : null;
-    if (memo) ctx += `\nFleet memory: ${memo.source === 'operator' ? 'the operator' : 'Ultra'} already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
-    const novel = hazard && !memo;
-    let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null, created = null;
-    if (tier === 'nano' && (!out.decision || out.decision.confidence < tau)) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
-    if (memo) {
-      memory = { precedent: memo.id, cell: ev.cell, from: memo.created_at, ultra_avoided: tier === 'nano' && !!out.decision };
-      await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id, at);
-    }
-    if (!out.decision) {  // invalid twice → safe stop (HANDOFF/ARCHITECTURE safety invariant)
-      await env.TAGS.put(`${scene}:halt:${ev.robot}`, JSON.stringify({ by: 'safe_stop', run_id, at: now() }), { expirationTtl: 3600 });
-      await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id, at);
-    } else {
-      await action(env, scene, 'decision', out.decision, tier, run_id, at);
-      if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
-      await applyZones(env, scene, out.decision, tier, run_id);
-    }
-    const link = { event_index: i, event: { robot: ev.robot, where: ev.where, text: ev.text, cell: ev.cell || null, kind: ev.kind, frame: ev.frame || null }, safety, call_id: out.call_id, perception_id: pref.id || null,
-      precedent_id: created || memo?.id || null, precedent_link: created ? 'created' : memo ? 'reused' : null };
-    if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
-    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
-    else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
-    return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
+    return runEvent(env, req, scene, run_id, i, ev, sc);
+  },
+  // A robot posts one event; it goes through the same pipeline as a rehearsal step. Events are grouped under one run per scene per day unless a run_id is passed.
+  'POST events': async (env, req, url, body) => {
+    const { scene } = body, errs = [];
+    if (!SCENARIOS[scene]) return J({ error: `scene must be one of ${Object.keys(SCENARIOS).join(', ')}` }, 400);
+    for (const k of ['robot', 'where', 'kind', 'text']) if (typeof body[k] !== 'string' || !body[k].trim()) errs.push(`"${k}" is required`);
+    for (const k of ['device', 'cell', 'frame', 'from', 'run_id']) if (body[k] != null && (typeof body[k] !== 'string' || !body[k].trim())) errs.push(`"${k}" must be a non-empty string`);
+    if (typeof body.kind === 'string' && body.kind.trim() && !EVENT_KINDS.includes(body.kind)) errs.push(`"kind" must be one of ${EVENT_KINDS.join(', ')}`);
+    if (body.frame != null && !/^[\w-]+$/.test(String(body.frame))) errs.push('"frame" must be a camera frame name');
+    if (errs.length) return J({ error: errs.join('; '), errors: errs }, 400);
+    const sc = await scenario(env, req, scene), t = now(), run_id = body.run_id || `events-${scene}-${t.slice(0, 10)}`;
+    await env.MEMORY.prepare('INSERT OR IGNORE INTO runs (id, scenario, scene, dry_run, started_at, r2_prefix) VALUES (?,?,?,?,?,?)').bind(run_id, 'events', scene, 0, t, `calls/${scene}/`).run();
+    const ev = { t, robot: body.robot.trim(), device: body.device || null, where: body.where.trim(), cell: body.cell || null, kind: body.kind, text: body.text.trim().slice(0, 2000), frame: body.frame || null, from: body.from || 'fleet' };
+    const res = await runEvent(env, req, scene, run_id, Date.now() % 86400000, ev, sc), out = await res.json();  // event_index: the millisecond of the day, unique within the day's run
+    return J({ run_id, ...out }, res.status);
   },
   'POST scenario/finish': async (env, req, url, body) => {
     const t = await env.MEMORY.prepare('SELECT tier, COUNT(*) n FROM calls WHERE run_id = ? GROUP BY tier').bind(body.run_id).all();

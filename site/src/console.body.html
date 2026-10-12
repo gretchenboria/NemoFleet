@@ -314,6 +314,15 @@ table.proof tr.total td { border-bottom: 0; border-top: 1px solid var(--ink-2); 
 .tau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tau input { width: 180px; max-width: 100%; accent-color: var(--accent-ink); }
 .tau .sub { color: var(--muted); font-size: 12px; }
+.auto { display: grid; gap: 8px; flex: 1 1 100%; min-width: 0; }
+.auto-row { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.auto-levels { display: flex; gap: 4px; flex-wrap: wrap; }
+.auto-levels .btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.auto table { border-collapse: collapse; font-size: 12.5px; max-width: 560px; width: 100%; }
+.auto th { text-align: left; font-family: var(--f-display); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 4px 12px 4px 0; }
+.auto td { padding: 4px 12px 4px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.auto .gate-line { font-size: 12.5px; display: flex; gap: 4px 18px; flex-wrap: wrap; }
+.auto .gate-line b { font-weight: 600; }
 
 /* learning, memory, usage */
 .charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
@@ -391,7 +400,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       <a class="btn link" id="act-cosmos" hidden href="https://tokenfactory.nebius.com/" target="_blank" rel="noopener">Stop endpoint ↗</a>
       <button class="btn link danger" id="act-pause" data-confirm="Confirm: pause the fleet?">Pause fleet</button>
       <button class="btn quiet" id="act-night">Run Night Shift now</button>
-      <button class="btn primary" id="act-run">Run scenario</button>
+      <button class="btn primary" id="act-run">Run rehearsal</button>
     </div>
   </header>
   <div class="banner" id="banner" hidden></div>
@@ -455,7 +464,12 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
     <div class="ns-learn" id="ns-learn"></div>
     <div class="ns-foot">
-      <div class="tau"><label for="tau" class="label">Escalation threshold τ</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" disabled><span class="num mono" id="tau-v">—</span><span class="sub" id="tau-note"></span></div>
+      <div class="auto" id="auto">
+        <div class="auto-row"><span class="label" id="auto-label">Autonomy target</span><div class="auto-levels" id="auto-levels" role="group" aria-labelledby="auto-label"></div><span class="sub" id="auto-unit"></span></div>
+        <table aria-label="Measured gates"><thead><tr><th>Gate</th><th>Settles without Ultra</th><th>Differ from Ultra</th></tr></thead><tbody id="auto-evidence"></tbody></table>
+        <div class="gate-line" id="gate-line"></div>
+      </div>
+      <div class="tau"><label for="tau" class="label">Current gate τ</label><input id="tau" type="range" min="0.30" max="0.90" step="0.01" disabled><span class="num mono" id="tau-v">—</span><span class="sub" id="tau-note"></span></div>
       <button class="btn sm" id="tau-save">Apply τ</button>
     </div>
   </section>
@@ -697,6 +711,25 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     });
   }
 
+  // ---- autonomy: the measured gate levels for the tuned Nano; the served Nano stays on stated confidence and τ ----
+  const per100 = t => +(t * 100).toFixed(2);
+  function renderAutonomy() {
+    const g = NS?.distill?.gate, levels = g?.levels || [], au = ST?.autonomy, box = $('auto-levels');
+    $('auto').hidden = !levels.length; if (!levels.length) return;
+    if (box.dataset.sig !== levels.map(l => l.target_error).join()) {
+      box.dataset.sig = levels.map(l => l.target_error).join(); box.innerHTML = '';
+      for (const l of levels) { const b = document.createElement('button'); b.className = 'btn sm quiet'; b.dataset.target = l.target_error; b.textContent = per100(l.target_error);
+        b.setAttribute('aria-label', `At most ${per100(l.target_error)} in 100`);
+        wire(b, async () => { const on = ST?.autonomy?.target_error === l.target_error; await api('actions', { scene: SCENE, type: 'set_autonomy', target_error: on ? null : l.target_error }); return on ? 'Autonomy target cleared' : `Autonomy target: at most ${per100(l.target_error)} in 100`; });
+        box.appendChild(b); }
+    }
+    box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(au?.target_error === Number(b.dataset.target))));
+    $('auto-unit').textContent = 'in 100 may differ from Ultra';
+    const lv = levels.find(l => l.target_error === au?.target_error), ev = (name, x) => `<tr><td>${name}</td><td>${fmtInt(x.settled[0])} of ${fmtInt(x.settled[1])}</td><td>${fmtInt(x.wrong)}</td></tr>`;
+    $('auto-evidence').innerHTML = (lv ? ev(`Probability, target ${per100(lv.target_error)}%`, lv) : '') + (g.stated_confidence ? ev('Stated confidence', g.stated_confidence) : '');
+    $('gate-line').innerHTML = ST ? `<span><b>In force:</b> ${au?.in_force === 'stated_confidence' ? 'stated confidence' : esc(au?.in_force || DASH)}, τ ${Number(ST.tau).toFixed(2)}</span><span><b>Ready:</b> ${lv ? `probability gate, target ${per100(lv.target_error)}%` : 'no target set'}</span>` : '';
+  }
+
   // ---- decision book: stored decisions for this scene ----
   function renderDecisions() {
     const body = $('dec'), list = DEC?.decisions || [], hit = body.querySelector('tr.hit')?.dataset.id;
@@ -841,6 +874,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       stage('consolidate' + (NS ? '' : ' off'), 'Consolidate', NS ? fmtInt(NS.distill.events) : DASH,
         NS ? `events decided by Ultra · Nano fine-tune ${NS.distill.fine_tune.status === 'done' ? 'done' : 'running'}` : 'no fine-tune results');
     renderLearned();
+    renderAutonomy();
     const tau = $('tau');
     tau.disabled = !ST;
     if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }
@@ -909,7 +943,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
     const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
     const rows = [...byEv.values()];
-    $('run-sub').textContent = `Last run · ${rows.length} decisions`;
+    $('run-sub').textContent = `${/^events-/.test(run) ? 'Robot events' : 'Last rehearsal'} · ${rows.length} decisions`;
     // a hazard event (sighting / variant) that ends on Nano only happens when a stored Ultra precedent for the cell was reused (functions/api scenario/step)
     $('runlist').innerHTML = rows.map(e => { const f = e.final || e, d = parse(f.decision_json), tier = e.tiers.includes('ultra') ? 'ultra' : 'nano';
       const by = tier === 'nano' && /sighting|variant/.test(e.event) ? 'mem' : tier;
@@ -951,7 +985,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     try {
       const s = await api('scenario/start', { scene });
       const out = s.events.map(() => null), errs = s.events.map(() => null);
-      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
+      const paint = i => { $('runlist').innerHTML = s.events.map((ev, j) => rrow(ev, out[j], errs[j])).join(''); $('run-sub').textContent = `Rehearsal · τ ${s.tau}` + (i < s.events.length ? ` · event ${i + 1} of ${s.events.length}` : ' · finished'); };
       paint(0);
       for (let i = 0; i < s.events.length; i++) {
         try { out[i] = await api('scenario/step', { scene, run_id: s.run_id, i }); } catch (e) { errs[i] = e.message; }
@@ -959,8 +993,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       }
       const f = await api('scenario/finish', { run_id: s.run_id });
       const failed = errs.filter(Boolean).length;
-      return `Run finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed` : ''}`;
-    } finally { BUSY = false; btn.textContent = 'Run scenario'; }
+      return `Rehearsal finished · ${(f.totals || []).map(t => `${t.n} ${t.tier}`).join(' · ') || 'no model calls'}${failed ? ` · ${failed} event${failed === 1 ? '' : 's'} failed` : ''}`;
+    } finally { BUSY = false; btn.textContent = 'Run rehearsal'; }
   }
 
   // ---- Night Shift replay loop ----
