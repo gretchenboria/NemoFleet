@@ -1,7 +1,7 @@
 """Mix human-ego, robot-ego and vehicle-ego samples into train/val/test chat JSONL plus a manifest.
 
   python3 tools/ego_mix/mix.py OUT_DIR SAMPLES.jsonl [...] [--split 80,10,10] [--mix human:1,robot:1,vehicle:1]
-                               [--neg-per-pos 3] [--open-only] [--seed 7]
+                               [--neg-per-pos 3] [--open-only] [--seed 7] [--train-extra FILE:EMBODIMENT:N:POS_FRAC]
 
 How the split is made, and why:
 - By group, not by sample. Windows overlap (one per second, 7 s long) and one place is recorded several
@@ -21,6 +21,8 @@ How the split is made, and why:
 The manifest lists warnings when a split rests on a single group, or misses its target share or the
 overall positive rate by more than 5 points.
 --open-only drops non-commercial and unverified sources so the result can be shared.
+--train-extra appends N samples of one embodiment from another samples file to train only, at the given
+positive fraction (for simulated data). Those rows never take part in the split, so val and test are unchanged.
 """
 import collections
 import json
@@ -153,6 +155,12 @@ def main():
         train[e] = pos + rng.sample(neg, min(len(neg), int(cap * len(pos))))
     unit = min(len(train[e]) / weights[e] for e in train)  # the scarcest embodiment sets the size
     by["train"] = [r for e in train for r in rng.sample(train[e], int(unit * weights[e]))]
+    if "--train-extra" in a:
+        path, emb, n, pos_frac = a[a.index("--train-extra") + 1].split(":")
+        extra = [r for r in map(json.loads, open(path)) if r["embodiment"] == emb]
+        pos, neg = [r for r in extra if is_pos(r)], [r for r in extra if not is_pos(r)]
+        n_pos = round(int(n) * float(pos_frac))
+        by["train"] += rng.sample(pos, min(len(pos), n_pos)) + rng.sample(neg, min(len(neg), int(n) - n_pos))
     rng.shuffle(by["train"])
 
     os.makedirs(a[0], exist_ok=True)
