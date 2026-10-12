@@ -7,8 +7,11 @@ Environment:
   ZERO_SHOT  1 to score the untuned model first
   EPOCHS, BATCH, LR, GPU_RATE ($/h, for the cost projection), MAX_RUN_USD (stop rule), GRAD_CKPT
   TINY       1 = random miniature model on CPU, to test this script without a GPU
-  TASK       inway (default) | decide. "decide" trains on any chat JSONL (system, user, assistant) and evaluates
-             by generating the answer; used for Night Shift distillation of Ultra's decisions into Nano.
+  TASK       inway (default) | decide | multi. "decide" trains on any chat JSONL (system, user, assistant) and
+             evaluates by generating the answer; used for Night Shift distillation of Ultra's decisions into Nano.
+             "multi" trains one adapter on both tasks and evaluates both: EVAL_SET for person-in-the-way and
+             DECIDE_SET for decisions.
+  LORA_R     LoRA rank (default 16); alpha is always twice the rank.
 
 Scoring is one forward pass per sample: the gap between the logits of `true` and `false` right after
 `{"in_way":`. That gives a ranking, so recall can be read at any false-alarm rate (tools/ego_mix/score.py).
@@ -37,6 +40,7 @@ SMOKE_STEPS = int(os.environ.get("SMOKE_STEPS", "50"))
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "0")) or None    # hard cap on training steps in full mode
 EVAL_CAP = int(os.environ.get("EVAL_CAP", "0")) or None      # samples per embodiment in each eval set
 TASK = os.environ.get("TASK", "inway")
+LORA_R = int(os.environ.get("LORA_R", "16"))
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Every nn.Linear that can be adapted, by name: Mamba mixers (in_proj), attention (q/k/v/o_proj) and the
@@ -124,7 +128,7 @@ def load_model():
 
 def add_lora(model, seed):
     torch.manual_seed(seed)
-    peft_model = get_peft_model(model, LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, target_modules=TARGETS, task_type="CAUSAL_LM"))
+    peft_model = get_peft_model(model, LoraConfig(r=LORA_R, lora_alpha=2 * LORA_R, lora_dropout=0.05, target_modules=TARGETS, task_type="CAUSAL_LM"))
     wrapped = [n for n, m in peft_model.named_modules() if hasattr(m, "lora_A") and n.split(".")[-1] in TARGETS]
     kinds = {t: sum(n.endswith("." + t) for n in wrapped) for t in TARGETS}
     trainable = sum(p.numel() for p in peft_model.parameters() if p.requires_grad)
@@ -336,11 +340,21 @@ def main():
     if decide:
         val, test = val_all[:EVAL_CAP or (12 if smoke else None)], test_all[:EVAL_CAP or (12 if smoke else None)]
         val_loss_rows = val[:200]
+        evaluate = decide_eval
     else:
         val = eval_subset(val_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
         test = eval_subset(test_all, 1500, per_emb=EVAL_CAP or (20 if smoke else None))
         val_loss_rows = eval_subset(val_all, 150, per_emb=16 if smoke else 100)
-    evaluate = decide_eval if decide else score
+        evaluate = score
+    if TASK == "multi":  # one adapter, both tasks: score each with its own evaluator
+        dset = os.environ.get("DECIDE_SET", "decide_v1")
+        dval, dtest = load_rows(dset, "val")[:EVAL_CAP], load_rows(dset, "test")[:EVAL_CAP]
+        val_loss_rows = val_loss_rows + dval[:150]
+        inway_val, inway_test = val, test
+
+        def evaluate(model, codec, rows, tag):
+            which = "test" if rows is inway_test else "val"
+            return {"inway": score(model, codec, rows, tag), "decide": decide_eval(model, codec, dtest if which == "test" else dval, tag)}
     codec = Codec(tok, val_all[0])
     results = {"mode": MODE, "model": MODEL, "targets": TARGETS, "runs": {}}
     if os.environ.get("ZERO_SHOT", "1") == "1":
@@ -356,7 +370,7 @@ def main():
         res["val"] = evaluate(model, codec, val, f"{run}_val")
         if not smoke:
             res["test"] = evaluate(model, codec, test, f"{run}_test")
-        if not decide:
+        if TASK == "inway":
             res["generation"] = generate_check(model, codec, val[:3] if smoke else random.Random(7).sample(val, min(300, len(val))), run)
         results["runs"][run] = res
         json.dump(results, open(os.path.join(OUT, "results.json"), "w"), indent=2)
