@@ -206,3 +206,18 @@ Validation shows the same pattern (84% tuned, 61% untuned, 77% served).
 Escalation gate: the tuned model's stated confidence would settle 330 of 332 test events with 12.4% wrong. The probability it assigned to its own actions, thresholded on val, settles 165 (50%) with none wrong, or 201 (61%) with 1 wrong. For the untuned model the same gate settles only 37 (11%).
 
 Limits: agreement is on action types, not arguments; the events are model-written, not from a real site; person events still go to Ultra by rule, and 75% agreement there says that rule should stay.
+
+## 15. Run `multi-1`: one adapter for both tasks (2026-10-12)
+
+Trained on half of the person-in-the-way set (8,040) plus the decision set three times over (4,080), 2 epochs; best val loss after epoch 1.
+
+| Test metric | Single-task adapter | Combined adapter |
+|---|---|---|
+| Person in the way, AUROC robot / human / vehicle | 0.918 / 0.899 / 0.995 (`plan-1`) | 0.868 / 0.859 / 0.984 |
+| Decisions, agreement with Ultra (332 events) | 88% (`decide-1`) | 84% |
+
+The combined adapter is worse on both tasks, so the two single-task adapters stay. It saw half the person-in-the-way data, which accounts for part of that gap; the decision gap suggests the tasks also compete at this rank.
+
+## 16. The gate, corrected after running it live (2026-10-12)
+
+Serving `decide-1` behind the live pipeline (`tools/ego_mix/serve.py`) showed that the first gate, the probability of every token before `"confidence"`, also scored the free text of alert messages: decisions that alert a human had a median probability of 0.004 and were always sent to Ultra, however sure the model was of the action. The gate now scores only the tokens that spell each action type and that continue or close the action list. It is re-measured through the serving endpoint with `tools/night_shift/gate_eval.py`; `config/night_shift.json` carries the current levels.

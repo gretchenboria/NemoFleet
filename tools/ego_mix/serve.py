@@ -3,13 +3,14 @@
   ADAPTER_DIR=/path/to/adapter SERVE_TOKEN=... PORT=8000 python tools/ego_mix/serve.py
 
 POST /v1/chat/completions {"messages": [...]} with "Authorization: Bearer <SERVE_TOKEN>" returns the usual
-choices[0].message.content plus "actions_probability": the probability the model gave to the actions it wrote
-(everything before "confidence"). The console's autonomy gate uses that number instead of the confidence the
+choices[0].message.content plus "actions_probability": the probability the model gave to the action types it
+chose and to how many actions it wrote (free text such as alert messages is not counted). The console's autonomy gate uses that number instead of the confidence the
 model states. One request at a time; this is for one site's reflex tier, not a public service.
 """
 import json
 import math
 import os
+import re
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,12 +35,22 @@ def decide(messages, max_new_tokens=220):
     with torch.autocast(train.DEV, dtype=torch.bfloat16, enabled=train.DEV == "cuda"):
         gen = model.generate(input_ids=ids, max_new_tokens=max_new_tokens, do_sample=False, pad_token_id=tok.pad_token_id or 0,
                              output_scores=True, return_dict_in_generate=True)
-    new, logp = gen.sequences[0, ids.shape[1]:], 0.0
+    new = gen.sequences[0, ids.shape[1]:]
+    # Probability of the action choices only: the tokens that spell each action "type" and the tokens that
+    # continue or close the actions list. Free text (alert messages, rationale) is left out, otherwise any
+    # decision that writes a message looks improbable however sure the model is about what to do.
+    pieces, spans, prev = [], [], ""
     for k, (tok_id, step) in enumerate(zip(new.tolist(), gen.scores)):
-        if '"confidence"' in tok.decode(new[:k + 1], skip_special_tokens=True):
-            break
-        logp += torch.log_softmax(step[0].float(), -1)[tok_id].item()
-    return tok.decode(new, skip_special_tokens=True).strip(), math.exp(logp), ids.shape[1], len(new)
+        cur = tok.decode(new[:k + 1], skip_special_tokens=True)
+        pieces.append((len(prev), len(cur), torch.log_softmax(step[0].float(), -1)[tok_id].item()))
+        prev = cur
+    head = prev.split('"confidence"')[0]
+    for m in re.finditer(r'"type"\s*:\s*"([a-z_]+)"', head):
+        spans.append(m.span(1))
+    for m in re.finditer(r'\}\s*([,\]])', head):
+        spans.append(m.span(1))
+    logp = sum(lp for a, b, lp in pieces if any(a < e and b > s for s, e in spans))
+    return prev.strip(), (math.exp(logp) if spans else 0.0), ids.shape[1], len(new)
 
 
 class Handler(BaseHTTPRequestHandler):
