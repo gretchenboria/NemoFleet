@@ -1,0 +1,127 @@
+{
+  "mode": "full",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "targets": [
+    "in_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "runs": {
+    "ego_mix_plan": {
+      "train": {
+        "steps": 8040,
+        "seconds": 2449,
+        "tokens_per_s": 6375,
+        "first_loss": 1.6816,
+        "last_loss": 0.05,
+        "best_val_loss": 0.0606,
+        "best_step": 8040,
+        "usd": 0.54
+      },
+      "val": {
+        "human": {
+          "n": 922,
+          "pos": 398,
+          "auroc": 0.919,
+          "recall_at_10pct_false_alarms": 0.724,
+          "accuracy_at_0": 0.83
+        },
+        "robot": {
+          "n": 441,
+          "pos": 125,
+          "auroc": 0.958,
+          "recall_at_10pct_false_alarms": 0.832,
+          "accuracy_at_0": 0.907
+        },
+        "vehicle": {
+          "n": 1636,
+          "pos": 136,
+          "auroc": 0.996,
+          "recall_at_10pct_false_alarms": 1.0,
+          "accuracy_at_0": 0.981
+        }
+      },
+      "test": {
+        "human": {
+          "n": 890,
+          "pos": 400,
+          "auroc": 0.899,
+          "recall_at_10pct_false_alarms": 0.677,
+          "accuracy_at_0": 0.809
+        },
+        "robot": {
+          "n": 339,
+          "pos": 91,
+          "auroc": 0.918,
+          "recall_at_10pct_false_alarms": 0.736,
+          "accuracy_at_0": 0.873
+        },
+        "vehicle": {
+          "n": 1635,
+          "pos": 135,
+          "auroc": 0.995,
+          "recall_at_10pct_false_alarms": 0.985,
+          "accuracy_at_0": 0.983
+        }
+      },
+      "generation": {
+        "n": 300,
+        "json_valid": 300,
+        "in_way_agree": 274,
+        "t_s_mean_abs_err": 0.21
+      }
+    }
+  },
+  "zero_shot": {
+    "val": {
+      "human": {
+        "n": 922,
+        "pos": 398,
+        "auroc": 0.574,
+        "recall_at_10pct_false_alarms": 0.043,
+        "accuracy_at_0": 0.433
+      },
+      "robot": {
+        "n": 441,
+        "pos": 125,
+        "auroc": 0.749,
+        "recall_at_10pct_false_alarms": 0.152,
+        "accuracy_at_0": 0.299
+      },
+      "vehicle": {
+        "n": 1636,
+        "pos": 136,
+        "auroc": 0.628,
+        "recall_at_10pct_false_alarms": 0.044,
+        "accuracy_at_0": 0.389
+      }
+    },
+    "test": {
+      "human": {
+        "n": 890,
+        "pos": 400,
+        "auroc": 0.665,
+        "recall_at_10pct_false_alarms": 0.125,
+        "accuracy_at_0": 0.452
+      },
+      "robot": {
+        "n": 339,
+        "pos": 91,
+        "auroc": 0.567,
+        "recall_at_10pct_false_alarms": 0.099,
+        "accuracy_at_0": 0.274
+      },
+      "vehicle": {
+        "n": 1635,
+        "pos": 135,
+        "auroc": 0.607,
+        "recall_at_10pct_false_alarms": 0.052,
+        "accuracy_at_0": 0.388
+      }
+    }
+  }
+}

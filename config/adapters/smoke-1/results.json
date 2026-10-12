@@ -1,0 +1,81 @@
+{
+  "mode": "smoke",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "targets": [
+    "in_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "runs": {
+    "ego_mix": {
+      "train": {
+        "steps": 50,
+        "seconds": 20,
+        "tokens_per_s": 6007,
+        "first_loss": 0.8668,
+        "last_loss": 0.1058,
+        "best_val_loss": 0.129,
+        "best_step": 50,
+        "usd": 0.0
+      },
+      "val": {
+        "human": {
+          "n": 20,
+          "pos": 10,
+          "auroc": 0.37,
+          "recall_at_10pct_false_alarms": 0.0,
+          "accuracy_at_0": 0.5
+        },
+        "robot": {
+          "n": 20,
+          "pos": 10,
+          "auroc": 0.62,
+          "recall_at_10pct_false_alarms": 0.0,
+          "accuracy_at_0": 0.5
+        },
+        "vehicle": {
+          "n": 20,
+          "pos": 10,
+          "auroc": 0.915,
+          "recall_at_10pct_false_alarms": 0.6,
+          "accuracy_at_0": 0.5
+        }
+      },
+      "generation": {
+        "n": 3,
+        "json_valid": 3,
+        "in_way_agree": 0,
+        "t_s_mean_abs_err": null
+      }
+    }
+  },
+  "zero_shot": {
+    "val": {
+      "human": {
+        "n": 20,
+        "pos": 10,
+        "auroc": 0.305,
+        "recall_at_10pct_false_alarms": 0.0,
+        "accuracy_at_0": 0.5
+      },
+      "robot": {
+        "n": 20,
+        "pos": 10,
+        "auroc": 0.52,
+        "recall_at_10pct_false_alarms": 0.0,
+        "accuracy_at_0": 0.5
+      },
+      "vehicle": {
+        "n": 20,
+        "pos": 10,
+        "auroc": 0.685,
+        "recall_at_10pct_false_alarms": 0.0,
+        "accuracy_at_0": 0.75
+      }
+    }
+  }
+}

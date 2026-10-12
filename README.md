@@ -231,6 +231,7 @@ The console and the landing page show these numbers live from the database, with
 | `functions/api/[[path]].js` | Backend API on Cloudflare Pages Functions: perception, fleet memory, the Nano/Ultra gate, dual-adapter routing (`decide` + `in_way`), incident overrides, stored-decision lifecycle, alarm rules CRUD, Night Shift replay |
 | `config/models.yaml` | Single source of model IDs, perception options, and the dual-adapter tuned Nano endpoint |
 | `config/night_shift.json` | Measured Night Shift evaluation and calibration artifact written by `tools/night_shift/publish.py` |
+| `config/adapters/` | Committed PEFT `adapter_config.json` and `results.json` for every LoRA fine-tuning run (`decide-1`, `plan-1`, `magni-1`, `sim-1`, `plan-r32`, `multi-1`, `main-1`, `smoke-1`); binary `.safetensors` weights live in the gated Hugging Face repo [`gretchenboria/nemofleet-ego-lora`](https://huggingface.co/gretchenboria/nemofleet-ego-lora) (see [`config/adapters/README.md`](config/adapters/README.md)) |
 | `scenarios/*.json` | The three site scenarios: warehouse spill (`aisle4-spill`), data-center coolant leak (`hall-b-coolant-leak`), and San Francisco robotaxis (`sf-soma`) |
 | `site/` | Landing page, operator console, video and docs pages. Build with `node site/build.cjs`; output goes to `site/dist/` |
 | `cloudflare/migrations/` | D1 schema (`0001`–`0007`): precedents keyed by map cell, runs, calls, perception, alarms, actions, settings, and alarm rules |
@@ -242,7 +243,7 @@ The console and the landing page show these numbers live from the database, with
 | `tools/ego_mix/` | Person-in-the-way & decision LoRA pipeline: dataset adapters (`adapt_magni.py`, `adapt_waymo.py`, `adapt_smartspaces.py`), `train.py`, `score.py`, `serve.py` (dual-adapter HTTP server), `sky_serve.yaml` |
 | `finetuning/experiments/` | Token Factory fine-tuning experiments on other open models, with experiment tracking |
 | `waymo_viewer/` | Streamlit viewer for Waymo Open Dataset samples (local use; Waymo data is not redistributed) |
-| `tests/qa.cjs` | 132-check QA suite: secret scan, syntax checks, build, link check, multi-viewport light/dark browser checks, and end-to-end live API + console integration tests |
+| `tests/qa.cjs` | 133-check QA suite: secret scan, syntax checks, build, link check, multi-viewport light/dark browser checks, and end-to-end live API + console integration tests |
 | `docs/` | [Architecture slide deck (today vs. next)](docs/NemoFleet-Architecture-Today-vs-Next.pdf), [fine-tune plan & results](docs/FINETUNE_PLAN.md), [architecture notes](docs/ARCHITECTURE.md), [runbook](docs/RUNBOOK.md), [Nebius plan](docs/NEBIUS_PLAN.md), [platform feedback](docs/FEEDBACK.md) |
 
 ## Setup

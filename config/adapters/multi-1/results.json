@@ -1,0 +1,97 @@
+{
+  "mode": "full",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "targets": [
+    "in_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "runs": {
+    "multi_v1": {
+      "train": {
+        "steps": 6060,
+        "seconds": 1841,
+        "tokens_per_s": 6423,
+        "first_loss": 1.1336,
+        "last_loss": 0.0444,
+        "best_val_loss": 0.2157,
+        "best_step": 3030,
+        "usd": 0.4
+      },
+      "val": {
+        "inway": {
+          "human": {
+            "n": 922,
+            "pos": 398,
+            "auroc": 0.882,
+            "recall_at_10pct_false_alarms": 0.673,
+            "accuracy_at_0": 0.806
+          },
+          "robot": {
+            "n": 441,
+            "pos": 125,
+            "auroc": 0.937,
+            "recall_at_10pct_false_alarms": 0.768,
+            "accuracy_at_0": 0.868
+          },
+          "vehicle": {
+            "n": 1636,
+            "pos": 136,
+            "auroc": 0.987,
+            "recall_at_10pct_false_alarms": 0.971,
+            "accuracy_at_0": 0.969
+          }
+        },
+        "decide": {
+          "n": 384,
+          "valid": 384,
+          "agree": 316,
+          "seconds_per_decision": 2.89,
+          "first": "63/96",
+          "repeat": "85/96",
+          "variant": "73/96",
+          "routine": "95/96"
+        }
+      },
+      "test": {
+        "inway": {
+          "human": {
+            "n": 890,
+            "pos": 400,
+            "auroc": 0.859,
+            "recall_at_10pct_false_alarms": 0.583,
+            "accuracy_at_0": 0.765
+          },
+          "robot": {
+            "n": 339,
+            "pos": 91,
+            "auroc": 0.868,
+            "recall_at_10pct_false_alarms": 0.615,
+            "accuracy_at_0": 0.838
+          },
+          "vehicle": {
+            "n": 1635,
+            "pos": 135,
+            "auroc": 0.984,
+            "recall_at_10pct_false_alarms": 0.948,
+            "accuracy_at_0": 0.971
+          }
+        },
+        "decide": {
+          "n": 332,
+          "valid": 332,
+          "agree": 278,
+          "seconds_per_decision": 2.72,
+          "first": "62/83",
+          "repeat": "73/83",
+          "variant": "63/83",
+          "routine": "80/83"
+        }
+      }
+    }
+  }
+}

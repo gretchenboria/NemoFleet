@@ -1,0 +1,79 @@
+{
+  "mode": "full",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "targets": [
+    "in_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "runs": {
+    "ego_mix_plan_sim": {
+      "train": {
+        "steps": 9640,
+        "seconds": 3063,
+        "tokens_per_s": 6593,
+        "first_loss": 1.7468,
+        "last_loss": 0.0276,
+        "best_val_loss": 0.0575,
+        "best_step": 9640,
+        "usd": 0.67
+      },
+      "val": {
+        "human": {
+          "n": 922,
+          "pos": 398,
+          "auroc": 0.918,
+          "recall_at_10pct_false_alarms": 0.714,
+          "accuracy_at_0": 0.82
+        },
+        "robot": {
+          "n": 441,
+          "pos": 125,
+          "auroc": 0.951,
+          "recall_at_10pct_false_alarms": 0.816,
+          "accuracy_at_0": 0.893
+        },
+        "vehicle": {
+          "n": 1636,
+          "pos": 136,
+          "auroc": 0.995,
+          "recall_at_10pct_false_alarms": 0.985,
+          "accuracy_at_0": 0.983
+        }
+      },
+      "test": {
+        "human": {
+          "n": 890,
+          "pos": 400,
+          "auroc": 0.898,
+          "recall_at_10pct_false_alarms": 0.667,
+          "accuracy_at_0": 0.808
+        },
+        "robot": {
+          "n": 339,
+          "pos": 91,
+          "auroc": 0.935,
+          "recall_at_10pct_false_alarms": 0.791,
+          "accuracy_at_0": 0.888
+        },
+        "vehicle": {
+          "n": 1635,
+          "pos": 135,
+          "auroc": 0.996,
+          "recall_at_10pct_false_alarms": 0.993,
+          "accuracy_at_0": 0.985
+        }
+      },
+      "generation": {
+        "n": 300,
+        "json_valid": 300,
+        "in_way_agree": 274,
+        "t_s_mean_abs_err": 0.19
+      }
+    }
+  }
+}

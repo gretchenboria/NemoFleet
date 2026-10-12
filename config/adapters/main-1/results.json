@@ -1,0 +1,255 @@
+{
+  "mode": "full",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  "targets": [
+    "in_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "runs": {
+    "ego_mix": {
+      "train": {
+        "steps": 8040,
+        "seconds": 1869,
+        "tokens_per_s": 5257,
+        "first_loss": 1.8354,
+        "last_loss": 0.062,
+        "best_val_loss": 0.0664,
+        "best_step": 8040,
+        "usd": 0.41
+      },
+      "val": {
+        "human": {
+          "n": 922,
+          "pos": 398,
+          "auroc": 0.874,
+          "recall_at_10pct_false_alarms": 0.606,
+          "accuracy_at_0": 0.793
+        },
+        "robot": {
+          "n": 441,
+          "pos": 125,
+          "auroc": 0.946,
+          "recall_at_10pct_false_alarms": 0.8,
+          "accuracy_at_0": 0.887
+        },
+        "vehicle": {
+          "n": 1636,
+          "pos": 136,
+          "auroc": 0.996,
+          "recall_at_10pct_false_alarms": 0.985,
+          "accuracy_at_0": 0.982
+        }
+      },
+      "test": {
+        "human": {
+          "n": 890,
+          "pos": 400,
+          "auroc": 0.856,
+          "recall_at_10pct_false_alarms": 0.578,
+          "accuracy_at_0": 0.77
+        },
+        "robot": {
+          "n": 339,
+          "pos": 91,
+          "auroc": 0.896,
+          "recall_at_10pct_false_alarms": 0.626,
+          "accuracy_at_0": 0.835
+        },
+        "vehicle": {
+          "n": 1635,
+          "pos": 135,
+          "auroc": 0.993,
+          "recall_at_10pct_false_alarms": 0.978,
+          "accuracy_at_0": 0.975
+        }
+      },
+      "generation": {
+        "n": 300,
+        "json_valid": 300,
+        "in_way_agree": 271,
+        "t_s_mean_abs_err": 0.23
+      }
+    },
+    "ego_mix_no_waymo": {
+      "train": {
+        "steps": 3568,
+        "seconds": 850,
+        "tokens_per_s": 5398,
+        "first_loss": 1.8046,
+        "last_loss": 0.0637,
+        "best_val_loss": 0.1251,
+        "best_step": 1784,
+        "usd": 0.19
+      },
+      "val": {
+        "human": {
+          "n": 922,
+          "pos": 398,
+          "auroc": 0.857,
+          "recall_at_10pct_false_alarms": 0.588,
+          "accuracy_at_0": 0.771
+        },
+        "robot": {
+          "n": 441,
+          "pos": 125,
+          "auroc": 0.934,
+          "recall_at_10pct_false_alarms": 0.752,
+          "accuracy_at_0": 0.873
+        },
+        "vehicle": {
+          "n": 1636,
+          "pos": 136,
+          "auroc": 0.919,
+          "recall_at_10pct_false_alarms": 0.676,
+          "accuracy_at_0": 0.918
+        }
+      },
+      "test": {
+        "human": {
+          "n": 890,
+          "pos": 400,
+          "auroc": 0.844,
+          "recall_at_10pct_false_alarms": 0.557,
+          "accuracy_at_0": 0.753
+        },
+        "robot": {
+          "n": 339,
+          "pos": 91,
+          "auroc": 0.886,
+          "recall_at_10pct_false_alarms": 0.681,
+          "accuracy_at_0": 0.85
+        },
+        "vehicle": {
+          "n": 1635,
+          "pos": 135,
+          "auroc": 0.928,
+          "recall_at_10pct_false_alarms": 0.733,
+          "accuracy_at_0": 0.918
+        }
+      },
+      "generation": {
+        "n": 300,
+        "json_valid": 300,
+        "in_way_agree": 256,
+        "t_s_mean_abs_err": 0.44
+      }
+    },
+    "ego_mix_thirds": {
+      "train": {
+        "steps": 5352,
+        "seconds": 1281,
+        "tokens_per_s": 5210,
+        "first_loss": 1.7834,
+        "last_loss": 0.0512,
+        "best_val_loss": 0.0702,
+        "best_step": 5352,
+        "usd": 0.28
+      },
+      "val": {
+        "human": {
+          "n": 922,
+          "pos": 398,
+          "auroc": 0.865,
+          "recall_at_10pct_false_alarms": 0.608,
+          "accuracy_at_0": 0.783
+        },
+        "robot": {
+          "n": 441,
+          "pos": 125,
+          "auroc": 0.945,
+          "recall_at_10pct_false_alarms": 0.784,
+          "accuracy_at_0": 0.902
+        },
+        "vehicle": {
+          "n": 1636,
+          "pos": 136,
+          "auroc": 0.993,
+          "recall_at_10pct_false_alarms": 0.978,
+          "accuracy_at_0": 0.981
+        }
+      },
+      "test": {
+        "human": {
+          "n": 890,
+          "pos": 400,
+          "auroc": 0.855,
+          "recall_at_10pct_false_alarms": 0.588,
+          "accuracy_at_0": 0.758
+        },
+        "robot": {
+          "n": 339,
+          "pos": 91,
+          "auroc": 0.894,
+          "recall_at_10pct_false_alarms": 0.67,
+          "accuracy_at_0": 0.853
+        },
+        "vehicle": {
+          "n": 1635,
+          "pos": 135,
+          "auroc": 0.992,
+          "recall_at_10pct_false_alarms": 0.985,
+          "accuracy_at_0": 0.978
+        }
+      },
+      "generation": {
+        "n": 300,
+        "json_valid": 300,
+        "in_way_agree": 270,
+        "t_s_mean_abs_err": 0.22
+      }
+    }
+  },
+  "zero_shot": {
+    "val": {
+      "human": {
+        "n": 922,
+        "pos": 398,
+        "auroc": 0.404,
+        "recall_at_10pct_false_alarms": 0.015,
+        "accuracy_at_0": 0.436
+      },
+      "robot": {
+        "n": 441,
+        "pos": 125,
+        "auroc": 0.456,
+        "recall_at_10pct_false_alarms": 0.0,
+        "accuracy_at_0": 0.297
+      },
+      "vehicle": {
+        "n": 1636,
+        "pos": 136,
+        "auroc": 0.568,
+        "recall_at_10pct_false_alarms": 0.022,
+        "accuracy_at_0": 0.384
+      }
+    },
+    "test": {
+      "human": {
+        "n": 890,
+        "pos": 400,
+        "auroc": 0.496,
+        "recall_at_10pct_false_alarms": 0.033,
+        "accuracy_at_0": 0.454
+      },
+      "robot": {
+        "n": 339,
+        "pos": 91,
+        "auroc": 0.525,
+        "recall_at_10pct_false_alarms": 0.011,
+        "accuracy_at_0": 0.277
+      },
+      "vehicle": {
+        "n": 1635,
+        "pos": 135,
+        "auroc": 0.523,
+        "recall_at_10pct_false_alarms": 0.0,
+        "accuracy_at_0": 0.382
+      }
+    }
+  }
+}
