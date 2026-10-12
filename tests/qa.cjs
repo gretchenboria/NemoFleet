@@ -197,6 +197,19 @@ const server = http.createServer((req, res) => {
   const state = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-qa-'));
   try {
     execFileSync('npx', ['wrangler', 'd1', 'migrations', 'apply', 'nemofleet-memory', '--local', '-c', 'cloudflare/wrangler.jsonc', '--persist-to', state], { cwd: ROOT, stdio: 'pipe' });
+    // seed stored decisions, an event's call, perception and alarms straight into the local database (no model calls)
+    const hour = 3600e3, iso = ms => new Date(Date.now() + ms).toISOString(), q = v => "'" + String(v).replace(/'/g, "''") + "'";
+    const dj = JSON.stringify({ actions: [{ type: 'quarantine_zone', cells: ['QA1'], ttl_s: 600 }], confidence: 0.9, rationale: 'seeded' });
+    const pre = (id, cell, exp, pinned, safety) => `INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, safety, run_id, created_at, expires_at, hazard_key, pinned) VALUES (${q(id)}, 'datacenter', 'Site: QA. Robot R07 at cold aisle 3. Coolant on the floor.', ${q(dj)}, 'ultra', 'qa-ultra', 0.9, ${safety}, 'qa-run', ${q(iso(-hour))}, ${q(iso(exp))}, ${q(cell)}, ${pinned});`;
+    const al = (id, cell, safety, extra) => `INSERT INTO alarms (id, scene, sev, title, meta, run_id, created_at, event_index, event_json, safety${extra ? ', call_id, perception_id, precedent_id, precedent_link' : ''}) VALUES (${q(id)}, 'datacenter', ${safety ? "'crit'" : "'warn'"}, ${q('QA alarm ' + cell)}, 'seeded', 'qa-run', ${q(iso(-hour))}, ${safety ? 2 : 1}, ${q(JSON.stringify({ robot: 'R07', where: 'cold aisle 3', text: 'Coolant on the floor.', cell, kind: safety ? 'safety' : 'first_sighting' }))}, ${safety}${extra || ''});`;
+    fs.writeFileSync(path.join(state, 'seed.sql'), [
+      `INSERT INTO runs (id, scenario, scene, started_at) VALUES ('qa-run', 'hall-b-coolant-leak', 'datacenter', ${q(iso(-hour))});`,
+      pre('pr-qa-1', 'QA1', hour, 0, 0), pre('pr-qa-pin', 'QA3', -hour, 1, 0), pre('pr-qa-exp', 'QA4', -hour, 0, 0), pre('pr-qa-person', 'QA5', hour, 0, 1),
+      `INSERT INTO calls (id, run_id, ts, tier, model, robot, event, latency_ms, valid, scene, decision_json) VALUES (9001, 'qa-run', ${q(iso(-hour))}, 'ultra', 'qa-ultra', 'R07', 'first_sighting', 1234, 1, 'datacenter', ${q(dj)});`,
+      `INSERT INTO perception (id, scene, frame, robot, model, called_at, latency_ms, result_json) VALUES ('datacenter/qa/1', 'datacenter', 'qa', 'R07', 'qa-eyes', ${q(iso(-hour))}, 321, ${q(JSON.stringify({ scene: 'A puddle in the aisle.', hazards: [{ type: 'liquid_spill' }], person_present: false }))});`,
+      `INSERT INTO actions (id, scene, type, payload_json, source, run_id, event_index) VALUES ('act-qa-1', 'datacenter', 'decision', ${q(dj)}, 'ultra', 'qa-run', 1), ('act-qa-2', 'datacenter', 'memory_hit', ${q(JSON.stringify({ precedent: 'pr-qa-1', cell: 'QA1' }))}, 'nano', 'qa-run', 3);`,
+      al('al-qa-haz', 'QA1', 0, ", 9001, 'datacenter/qa/1', 'pr-qa-1', 'created'"), al('al-qa-person', 'QA2', 1, '')].join('\n'));
+    execFileSync('npx', ['wrangler', 'd1', 'execute', 'nemofleet-memory', '--local', '-c', 'cloudflare/wrangler.jsonc', '--persist-to', state, '--file', path.join(state, 'seed.sql')], { cwd: ROOT, stdio: 'pipe' });
     const port = 8790 + Math.floor(Math.random() * 100);
     const dev = spawn('npx', ['wrangler', 'pages', 'dev', 'site/dist', '--d1', 'MEMORY=eb9d266f-5753-45da-9378-5797b5cf1fdc', '--kv', 'TAGS', '--r2', 'RUNS', '--port', String(port), '--persist-to', state], { cwd: ROOT, stdio: 'ignore', detached: true });
     const api = `http://127.0.0.1:${port}/api/`;
@@ -217,6 +230,33 @@ const server = http.createServer((req, res) => {
       check('API: release clears the alarm and its zone tags', rel.ok && !st.alarms.some(a => a.id === al.id) && !st.tags.some(t => t.name.includes(':zone:')), JSON.stringify(rel));
       const s0 = await post('scenario/start', { scene: 'datacenter' }), peer = await post('scenario/step', { scene: 'datacenter', run_id: s0.run_id, i: 2 });
       check('API: scenario start returns 7 events; a handshake step makes no model call', s0.events?.length === 7 && peer.tier === 'peer' && peer.model_calls === 0, JSON.stringify(peer));
+      // decision book
+      const lookup = c => get('decisions/lookup?scene=datacenter&cell=' + c).then(r => r.decision);
+      let book = (await get('decisions?scene=datacenter')).decisions, d1 = book.find(d => d.id === 'pr-qa-1');
+      check('API decisions: lists the seeded stored decision with cell, parsed actions, source and reuse count', d1 && d1.cell === 'QA1' && d1.decision.actions[0].type === 'quarantine_zone' && d1.source === 'ultra' && d1.reuse_count === 1 && d1.status === 'live' && !book.some(d => d.source === 'peer'), JSON.stringify(d1));
+      check('API decisions: lookup reuses a live or pinned decision, never an expired or person one', (await lookup('QA1'))?.id === 'pr-qa-1' && (await lookup('QA3'))?.id === 'pr-qa-pin' && !(await lookup('QA4')) && !(await lookup('QA5')));
+      const up = await post('decisions/update', { id: 'pr-qa-exp', expires_in_s: 3600 }), upAt = new Date(up.decision?.expires_at) - Date.now();
+      check('API decisions/update: a new expiry brings a decision back into use; a bad one is rejected', up.ok && upAt > 3500e3 && upAt < 3700e3 && (await lookup('QA4'))?.id === 'pr-qa-exp' && !!(await post('decisions/update', { id: 'pr-qa-exp', expires_in_s: 5 })).error, JSON.stringify(up));
+      const unpin = await post('decisions/update', { id: 'pr-qa-pin', pinned: false }), gone = await lookup('QA3'), pin = await post('decisions/update', { id: 'pr-qa-pin', pinned: true });
+      check('API decisions/update: unpin lets it expire, pin keeps it in use', unpin.ok && !gone && pin.decision?.pinned === true && (await lookup('QA3'))?.id === 'pr-qa-pin', JSON.stringify(pin));
+      // incident record
+      const inc = await get('incident?id=al-qa-haz');
+      check('API incident: links the alarm to its event, perception, model decision, fleet actions and stored decision', inc.alarm?.id === 'al-qa-haz' && inc.event?.cell === 'QA1' && inc.perception?.result?.scene && inc.decision?.tier === 'ultra' && inc.decision.latency_ms === 1234 && inc.decision.actions?.length === 1 &&
+        inc.actions.length === 1 && inc.actions[0].id === 'act-qa-1' && inc.stored_decision?.id === 'pr-qa-1' && inc.stored_decision.link === 'created', JSON.stringify(inc).slice(0, 400));
+      await post('actions', { scene: 'datacenter', type: 'quarantine_zone', zone: 'C4' });
+      const raised = (await get('state?scene=datacenter')).alarms.find(a => /Zone C4 quarantined/.test(a.title)), inc2 = await get('incident?id=' + raised.id);
+      check('API incident: a locally raised alarm returns its record with the operator action that raised it', inc2.alarm?.id === raised.id && inc2.actions.some(x => x.type === 'quarantine_zone' && x.source === 'operator' && x.payload.zone === 'C4') && inc2.decision === null && !(await get('incident?id=nope')).alarm, JSON.stringify(inc2).slice(0, 300));
+      await post('alarms/release', { id: raised.id });
+      const bad1 = await post('incident/override', { id: 'al-qa-haz', actions: [{ type: 'teleport', robot: 'R07' }], note: 'x' }), bad2 = await post('incident/override', { id: 'al-qa-haz', actions: [{ type: 'halt' }] }), bad3 = await post('incident/override', { id: 'al-qa-haz', actions: [] });
+      check('API incident/override: rejects an unknown action type, a missing field and an empty list', /invalid/.test(bad1.error || '') && /missing "robot"/.test(bad2.error || '') && !!bad3.error && !(await get('decisions?scene=datacenter')).decisions.some(d => d.source === 'operator'), JSON.stringify([bad1, bad2, bad3]).slice(0, 300));
+      const ov = await post('incident/override', { id: 'al-qa-haz', actions: [{ type: 'reroute', robot: 'R07', via: 'cold aisle 4' }], note: 'QA override' });
+      book = (await get('decisions?scene=datacenter')).decisions; const opd = book.find(d => d.id === ov.stored_decision);
+      check('API incident/override: a hazard with no person becomes an operator decision that replaces the previous one for the cell', ov.ok && opd && opd.source === 'operator' && opd.cell === 'QA1' && opd.decision.actions[0].type === 'reroute' && book.find(d => d.id === 'pr-qa-1').superseded_by === opd.id &&
+        (await lookup('QA1'))?.id === opd.id && ov.incident.override?.stored_decision?.id === opd.id && ov.incident.actions.some(x => x.type === 'operator_override' && x.source === 'operator'), JSON.stringify(ov).slice(0, 300));
+      const ovp = await post('incident/override', { id: 'al-qa-person', actions: [{ type: 'halt', robot: 'R07' }], note: 'person' }); book = (await get('decisions?scene=datacenter')).decisions;
+      check('API incident/override: an incident with a person is logged but never stored for reuse', ovp.ok && ovp.stored_decision === null && ovp.incident.actions.some(x => x.type === 'operator_override') && !book.some(d => d.cell === 'QA2') && !(await lookup('QA2')), JSON.stringify(ovp).slice(0, 300));
+      const rv = await post('decisions/revoke', { id: 'pr-qa-pin' }), rvRow = (await get('decisions?scene=datacenter')).decisions.find(d => d.id === 'pr-qa-pin');
+      check('API decisions/revoke: a revoked decision is kept in the list and ignored by the lookup', rv.ok && rvRow?.revoked === true && rvRow.status === 'revoked' && !(await lookup('QA3')) && !!(await post('decisions/update', { id: 'pr-qa-pin', pinned: true })).error, JSON.stringify(rvRow));
       errors = [];
       await page.goto(`http://127.0.0.1:${port}/console.html#datacenter`, { waitUntil: 'networkidle0' }); await new Promise(r => setTimeout(r, 1200));
       const live = await page.evaluate(() => ({ mode: document.getElementById('mode').textContent, text: document.body.innerText, svc: document.querySelectorAll('#svc .srow').length }));
@@ -224,6 +264,16 @@ const server = http.createServer((req, res) => {
       await page.click('#q-btn'); await new Promise(r => setTimeout(r, 1500));
       const tags = await page.$eval('#tags', e => e.innerText);
       check('console LIVE: Quarantine button writes a KV tag shown in the console', /zone:C2/.test(tags), tags);
+      errors = [];
+      await page.click('#tab-dec'); await new Promise(r => setTimeout(r, 300));
+      const decv = await page.evaluate(() => ({ shown: !document.getElementById('pane-dec').hidden, rows: [...document.querySelectorAll('#dec tr[data-id]')].map(r => r.dataset.status + ':' + r.innerText.replace(/\s+/g, ' ')), pin: document.querySelectorAll('#dec [data-op="pin"]').length, ext: document.querySelectorAll('#dec select[data-op="extend"] option').length, rev: document.querySelectorAll('#dec [data-op="revoke"]').length }));
+      check('console LIVE: Decisions view lists stored decisions with Pin, Extend and Revoke, no errors', decv.shown && decv.rows.length >= 4 && decv.rows.some(r => /^live:QA1 .*Reroute.*Operator/.test(r)) && decv.rows.some(r => /^revoked:QA3/.test(r)) && decv.pin >= 2 && decv.ext >= 8 && decv.rev >= 2 && !errors.length, JSON.stringify(decv).slice(0, 400) + errors.join(';'));
+      await page.evaluate(() => document.querySelector('[data-op="incident"][data-alarm="al-qa-haz"]').click()); await new Promise(r => setTimeout(r, 1200));
+      const incv = await page.evaluate(() => { const b = document.getElementById('incident'); return { shown: !b.hidden, text: b.innerText.replace(/\s+/g, ' '), btns: ['inc-accept', 'inc-override', 'inc-release'].every(i => document.getElementById(i)) }; });
+      await page.click('#inc-override'); await page.select('#ov-type', 'alert_human');
+      const form = await page.evaluate(() => ({ shown: !document.getElementById('inc-form').hidden, types: document.querySelectorAll('#ov-type option').length, fields: [...document.querySelectorAll('#ov-fields [data-k]')].map(i => i.dataset.k).join(',') }));
+      check('console LIVE: incident panel shows the linked record with Accept, Override and Release, no errors', incv.shown && incv.btns && /QA alarm QA1/.test(incv.text) && /cold aisle 3/.test(incv.text) && /A puddle in the aisle/.test(incv.text) && /Quarantine zone/.test(incv.text) && /QA override/.test(incv.text) &&
+        form.shown && form.types === 7 && form.fields === 'severity,message' && !errors.length, JSON.stringify({ incv, form }).slice(0, 500) + errors.join(';'));
     } finally { try { process.kill(-dev.pid); } catch {} }
   } catch (e) { check('live API checks ran', false, String(e.message).slice(0, 300)); }
   fs.rmSync(state, { recursive: true, force: true });

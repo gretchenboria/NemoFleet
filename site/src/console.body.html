@@ -219,6 +219,24 @@ details.older .alarms-old { display: grid; margin-top: 4px; }
 .alarm-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .count { font-family: var(--f-display); font-weight: 700; font-size: 12px; padding: 0 7px; border-radius: 999px; background: var(--crit-bg); color: var(--crit); }
 
+/* incident record and decision book */
+.alarm .t { cursor: pointer; }
+.alarm.sel { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.incident { display: grid; gap: 8px; padding-top: 10px; box-shadow: 0 -1px 0 var(--line); min-width: 0; }
+.incident .ih { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.incident .ih h3 { font-size: 14px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.incident dl { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 5px 10px; margin: 0; font-size: 12.5px; }
+.incident dt { font-family: var(--f-display); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding-top: 2px; }
+.incident dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.incident dd .sub, table.log td .sub { display: block; color: var(--muted); font-size: 11.5px; white-space: normal; }
+.incident .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.ovr { display: grid; gap: 6px; padding: 8px 0 2px; box-shadow: 0 -1px 0 var(--line); }
+.ovr label { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.ovr input, .ovr select, .dec-acts select { font: inherit; font-size: 12.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; min-width: 0; }
+.dec-acts { display: flex; gap: 2px; align-items: center; }
+table.log tr.off td { color: var(--muted); }
+table.log tr.hit td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+
 /* actions */
 .act-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .halt { display: inline-flex; } .halt select { border-radius: 7px 0 0 7px; border-right: 0; padding-right: 4px; font-family: var(--f-mono); font-size: 12px; } .halt button { border-radius: 0 7px 7px 0; }
@@ -413,6 +431,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
         <div class="ph"><h2 id="h-alarms">Alarms <span class="count num"><span id="open-count">0</span> open</span></h2>
           <span class="alarm-head"><button class="btn link" id="act-episodes">Episodes</button><button class="btn link" id="act-release-all" data-confirm="Confirm: release all alarms?">Release all</button></span></div>
         <div class="alarms" id="alarms"></div>
+        <div class="incident" id="incident" aria-live="polite" hidden></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
         <div class="ph"><h2 id="h-quick">Actions</h2></div>
@@ -444,6 +463,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   <section class="panel details" aria-label="System details">
     <div class="tablist" role="tablist" aria-label="System details">
       <button role="tab" id="tab-svc" aria-controls="pane-svc" aria-selected="true">Models and services</button>
+      <button role="tab" id="tab-dec" aria-controls="pane-dec" aria-selected="false" tabindex="-1">Decisions</button>
       <button role="tab" id="tab-learn" aria-controls="pane-learn" aria-selected="false" tabindex="-1">Learning and usage</button>
       <button role="tab" id="tab-log" aria-controls="pane-log" aria-selected="false" tabindex="-1">Model call log</button>
       <button role="tab" id="tab-rules" aria-controls="pane-rules" aria-selected="false" tabindex="-1">Alarm rules</button>
@@ -464,6 +484,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
           <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
           <div class="costlegend" id="costlegend"></div></div>
       </div>
+    </div>
+
+    <div class="tabpanel" role="tabpanel" id="pane-dec" aria-labelledby="tab-dec" tabindex="0" hidden>
+      <div class="pane-head"><h2 class="sr-only">Stored decisions</h2><span class="sub">Newest first</span></div>
+      <div class="logbox"><table class="log"><thead><tr><th>Cell</th><th>Seen</th><th>Decision</th><th>By</th><th>Age</th><th>Expires</th><th>Reused</th><th aria-label="Manage"></th></tr></thead><tbody id="dec"></tbody></table></div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-log" aria-labelledby="tab-log" tabindex="0" hidden>
@@ -500,7 +525,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DASH = '—';
   const LIVE_URL = 'https://nemofleet.pages.dev/console';
-  let LIVE = false, HEALTH = null, ST = null, BUSY = false, RAN = false;
+  let LIVE = false, HEALTH = null, ST = null, BUSY = false, RAN = false, DEC = null, INC = null, INC_FORM = false;
 
   // ---- toast ----
   const toast = $('toast'); let tt;
@@ -599,6 +624,9 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       (a.meta ? `<div class="meta" title="${esc(a.meta)}">${esc(human(a.meta))}</div>` : '') + `<div class="acts"></div>`;
     const acts = el.querySelector('.acts');
     const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
+    if (INC?.alarm.id === a.id) el.classList.add('sel');
+    el.querySelector('.t').addEventListener('click', () => LIVE ? openIncident(a.id) : offline());
+    add('Incident', 'incident', async () => { await openIncident(a.id); });
     add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
     add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared`; });
     if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); });
@@ -617,6 +645,80 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       older.forEach(a => d.lastElementChild.appendChild(alarmEl(a))); box.appendChild(d);
     }
     $('open-count').textContent = al.filter(a => a.status === 'open').length;
+  }
+
+  // ---- incident record: the alarm, what led to it, and the operator's decision ----
+  const fmtAct = a => human(a.type) + Object.entries(a).filter(([k]) => k !== 'type').map(([k, v]) => ' · ' + (k === 'ttl_s' ? span(v) : Array.isArray(v) ? v.join(', ') : v)).join('');
+  const fmtActs = l => (l || []).map(a => esc(fmtAct(a))).join('<br>');
+  const span = s => s >= 86400 ? Math.round(s / 86400) + ' d' : s >= 3600 ? Math.round(s / 3600) + ' h' : s >= 60 ? Math.round(s / 60) + ' min' : Math.max(0, Math.round(s)) + ' s';
+  const WHO = { ultra: 'Ultra', nano: 'Nano', operator: 'Operator' };
+  const decState = d => d.status === 'revoked' ? 'Revoked' : d.status === 'superseded' ? 'Replaced' : d.pinned ? 'Pinned' : d.status === 'expired' ? 'Expired' : d.expires_at ? 'in ' + span((new Date(d.expires_at) - Date.now()) / 1000) : DASH;
+  async function openIncident(id) { INC = await api('incident?id=' + encodeURIComponent(id)); INC_FORM = false; renderIncident(); $('incident').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); }
+  function closeIncident() { INC = null; renderIncident(); }
+  function showDecision(id) { selectTab($('tab-dec'), true); const r = document.querySelector(`#dec tr[data-id="${CSS.escape(id)}"]`); document.querySelectorAll('#dec tr.hit').forEach(x => x.classList.remove('hit')); if (r) { r.classList.add('hit'); r.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); } }
+  function renderIncident() {
+    const box = $('incident'), r = INC;
+    document.querySelectorAll('#alarms .alarm').forEach(el => el.classList.toggle('sel', !!r && el.querySelector('[data-alarm]')?.dataset.alarm === r.alarm.id));
+    box.hidden = !r; if (!r) { box.innerHTML = ''; return; }
+    const a = r.alarm, e = r.event, p = r.perception?.result, d = r.decision, s = r.stored_decision, o = r.override, row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+    const sub = t => `<span class="sub">${t}</span>`;
+    const link = x => `<button class="btn link" data-dec="${esc(x.id)}">Cell ${esc(x.cell || DASH)} · ${decState(x)}</button>`;
+    box.innerHTML = `<div class="ih"><h3><span class="sev ${a.sev}">${sevName[a.sev]}</span> ${esc(human(a.title))}</h3><button class="btn link" id="inc-close">Close</button></div><dl>` +
+      row('Raised', `${hhmmss(a.created_at)} · ${esc(a.status)}${a.person ? ' · person' : ''}`) +
+      row('Event', e ? `${esc(e.robot || DASH)} · ${esc(e.where || DASH)}${e.cell ? ' · cell ' + esc(e.cell) : ''}${sub(esc(e.text || ''))}` : a.meta ? esc(human(a.meta)) : '') +
+      row('Seen', r.perception ? `${esc(p?.scene || 'No result')}${sub([(p?.hazards || []).map(h => esc(human(h.type))).join(', '), p ? (p.person_present ? 'person present' : 'no person') : '', esc(shortModel(r.perception.model)), fmtMs(r.perception.latency_ms)].filter(Boolean).join(' · '))}` : '') +
+      row('Decision', d ? `${d.actions ? fmtActs(d.actions) : 'No valid decision'}${sub([WHO[d.tier] || esc(d.tier), esc(shortModel(d.model)), d.confidence != null ? 'confidence ' + d.confidence.toFixed(2) : '', fmtMs(d.latency_ms)].filter(Boolean).join(' · '))}${d.rationale ? sub(esc(d.rationale)) : ''}` : '') +
+      row('Fleet', r.actions.map(x => `${esc(human(x.type))} · ${WHO[x.source] || esc(x.source)} · ${hhmmss(x.created_at)}`).join('<br>')) +
+      row('Stored', s ? `${s.link === 'reused' ? 'Reused' : 'Created'} ${link(s)}` : '') +
+      row('Override', o ? `${fmtActs(o.actions)}${sub([hhmmss(o.at), esc(o.note || '')].filter(Boolean).join(' · '))}${o.stored_decision ? link(o.stored_decision) : ''}` : '') +
+      `</dl><div class="acts" id="inc-acts"></div><form class="ovr" id="inc-form" ${INC_FORM ? '' : 'hidden'}></form>`;
+    $('inc-close').addEventListener('click', closeIncident);
+    box.querySelectorAll('[data-dec]').forEach(b => b.addEventListener('click', () => showDecision(b.dataset.dec)));
+    const acts = $('inc-acts'), btn = (label, id, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.id = id; b.textContent = label; acts.appendChild(b); if (fn) wire(b, fn); return b; };
+    const again = async () => { INC = await api('incident?id=' + encodeURIComponent(a.id)); renderIncident(); };
+    btn(a.status === 'acked' ? 'Reopen' : 'Accept', 'inc-accept', a.status === 'acked' ? 'quiet' : 'primary', async () => { await api('alarms/ack', { id: a.id }); await again(); return a.status === 'acked' ? 'Alarm reopened' : 'Decision accepted'; });
+    btn('Override', 'inc-override', 'quiet').addEventListener('click', () => { INC_FORM = !INC_FORM; $('inc-form').hidden = !INC_FORM; if (INC_FORM) $('ov-type').focus(); });
+    btn('Release', 'inc-release', 'quiet danger', async () => { const x = await api('alarms/release', { id: a.id }); closeIncident(); return `Alarm released · ${x.released_zones} zone tag${x.released_zones === 1 ? '' : 's'} cleared`; });
+    // override: one action from the model vocabulary, its fields, and a note
+    const f = $('inc-form'), first = d?.actions?.[0] || {}, pre = { robot: e?.robot, cells: e?.cell, ...first, cells: (first.cells || (e?.cell ? [e.cell] : [])).join(', ') };
+    f.innerHTML = `<label>Action<select id="ov-type">${Object.keys(r.vocabulary).map(t => `<option value="${t}"${t === first.type ? ' selected' : ''}>${esc(human(t))}</option>`).join('')}</select></label><div id="ov-fields" style="display:grid;gap:6px"></div>` +
+      `<label>Note<input id="ov-note" maxlength="300" autocomplete="off"></label><div class="acts"><button class="btn sm primary" id="ov-save" type="submit">Apply override</button></div>`;
+    const fields = () => { $('ov-fields').innerHTML = r.vocabulary[$('ov-type').value].map(k => `<label>${esc(human(k === 'ttl_s' ? 'seconds' : k))}` + (k === 'severity' ? `<select data-k="${k}">${r.severities.map(v => `<option${v === pre[k] ? ' selected' : ''}>${v}</option>`).join('')}</select>` :
+      `<input data-k="${k}" ${k === 'ttl_s' ? 'type="number" min="60" max="86400" step="1"' : 'autocomplete="off"'} value="${esc(pre[k] ?? '')}" required>`) + '</label>').join(''); };
+    $('ov-type').addEventListener('change', fields); fields();
+    f.addEventListener('submit', ev => ev.preventDefault());
+    wire($('ov-save'), async () => {
+      if (!f.reportValidity()) return;
+      const act = { type: $('ov-type').value };
+      f.querySelectorAll('[data-k]').forEach(i => { const k = i.dataset.k; act[k] = k === 'cells' ? i.value.split(',').map(c => c.trim()).filter(Boolean) : k === 'ttl_s' ? Number(i.value) : i.value.trim(); });
+      const x = await api('incident/override', { id: a.id, actions: [act], note: $('ov-note').value.trim() });
+      INC = x.incident; INC_FORM = false; renderIncident();
+      return x.stored_decision ? 'Override recorded · stored for cell ' + (e?.cell || '') : 'Override recorded';
+    });
+  }
+
+  // ---- decision book: stored decisions for this scene ----
+  function renderDecisions() {
+    const body = $('dec'), list = DEC?.decisions || [], hit = body.querySelector('tr.hit')?.dataset.id;
+    if (body.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;  // do not rebuild under an open menu
+    body.innerHTML = list.length ? '' : `<tr><td colspan="8" class="empty">${LIVE ? 'No stored decisions' : 'No data'}</td></tr>`;
+    for (const d of list) {
+      const tr = document.createElement('tr'), live = d.status === 'live', gone = d.status === 'revoked' || d.status === 'superseded'; tr.dataset.id = d.id; tr.dataset.status = d.status;
+      if (!live) tr.className = 'off'; if (d.id === hit) tr.classList.add('hit');
+      tr.innerHTML = `<td class="mono">${esc(d.cell || DASH)}</td><td class="wrapc">${esc(d.situation)}</td><td class="wrapc">${fmtActs(d.decision?.actions)}</td><td>${WHO[d.source] || esc(d.source)}</td>` +
+        `<td class="num">${span((Date.now() - new Date(d.created_at)) / 1000)}</td><td class="num">${decState(d)}</td><td class="num">${d.safety ? 'Person · never' : d.reuse_count}</td><td><span class="dec-acts"></span></td>`;
+      const acts = tr.querySelector('.dec-acts'), add = (label, op, fn, conf) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.op = op; if (conf) b.dataset.confirm = conf; wire(b, fn); acts.appendChild(b); };
+      if (!gone) {
+        add(d.pinned ? 'Unpin' : 'Pin', 'pin', async () => { await api('decisions/update', { id: d.id, pinned: !d.pinned }); return d.pinned ? 'Decision unpinned' : 'Decision pinned'; });
+        const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Extend, cell ' + (d.cell || '')); sel.dataset.op = 'extend';
+        sel.innerHTML = '<option value="">Extend</option>' + [3600, 28800, 86400, 604800].map(s => `<option value="${s}">${span(s)}</option>`).join('');
+        sel.addEventListener('change', async () => { const s = Number(sel.value); if (!s) return; if (!LIVE) return offline();
+          try { await api('decisions/update', { id: d.id, expires_in_s: s }); say('Expires in ' + span(s)); } catch (e) { say(`Failed: ${e.message}`, 8000); } sel.blur(); refresh(); });
+        acts.appendChild(sel);
+        add('Revoke', 'revoke', async () => { await api('decisions/revoke', { id: d.id }); return 'Decision revoked'; }, 'Confirm: revoke?');
+      }
+      body.appendChild(tr);
+    }
   }
 
   // ---- actions + tags ----
@@ -823,11 +925,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     return `<div class="rrow${by === 'mem' ? ' mem' : by === 'ultra' ? ' ultra' : ''}${pending ? ' pending' : ''}"><span class="who">${esc(robot)}</span><span class="ev">${event}</span>` +
       (b ? `<span class="by ${by}" title="${b[1]}">${b[0]}</span>` : '<span class="by">waiting</span>') + `<span class="what">${what}</span><span class="lat">${lat || ''}<span class="when">${when}</span></span></div>`;
   }
-  function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
+  function renderAll() { renderLastRun(); renderKpis(); renderAlarms(); renderDecisions(); renderActions(); renderSvc(); renderCams(); renderNight(); drawLearn(); renderStats(); drawUsage(); renderLog(); }
   async function refresh() {
     if (!LIVE) { renderAll(); return; }
     const want = SCENE;
-    try { const s = await api('state?scene=' + want); if (want === SCENE) { ST = s; renderAll(); } }
+    try { const [s, d] = await Promise.all([api('state?scene=' + want), api('decisions?scene=' + want)]); if (want === SCENE) { ST = s; DEC = d; if (INC && !s.alarms.some(a => a.id === INC.alarm.id)) closeIncident(); renderAll(); } }
     catch (e) { say(`Could not load state: ${e.message}`, 8000); }
   }
 
@@ -1103,7 +1205,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   };
   function applyScene(name) {
     if (!SCENES[name]) name = 'datacenter';
-    SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null;
+    SCENE = name; SC = SCENES[name]; ST = null; STATIC_PERC = null; DEC = null; INC = null; renderIncident();
     $('site-label').textContent = SC.site;
     $('h-floor').textContent = SC.roads ? 'Map' : 'Floor';
     if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulation';

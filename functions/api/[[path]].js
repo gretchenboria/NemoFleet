@@ -68,23 +68,24 @@ async function respond(env, base, model, instructions, input, schema, max_output
 async function logCall(env, rec) {
   const key = `calls/${rec.scene}/${rec.ts.slice(0, 10)}/${uid(rec.tier)}.json`;
   await env.RUNS.put(key, JSON.stringify(rec));
-  await env.MEMORY.prepare('INSERT INTO calls (run_id, ts, tier, model, robot, event, latency_ms, prompt_tokens, completion_tokens, valid, r2_key, scene, decision_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const ins = await env.MEMORY.prepare('INSERT INTO calls (run_id, ts, tier, model, robot, event, latency_ms, prompt_tokens, completion_tokens, valid, r2_key, scene, decision_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .bind(rec.run_id || null, rec.ts, rec.tier, rec.model, rec.robot || null, rec.event || null, rec.latency_ms || null, rec.usage?.prompt_tokens ?? null, rec.usage?.completion_tokens ?? null, rec.valid == null ? null : rec.valid ? 1 : 0, key, rec.scene, rec.decision ? JSON.stringify(rec.decision) : null).run();
+  return ins.meta?.last_row_id ?? null;
 }
 async function decide(env, m, scene, run_id, robot, event, tier, context) {
   const model = tier === 'ultra' ? m.deliberator : m.reflex;
   if (!model) throw Object.assign(new Error(`No ${tier === 'ultra' ? 'deliberator (Ultra)' : 'reflex (Nano)'} model id in config/models.yaml. Run node tools/preflight.cjs --write and redeploy.`), { status: 503 });
-  let msgs = [{ role: 'user', content: context }], errs = [];
+  let msgs = [{ role: 'user', content: context }], errs = [], call_id = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = await respond(env, m.base, model, systemFor(scene), msgs, DECISION_SCHEMA);
     const d = parseJSON(r.content); errs = r.status === 'incomplete' ? ['response incomplete: hit max_output_tokens'] : validate(d);
-    await logCall(env, { scene, run_id, ts: now(), tier, model, robot, event, latency_ms: r.latency_ms, usage: r.usage, input: context, output: r.content, valid: !errs.length, errors: errs, decision: errs.length ? null : d });
-    if (!errs.length) return { decision: d, model, latency_ms: r.latency_ms };
+    call_id = await logCall(env, { scene, run_id, ts: now(), tier, model, robot, event, latency_ms: r.latency_ms, usage: r.usage, input: context, output: r.content, valid: !errs.length, errors: errs, decision: errs.length ? null : d });
+    if (!errs.length) return { decision: d, model, latency_ms: r.latency_ms, call_id };
     msgs = [...msgs, { role: 'assistant', content: r.content }, { role: 'user', content: `Invalid: ${errs.join('; ')}. Reply again with only the corrected JSON object.` }];
   }
-  return { decision: null, model, errors: errs };
+  return { decision: null, model, errors: errs, call_id };
 }
-async function perceive(env, req, m, scene, run_id, robot, frame) {
+async function perceive(env, req, m, scene, run_id, robot, frame, ref = {}) {
   if (!m.perception) throw Object.assign(new Error('No perception model id: set one with node tools/use_perception.cjs and redeploy.'), { status: 503 });
   const img = await asset(env, req, `/assets/scenes/${scene}/frames/${frame}.jpg`);
   if (!/^image\//.test(img.headers.get('content-type') || '')) throw Object.assign(new Error(`camera frame ${scene}/${frame} is missing`), { status: 404 });
@@ -99,19 +100,54 @@ async function perceive(env, req, m, scene, run_id, robot, frame) {
   const result = parseJSON(r.content), ts = now(), key = `perception/${scene}/${frame}/${ts}.json`;
   await env.RUNS.put(key, JSON.stringify({ scene, frame, robot, model: m.perception, ts, latency_ms: r.latency_ms, usage: r.usage, raw: r.content, result }));
   await env.MEMORY.prepare('INSERT INTO perception (id, scene, frame, robot, model, called_at, latency_ms, result_json, raw_r2_key) VALUES (?,?,?,?,?,?,?,?,?)').bind(`${scene}/${frame}/${ts}`, scene, frame, robot, m.perception, ts, r.latency_ms, JSON.stringify(result), key).run();
+  ref.id = `${scene}/${frame}/${ts}`;
   await logCall(env, { scene, run_id, ts, tier: 'perception', model: m.perception, robot, event: frame, latency_ms: r.latency_ms, usage: r.usage, output: r.content, valid: !!result });
   return result;
 }
-async function alarm(env, scene, sev, title, meta, run_id) {
-  await env.MEMORY.prepare('INSERT INTO alarms (id, scene, sev, title, meta, run_id) VALUES (?,?,?,?,?,?)').bind(uid('al'), scene, sev, title, meta, run_id || null).run();
+// An alarm records what led to it (the event, the deciding call, the perception row, the stored decision), so GET incident can return one record.
+async function alarm(env, scene, sev, title, meta, run_id, link = {}) {
+  const id = uid('al');
+  await env.MEMORY.prepare('INSERT INTO alarms (id, scene, sev, title, meta, run_id, event_index, event_json, safety, call_id, perception_id, precedent_id, precedent_link) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .bind(id, scene, sev, title, meta, run_id || null, link.event_index ?? null, link.event ? JSON.stringify(link.event) : null, link.safety ? 1 : 0, link.call_id ?? null, link.perception_id ?? null, link.precedent_id ?? null, link.precedent_link ?? null).run();
+  return id;
 }
-async function action(env, scene, type, payload, source, run_id) {
-  await env.MEMORY.prepare('INSERT INTO actions (id, scene, type, payload_json, source, run_id) VALUES (?,?,?,?,?,?)').bind(uid('act'), scene, type, JSON.stringify(payload), source, run_id || null).run();
+async function action(env, scene, type, payload, source, run_id, link = {}) {
+  await env.MEMORY.prepare('INSERT INTO actions (id, scene, type, payload_json, source, run_id, event_index, alarm_id) VALUES (?,?,?,?,?,?,?,?)').bind(uid('act'), scene, type, JSON.stringify(payload), source, run_id || null, link.event_index ?? null, link.alarm_id ?? null).run();
 }
+// A stored decision can be reused when it is not revoked, not superseded, and either pinned or not yet expired.
+const LIVE_DECISION = 'revoked_at IS NULL AND superseded_by IS NULL AND (pinned = 1 OR expires_at IS NULL OR expires_at > ?)';
+const lookupDecision = (env, scene, cell) => env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND hazard_key = ? AND safety = 0 AND source IN ('ultra', 'operator') AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, cell, now()).first();
+const decisionStatus = (p, t) => p.revoked_at ? 'revoked' : p.superseded_by ? 'superseded' : p.pinned || !p.expires_at || p.expires_at > t ? 'live' : 'expired';
+const parse = t => { try { return JSON.parse(t); } catch { return null; } };
+const decisionRow = (p, t = now()) => ({ id: p.id, cell: p.hazard_key, situation: String(p.situation || '').replace(/\n(Perception|Fleet memory)[\s\S]*$/, '').replace(/\s+/g, ' ').slice(0, 220), decision: parse(p.decision_json), source: p.source, model: p.model, confidence: p.confidence,
+  created_at: p.created_at, expires_at: p.expires_at, pinned: !!p.pinned, revoked: !!p.revoked_at, revoked_at: p.revoked_at || null, superseded_by: p.superseded_by || null, safety: !!p.safety, alarm_id: p.alarm_id || null, status: decisionStatus(p, t), reuse_count: p.reuse_count ?? null });
 
 async function tauFor(env, scene, sc) { const t = Number(await env.TAGS.get(`${scene}:tau`)); return t >= 0.3 && t <= 0.9 ? t : sc.tau; }
 async function applyZones(env, scene, decision, by, run_id) {
   for (const a of decision.actions) if (a.type === 'quarantine_zone') for (const c of a.cells || []) await env.TAGS.put(`${scene}:zone:${c}`, JSON.stringify({ by, run_id, at: now() }), { expirationTtl: Math.max(60, a.ttl_s || 600) });
+}
+
+async function incident(env, id) {
+  const a = await env.MEMORY.prepare('SELECT * FROM alarms WHERE id = ?').bind(id || '').first();
+  if (!a) throw Object.assign(new Error('alarm not found'), { status: 404 });
+  const one = (s, ...b) => env.MEMORY.prepare(s).bind(...b).first(), t = now();
+  const call = a.call_id != null ? await one('SELECT id, ts, tier, model, latency_ms, valid, decision_json FROM calls WHERE id = ?', a.call_id) : null;
+  const seen = a.perception_id ? await one('SELECT id, frame, robot, model, called_at, latency_ms, result_json FROM perception WHERE id = ?', a.perception_id) : null;
+  const acts = (await env.MEMORY.prepare('SELECT id, type, payload_json, source, created_at FROM actions WHERE alarm_id = ?1 OR (?2 IS NOT NULL AND ?3 IS NOT NULL AND run_id = ?2 AND event_index = ?3) ORDER BY created_at').bind(a.id, a.run_id, a.event_index).all()).results;
+  const pre = a.precedent_id ? await one('SELECT * FROM precedents WHERE id = ?', a.precedent_id) : null;
+  const op = await one("SELECT * FROM precedents WHERE alarm_id = ? AND source = 'operator' ORDER BY created_at DESC LIMIT 1", a.id);
+  const d = call ? parse(call.decision_json) : null, ov = [...acts].reverse().find(x => x.type === 'operator_override');
+  const ovp = ov ? parse(ov.payload_json) : null;
+  return {
+    alarm: { id: a.id, scene: a.scene, sev: a.sev, title: a.title, meta: a.meta, status: a.status, created_at: a.created_at, updated_at: a.updated_at, person: !!a.safety },
+    event: parse(a.event_json),
+    perception: seen ? { frame: seen.frame, model: seen.model, called_at: seen.called_at, latency_ms: seen.latency_ms, result: parse(seen.result_json) } : null,
+    decision: call ? { tier: call.tier, model: call.model, latency_ms: call.latency_ms, valid: !!call.valid, actions: d?.actions || null, confidence: d?.confidence ?? null, rationale: d?.rationale || null, at: call.ts } : null,
+    actions: acts.map(x => ({ id: x.id, type: x.type, source: x.source, created_at: x.created_at, payload: parse(x.payload_json) })),
+    stored_decision: pre ? { link: a.precedent_link, ...decisionRow(pre, t) } : null,
+    override: ovp ? { at: ov.created_at, actions: ovp.actions, note: ovp.note, stored_decision: op ? decisionRow(op, t) : null } : null,
+    vocabulary: ACTIONS, severities: FIELD.severity.enum,
+  };
 }
 
 const routes = {
@@ -145,15 +181,16 @@ const routes = {
     if (!a) return J({ error: 'alarm not found' }, 404);
     await env.MEMORY.prepare("UPDATE alarms SET status = 'released', updated_at = ? WHERE id = ?").bind(now(), body.id).run();
     const zones = (await env.TAGS.list({ prefix: `${a.scene}:zone:` })).keys; await Promise.all(zones.map(k => env.TAGS.delete(k.name)));
-    await action(env, a.scene, 'release_zone', { alarm: a.id, zones: zones.map(k => k.name) }, 'operator');
+    await action(env, a.scene, 'release_zone', { alarm: a.id, zones: zones.map(k => k.name) }, 'operator', a.run_id, { alarm_id: a.id });
     return J({ ok: true, released_zones: zones.length });
   },
   'POST actions': async (env, req, url, body) => {
     const { scene, type } = body; if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
-    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); await alarm(env, scene, 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min'); }
+    let alarm_id = null;
+    if (type === 'quarantine_zone') { await env.TAGS.put(`${scene}:zone:${body.zone}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 600 }); alarm_id = await alarm(env, scene, 'info', `Zone ${body.zone} quarantined by operator`, 'expires in 10 min'); }
     else if (type === 'halt') { await env.TAGS.put(`${scene}:halt:${body.robot}`, JSON.stringify({ by: 'operator', at: now() }), { expirationTtl: 3600 }); }
     else if (type === 'broadcast_hazard') { await env.TAGS.put(`${scene}:tag:broadcast-${Date.now()}`, JSON.stringify({ message: body.message || 'operator broadcast', at: now() }), { expirationTtl: 600 }); }
-    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); await alarm(env, scene, 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
+    else if (type === 'pause_fleet') { await env.TAGS.put(`${scene}:pause`, JSON.stringify({ by: 'operator', at: now() })); alarm_id = await alarm(env, scene, 'info', 'Fleet paused by operator', 'no model calls until resumed'); }
     else if (type === 'resume_fleet') { await env.TAGS.delete(`${scene}:pause`); }
     else if (type === 'set_tau') { const t = Number(body.tau); if (!(t >= 0.3 && t <= 0.9)) return J({ error: 'tau must be in [0.30, 0.90]' }, 400); await env.TAGS.put(`${scene}:tau`, String(t)); }
     else if (type === 'rollback_nano') { await env.TAGS.put(`${scene}:adapter`, JSON.stringify({ adapter: 'previous', at: now() })); }
@@ -164,7 +201,7 @@ const routes = {
       if (out.decision) { await action(env, scene, 'ultra_decision', out.decision, 'ultra'); await applyZones(env, scene, out.decision, 'ultra', null); }
       return J({ ok: !!out.decision, decision: out.decision, model: out.model, latency_ms: out.latency_ms });
     } else return J({ error: `unknown action ${type}` }, 400);
-    await action(env, scene, type, body, 'operator');
+    await action(env, scene, type, body, 'operator', null, { alarm_id });
     return J({ ok: true });
   },
   'POST scenario/start': async (env, req, url, body) => {
@@ -178,7 +215,7 @@ const routes = {
     if (await env.TAGS.get(`${scene}:pause`)) return J({ t: ev.t, robot: ev.robot, tier: 'paused', model_calls: 0, note: 'fleet paused by operator; no model call made' });
     const tau = await tauFor(env, scene, sc);
     if (ev.kind === 'peer_handshake') {
-      const prev = await env.MEMORY.prepare('SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1').bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
+      const prev = await env.MEMORY.prepare(`SELECT * FROM precedents WHERE scene = ? AND safety = 0 AND ${LIVE_DECISION} ORDER BY created_at DESC LIMIT 1`).bind(scene, now()).first();  // any live, non-safety precedent, not only this run's
       if (prev) await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         .bind(uid('pr'), scene, prev.situation, prev.decision_json, 'peer', null, Math.max(0, (prev.confidence || 0.9) - 0.05), (prev.hops || 0) + 1, 0, run_id, new Date(Date.now() + 3600e3).toISOString(), prev.hazard_key || null).run();
       await env.TAGS.put(`${scene}:tag:${ev.robot}-from-${ev.from}`, JSON.stringify({ from: ev.from, hop: (prev?.hops || 0) + 1, at: now() }), { expirationTtl: 600 });
@@ -186,39 +223,108 @@ const routes = {
     }
     const m = await models(env, req);
     let seen = null, perception_error = null;
-    if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame).catch(e => { perception_error = e.message; return null; });
+    const pref = {}, at = { event_index: i };
+    if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame, pref).catch(e => { perception_error = e.message; return null; });
     const safety = ev.kind === 'safety' || (seen && (seen.person_present || seen.recommended_action === 'escalate'));
     let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '');
     // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
     // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
     const hazard = ['first_sighting', 'repeat_sighting', 'variant'].includes(ev.kind) || !!(seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length);
-    const memo = hazard && ev.cell && !safety ? await env.MEMORY.prepare("SELECT * FROM precedents WHERE scene = ? AND hazard_key = ? AND safety = 0 AND source = 'ultra' AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1").bind(scene, ev.cell, now()).first() : null;
-    if (memo) ctx += `\nFleet memory: Ultra already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
+    const memo = hazard && ev.cell && !safety ? await lookupDecision(env, scene, ev.cell) : null;
+    if (memo) ctx += `\nFleet memory: ${memo.source === 'operator' ? 'the operator' : 'Ultra'} already decided this hazard at cell ${ev.cell} (${memo.created_at}): ${memo.decision_json}. Apply the same decision to this robot if the situation matches. If what you see now differs from that precedent, say so in the rationale and lower your confidence.`;
     const novel = hazard && !memo;
-    let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null;
+    let tier = safety || novel ? 'ultra' : 'nano', out = await decide(env, m, scene, run_id, ev.robot, ev.kind, tier, ctx), memory = null, created = null;
     if (tier === 'nano' && (!out.decision || out.decision.confidence < tau)) { tier = 'ultra'; out = await decide(env, m, scene, run_id, ev.robot, ev.kind, 'ultra', ctx); }
     if (memo) {
       memory = { precedent: memo.id, cell: ev.cell, from: memo.created_at, ultra_avoided: tier === 'nano' && !!out.decision };
-      await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id);
+      await action(env, scene, memory.ultra_avoided ? 'memory_hit' : 'memory_override', memory, tier, run_id, at);
     }
     if (!out.decision) {  // invalid twice → safe stop (HANDOFF/ARCHITECTURE safety invariant)
       await env.TAGS.put(`${scene}:halt:${ev.robot}`, JSON.stringify({ by: 'safe_stop', run_id, at: now() }), { expirationTtl: 3600 });
-      await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id);
+      await action(env, scene, 'safe_stop', { robot: ev.robot, reason: 'no valid FleetAction after retry' }, tier, run_id, at);
     } else {
-      await action(env, scene, 'decision', out.decision, tier, run_id);
+      await action(env, scene, 'decision', out.decision, tier, run_id, at);
       if (tier === 'ultra') await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
+        .bind(created = uid('pr'), scene, ctx.slice(0, 1000), JSON.stringify(out.decision), 'ultra', out.model, out.decision.confidence, 0, safety ? 1 : 0, run_id, new Date(Date.now() + 86400e3).toISOString(), ev.cell || null).run();
       await applyZones(env, scene, out.decision, tier, run_id);
     }
-    if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id);
-    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id);
-    else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id);
+    const link = { event_index: i, event: { robot: ev.robot, where: ev.where, text: ev.text, cell: ev.cell || null, kind: ev.kind, frame: ev.frame || null }, safety, call_id: out.call_id, perception_id: pref.id || null,
+      precedent_id: created || memo?.id || null, precedent_link: created ? 'created' : memo ? 'reused' : null };
+    if (safety) await alarm(env, scene, 'crit', `${seen?.person_present ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
+    else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length) await alarm(env, scene, 'warn', `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
+    else if (novel) await alarm(env, scene, 'warn', `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
     return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? 'low_confidence' : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
   },
   'POST scenario/finish': async (env, req, url, body) => {
     const t = await env.MEMORY.prepare('SELECT tier, COUNT(*) n FROM calls WHERE run_id = ? GROUP BY tier').bind(body.run_id).all();
     await env.MEMORY.prepare('UPDATE runs SET finished_at = ?, totals_json = ? WHERE id = ?').bind(now(), JSON.stringify(t.results), body.run_id).run();
     return J({ ok: true, totals: t.results });
+  },
+  // ---- decision book ----
+  'GET decisions': async (env, req, url) => {
+    const scene = url.searchParams.get('scene'); if (!SCENARIOS[scene]) return J({ error: 'bad scene' }, 400);
+    const t = now(), since = new Date(Date.now() - 86400e3).toISOString();  // live, plus anything that expired in the last day
+    const r = await env.MEMORY.prepare(`SELECT p.*, (SELECT COUNT(*) FROM actions a WHERE a.scene = p.scene AND a.type = 'memory_hit' AND json_extract(a.payload_json, '$.precedent') = p.id) reuse_count
+      FROM precedents p WHERE p.scene = ? AND p.source IN ('ultra', 'operator') AND (p.pinned = 1 OR p.expires_at IS NULL OR p.expires_at > ?) ORDER BY p.created_at DESC LIMIT 100`).bind(scene, since).all();
+    return J({ scene, decisions: r.results.map(p => decisionRow(p, t)) });
+  },
+  // the decision Nano would be handed for a hazard at this cell right now (the same lookup the step handler uses)
+  'GET decisions/lookup': async (env, req, url) => {
+    const scene = url.searchParams.get('scene'), cell = url.searchParams.get('cell'); if (!SCENARIOS[scene] || !cell) return J({ error: 'scene and cell are required' }, 400);
+    const p = await lookupDecision(env, scene, cell);
+    return J({ scene, cell, decision: p ? decisionRow(p) : null });
+  },
+  'POST decisions/update': async (env, req, url, body) => {
+    const p = await env.MEMORY.prepare("SELECT * FROM precedents WHERE id = ? AND source IN ('ultra', 'operator')").bind(body.id || '').first();
+    if (!p) return J({ error: 'decision not found' }, 404);
+    if (p.revoked_at) return J({ error: 'decision is revoked' }, 409);
+    const patch = {};
+    if (body.expires_in_s !== undefined) { const s = Number(body.expires_in_s); if (!(s >= 60 && s <= 30 * 86400)) return J({ error: 'expires_in_s must be between 60 and 2592000' }, 400); patch.expires_at = new Date(Date.now() + s * 1000).toISOString(); }
+    if (body.pinned !== undefined) { if (typeof body.pinned !== 'boolean') return J({ error: 'pinned must be true or false' }, 400); patch.pinned = body.pinned ? 1 : 0; }
+    if (!Object.keys(patch).length) return J({ error: 'send expires_in_s or pinned' }, 400);
+    await env.MEMORY.prepare('UPDATE precedents SET expires_at = ?, pinned = ? WHERE id = ?').bind(patch.expires_at ?? p.expires_at, patch.pinned ?? p.pinned, p.id).run();
+    await action(env, p.scene, 'decision_update', { decision: p.id, cell: p.hazard_key, ...patch }, 'operator');
+    return J({ ok: true, decision: decisionRow({ ...p, ...patch }) });
+  },
+  'POST decisions/revoke': async (env, req, url, body) => {
+    const p = await env.MEMORY.prepare("SELECT * FROM precedents WHERE id = ? AND source IN ('ultra', 'operator')").bind(body.id || '').first();
+    if (!p) return J({ error: 'decision not found' }, 404);
+    const t = p.revoked_at || now();
+    if (!p.revoked_at) {
+      await env.MEMORY.prepare('UPDATE precedents SET revoked_at = ?, pinned = 0 WHERE id = ?').bind(t, p.id).run();
+      // the copies robots passed to each other came from this decision: they go with it
+      await env.MEMORY.prepare("UPDATE precedents SET revoked_at = ? WHERE scene = ? AND source = 'peer' AND revoked_at IS NULL AND decision_json = ? AND COALESCE(hazard_key, '') = COALESCE(?, '')").bind(t, p.scene, p.decision_json, p.hazard_key).run();
+      await action(env, p.scene, 'decision_revoke', { decision: p.id, cell: p.hazard_key }, 'operator');
+    }
+    return J({ ok: true, decision: decisionRow({ ...p, revoked_at: t, pinned: 0 }) });
+  },
+  // ---- incident record ----
+  'GET incident': async (env, req, url) => J(await incident(env, url.searchParams.get('id'))),
+  'POST incident/override': async (env, req, url, body) => {
+    const a = await env.MEMORY.prepare('SELECT * FROM alarms WHERE id = ?').bind(body.id || '').first();
+    if (!a) return J({ error: 'alarm not found' }, 404);
+    if (!Array.isArray(body.actions)) return J({ error: 'invalid actions: actions must be a non-empty array' }, 400);
+    const decision = { actions: body.actions, confidence: 1, rationale: String(body.note || '').slice(0, 500) };
+    const errs = validate(decision);
+    (Array.isArray(body.actions) ? body.actions : []).forEach((x, i) => (ACTIONS[x && x.type] || []).forEach(k => {  // operator input: fields must also be filled and of the right kind
+      const v = x[k], ok = k === 'cells' ? Array.isArray(v) && v.length > 0 && v.every(c => typeof c === 'string' && c.trim()) : k === 'ttl_s' ? Number.isInteger(v) && v >= 60 && v <= 86400 : k === 'severity' ? FIELD.severity.enum.includes(v) : typeof v === 'string' && !!v.trim();
+      if (v !== undefined && !ok) errs.push(`actions[${i}] (${x.type}) "${k}" is invalid`);
+    }));
+    if (errs.length) return J({ error: `invalid actions: ${errs.join('; ')}`, errors: errs }, 400);
+    const ev = parse(a.event_json), cell = ev?.cell || null, t = now();
+    // Only a hazard at a map cell with no person involved becomes a reusable stored decision.
+    let stored = null, superseded = [];
+    if (cell && !a.safety) {
+      stored = uid('pr');
+      await env.MEMORY.prepare('INSERT INTO precedents (id, scene, situation, decision_json, source, model, confidence, hops, safety, run_id, expires_at, hazard_key, alarm_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(stored, a.scene, `Robot ${ev.robot || ''} at ${ev.where || cell}. ${ev.text || a.title}`.slice(0, 1000), JSON.stringify(decision), 'operator', null, 1, 0, 0, a.run_id || null, new Date(Date.now() + 86400e3).toISOString(), cell, a.id).run();
+      superseded = (await env.MEMORY.prepare("SELECT id FROM precedents WHERE scene = ? AND hazard_key = ? AND safety = 0 AND source IN ('ultra', 'operator', 'peer') AND superseded_by IS NULL AND id != ?").bind(a.scene, cell, stored).all()).results.map(r => r.id);
+      await env.MEMORY.prepare("UPDATE precedents SET superseded_by = ? WHERE scene = ? AND hazard_key = ? AND safety = 0 AND source IN ('ultra', 'operator', 'peer') AND superseded_by IS NULL AND id != ?").bind(stored, a.scene, cell, stored).run();
+    }
+    await action(env, a.scene, 'operator_override', { alarm: a.id, actions: decision.actions, note: decision.rationale, stored_decision: stored, superseded, replaced_call: a.call_id ?? null }, 'operator', a.run_id, { alarm_id: a.id, event_index: a.event_index });
+    await applyZones(env, a.scene, decision, 'operator', a.run_id);
+    await env.MEMORY.prepare("UPDATE alarms SET status = 'acked', updated_at = ? WHERE id = ? AND status = 'open'").bind(t, a.id).run();
+    return J({ ok: true, stored_decision: stored, superseded, incident: await incident(env, a.id) });
   },
   'GET episodes': async (env, req, url) => {
     const r = await env.MEMORY.prepare("SELECT id, run_id, ts, tier, model, robot, event, latency_ms, valid, decision_json, replay_json FROM calls WHERE scene = ? AND tier IN ('nano', 'ultra') ORDER BY ts DESC LIMIT 50").bind(url.searchParams.get('scene')).all();
