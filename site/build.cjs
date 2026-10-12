@@ -88,6 +88,8 @@ write('console.html', `<!doctype html>\n<html lang="en"><head><meta charset="utf
 fs.mkdirSync(path.join(DIST, 'scenarios'), { recursive: true });
 fs.readdirSync(path.join(ROOT, 'scenarios')).filter(f => f.endsWith('.json')).forEach(f => fs.copyFileSync(path.join(ROOT, 'scenarios', f), path.join(DIST, 'scenarios', f)));
 fs.mkdirSync(path.join(DIST, 'config'), { recursive: true });
+// fine-tune results shown on the console's Night Shift tab (written by tools/night_shift/publish.py from real result files)
+if (fs.existsSync(path.join(ROOT, 'config', 'night_shift.json'))) fs.copyFileSync(path.join(ROOT, 'config', 'night_shift.json'), path.join(DIST, 'config', 'night_shift.json'));
 fs.writeFileSync(path.join(DIST, 'config', 'models.json'), JSON.stringify(require(path.join(ROOT, 'tools', 'tf.cjs')).models(), null, 2));
 
 fs.writeFileSync(path.join(DIST, '_headers'), `/assets/*\n  Cache-Control: public, max-age=86400\n/docs/*\n  Cache-Control: public, max-age=3600\n/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`);

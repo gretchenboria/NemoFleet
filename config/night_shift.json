@@ -1,0 +1,106 @@
+{
+  "updated": "2026-10-11",
+  "compute": "Nebius AI Cloud, one spot H200 via SkyPilot",
+  "distill": {
+    "episodes": 519,
+    "events": 2076,
+    "hazard_types": 24,
+    "teacher": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "student": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    "teacher_cost_usd": 3.34,
+    "served_nano_all": {
+      "first": [
+        300,
+        519
+      ],
+      "all": [
+        1632,
+        2076
+      ],
+      "routine": [
+        509,
+        519
+      ],
+      "repeat": [
+        472,
+        519
+      ],
+      "variant": [
+        351,
+        519
+      ],
+      "person": [
+        178,
+        316
+      ]
+    },
+    "served_nano_confident_share": 0.987,
+    "train_events": 1360,
+    "test_events": 332,
+    "test_hazard_types": [
+      "dropped tool or loose hardware on the floor",
+      "ladder or lift platform set up in the aisle",
+      "visitor group walking through the hall",
+      "forklift or pallet jack moving in the loading corridor"
+    ],
+    "test_served_nano": {
+      "first": [
+        58,
+        83
+      ],
+      "all": [
+        270,
+        332
+      ],
+      "routine": [
+        79,
+        83
+      ],
+      "repeat": [
+        73,
+        83
+      ],
+      "variant": [
+        60,
+        83
+      ],
+      "person": [
+        54,
+        85
+      ]
+    },
+    "fine_tune": {
+      "status": "training",
+      "run": "decide-1"
+    }
+  },
+  "trigger": {
+    "run": "plan-1",
+    "viewpoints": {
+      "robot": {
+        "positives": 216,
+        "baseline_recall": 0.741,
+        "tuned_recall": 0.801,
+        "false_alarm_rate": 0.113
+      },
+      "human": {
+        "positives": 798,
+        "baseline_recall": 0.539,
+        "tuned_recall": 0.685,
+        "false_alarm_rate": 0.084
+      },
+      "vehicle": {
+        "positives": 271,
+        "baseline_recall": 0.878,
+        "tuned_recall": 0.9,
+        "false_alarm_rate": 0.008
+      }
+    },
+    "valid_json": [
+      300,
+      300
+    ],
+    "minutes": 41,
+    "train_samples": 16080
+  }
+}
