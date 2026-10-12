@@ -42,7 +42,7 @@ function scanForSecrets(files, label) {
 scanForSecrets(tracked.map(f => path.join(ROOT, f)), 'git-tracked files');
 
 // ---------- 2. code checks ----------
-for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tools/tf.cjs', 'tools/preflight.cjs', 'tools/use_perception.cjs', 'tools/run_scenario.cjs', 'tests/qa.cjs']) {
+for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.cjs', 'docs/video/make_video.js', 'tools/cosmos_perceive.cjs', 'tools/tf.cjs', 'tools/preflight.cjs', 'tools/use_perception.cjs', 'tools/run_scenario.cjs', 'tools/night_shift/distill.cjs', 'tests/qa.cjs']) {
   try { new vm.Script(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^#!.*/, ''), { filename: f }); check(`JS parses: ${f}`, true); }
   catch (e) { check(`JS parses: ${f}`, false, e.message); }
 }
