@@ -135,6 +135,8 @@ Recall at the same false-alarm rate as constant-velocity extrapolation, on held-
 
 Details, costs, an independent review and the negative results are in [docs/FINETUNE_PLAN.md](docs/FINETUNE_PLAN.md). The pipeline is `tools/ego_mix/`.
 
+![NemoFleet data and model lineage](docs/img/data-lineage.png)
+
 ## Where it runs
 
 ```mermaid
