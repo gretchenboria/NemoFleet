@@ -384,7 +384,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   <div class="stage-grid">
     <aside class="rail rail-left" aria-label="Run and decisions">
       <section class="panel" aria-labelledby="h-run">
-        <div class="ph"><h2 id="h-run">Event by event</h2><span class="sub" id="run-sub">Run scenario steps through each event with real calls: perception on camera frames, fleet memory lookup, then Nano or Ultra through the escalation gate.</span></div>
+        <div class="ph"><h2 id="h-run">Event by event</h2><span class="sub" id="run-sub"></span></div>
         <div class="runlist" id="runlist"><div class="empty">No run in this session yet.</div></div>
       </section>
       <section class="panel" aria-labelledby="h-tier">
@@ -394,17 +394,17 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </aside>
 
     <section class="panel floor-panel" aria-labelledby="h-floor">
-      <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulated motion · quarantine zones and halts from live KV tags</span></div>
+      <div class="ph"><h2 id="h-floor">Live floor</h2><span class="sub" id="floor-sub">Simulation</span></div>
       <div class="map-wrap"><canvas id="floor" width="1120" height="475" aria-label="Simulated overhead view of the floor with robot markers, a hazard, and quarantine zones and halted robots drawn from live fleet tags"></canvas></div>
       <div class="legend">
-        <span><i style="background:var(--map-ok)"></i>Moving (simulated)</span>
+        <span><i style="background:var(--map-ok)"></i>Moving</span>
         <span><i style="background:var(--map-warn)"></i>Knows a hazard (peer)</span>
-        <span><i style="background:var(--map-crit)"></i>Halted (KV tag)</span>
+        <span><i style="background:var(--map-crit)"></i>Halted</span>
         <span><i style="background:var(--map-peer)"></i>Handshake</span>
         <span><i style="background:#f5d90a"></i>Person</span>
       </div>
       <div class="cam-strip" aria-labelledby="h-cams">
-        <div class="ph"><h3 id="h-cams">Robot cameras · perception</h3><span class="sub"><span id="cams-model">—</span> · frames are simulation renders, results are stored real responses</span></div>
+        <div class="ph"><h3 id="h-cams">Robot cameras · perception</h3><span class="sub"><span id="cams-model">—</span> · rendered frames</span></div>
         <div class="cams" id="cams"></div>
       </div>
     </section>
@@ -416,7 +416,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
         <div class="alarms" id="alarms"></div>
       </section>
       <section class="panel" aria-labelledby="h-quick">
-        <div class="ph"><h2 id="h-quick">Actions</h2><span class="sub">written to D1 and KV</span></div>
+        <div class="ph"><h2 id="h-quick">Actions</h2></div>
         <div class="act-grid">
           <button class="btn sm" id="q-btn" data-action="quarantine_zone">Quarantine zone</button>
           <button class="btn sm" id="halt-btn" data-action="halt" data-robot="R07">Halt robot R07</button>
@@ -424,8 +424,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
           <button class="btn sm" id="bc-btn" data-action="broadcast_hazard">Broadcast hazard</button>
           <button class="btn sm danger" id="rb-btn" data-action="rollback_nano" data-confirm="Confirm: roll back Nano?">Roll back Nano</button>
         </div>
-        <div class="kv"><div class="label">Active fleet tags (KV)</div><div class="tags" id="tags"><span>—</span></div></div>
-        <div class="kv"><div class="label">Recent actions (D1)</div><div class="empty" id="actions-log">—</div></div>
+        <div class="kv"><div class="label">Active fleet tags</div><div class="tags" id="tags"><span>—</span></div></div>
+        <div class="kv"><div class="label">Recent actions</div><div class="empty" id="actions-log">—</div></div>
       </section>
     </aside>
   </div>
@@ -433,7 +433,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   <section class="night" id="night" aria-labelledby="h-ns">
     <div class="night-head">
       <div><div class="t"><span class="idx">03</span><h2 id="h-ns">Night Shift</h2></div>
-        <p>Overnight, Nano is fine-tuned on Ultra's decisions and measured on hazards it never trained on. Replay runs live on Token Factory; Consolidate is the fine-tune on Nebius AI Cloud; Dream and Gate are not wired into the console yet. <span id="ns-night"></span></p></div>
+        <p>Overnight, Nano is fine-tuned on Ultra's decisions and tested on hazards it never trained on. <span id="ns-night"></span></p></div>
       <ol class="stages" id="stages" aria-label="Night Shift stages"></ol>
     </div>
     <div class="ns-learn" id="ns-learn"></div>
@@ -460,7 +460,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       <div class="charts">
         <div><div class="ph"><h3 id="h-learn">Learning curve</h3><span class="sub">Ultra share of model decisions, % by run</span></div>
           <svg class="chart" id="learn" viewBox="0 0 360 190" role="img" aria-label="Ultra share of model decisions by scenario run"></svg></div>
-        <div><div class="ph"><h3 id="h-peer">Fleet memory</h3><span class="sub">D1 precedents · KV tags</span></div>
+        <div><div class="ph"><h3 id="h-peer">Fleet memory</h3></div>
           <div class="stats" id="stats"></div></div>
         <div><div class="ph"><h3 id="h-cost">Usage today</h3><span class="sub num" id="use-sub">tokens by model (UTC day)</span></div>
           <div class="costbar" id="costbar" role="img" aria-label="Tokens used today split by model"></div>
@@ -470,24 +470,24 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-log" aria-labelledby="tab-log" tabindex="0" hidden>
-      <div class="pane-head"><h2 id="h-log" class="sr-only">Model call log</h2><span class="sub">Every Token Factory call, from D1 · newest first</span></div>
+      <div class="pane-head"><h2 id="h-log" class="sr-only">Model call log</h2><span class="sub">Newest first</span></div>
       <div class="logbox"><table class="log"><thead><tr><th>Time</th><th>Tier</th><th>Model</th><th>Robot</th><th>Event</th><th>Latency</th><th>Tokens</th><th>Result</th></tr></thead><tbody id="log"></tbody></table></div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="pane-rules" aria-labelledby="tab-rules" tabindex="0" hidden>
-      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds (design)</h2><span class="sub">Raised live today: person or safety event (critical), hazard sighting (warning), operator quarantine and pause (info). The other rules are the design for the full system.</span></div>
+      <div class="pane-head"><h2 class="sr-only">Alarm rules and thresholds</h2><span class="sub">Live: person or safety event, hazard sighting, operator quarantine and pause. The rest are planned.</span></div>
       <div class="rulebox"><table class="rt">
       <thead><tr><th>Alarm</th><th>Severity</th><th>Fires when</th><th>Automatic response</th><th>Operator action</th></tr></thead>
       <tbody>
         <tr><td>Person in lane</td><td><span class="sev crit">Critical</span></td><td>Perception or sensors detect a person in a robot lane</td><td>Nearest robots halt; always escalates to Ultra</td><td>Confirm zone clear, release</td></tr>
         <tr><td>Collision risk</td><td><span class="sev crit">Critical</span></td><td>Planner cannot find a conflict-free path within 2 s</td><td>Affected robots hold position</td><td>Quarantine zone, reassign tasks</td></tr>
         <tr><td>Schema rejects</td><td><span class="sev warn">Warning</span></td><td>More than 2% of model outputs fail validation in 10 min</td><td>Retries, then falls back to safe stop</td><td>Inspect the call log</td></tr>
-        <tr><td>Ultra latency</td><td><span class="sev warn">Warning</span></td><td>Ultra p95 above 30 s for 5 min</td><td>Live escalations route to Nemotron Super</td><td>Check Token Factory status</td></tr>
+        <tr><td>Ultra latency</td><td><span class="sev warn">Warning</span></td><td>Ultra p95 above 30 s for 5 min</td><td>Live escalations route to Nemotron Super</td><td>Check model service status</td></tr>
         <tr><td>Escalation storm</td><td><span class="sev warn">Warning</span></td><td>Ultra calls per 100 events double versus the 7-night average</td><td>None</td><td>Review τ, check for a new hazard type</td></tr>
         <tr><td>Confident mistakes</td><td><span class="sev warn">Warning</span></td><td>Replay finds Nano wrong at confidence ≥ 0.9 on more than 0.3% of decisions</td><td>Lower τ for next shift</td><td>Review flagged episodes</td></tr>
-        <tr><td>Promotion gate failed</td><td><span class="sev info">Info</span></td><td>Candidate Nano regresses normal operations</td><td>Production adapter stays in place</td><td>Read the MLflow run</td></tr>
+        <tr><td>Promotion gate failed</td><td><span class="sev info">Info</span></td><td>Candidate Nano regresses normal operations</td><td>Production adapter stays in place</td><td>Read the evaluation</td></tr>
         <tr><td>Night Shift stalled</td><td><span class="sev warn">Warning</span></td><td>Any stage exceeds its time budget or a job fails twice</td><td>Pipeline pauses, keeps current adapter</td><td>Retry stage</td></tr>
-        <tr><td>Idle dedicated endpoint</td><td><span class="sev warn">Warning</span></td><td>Cosmos endpoint running with no calls for 15 min</td><td>None</td><td>Stop endpoint</td></tr>
+        <tr><td>Idle endpoint</td><td><span class="sev warn">Warning</span></td><td>A GPU endpoint running with no calls for 15 min</td><td>None</td><td>Stop endpoint</td></tr>
         <tr><td>Budget</td><td><span class="sev warn">Warning</span></td><td>Daily spend passes 80% of budget</td><td>None</td><td>Stop idle endpoints, defer dreams</td></tr>
         <tr><td>Stale hazard tag</td><td><span class="sev info">Info</span></td><td>A tag expires while robots are still inbound to that cell</td><td>Re-request perception on next sighting</td><td>None needed</td></tr>
         <tr><td>Robot offline</td><td><span class="sev warn">Warning</span></td><td>No heartbeat for 10 s</td><td>Planner reserves its last cell</td><td>Dispatch technician</td></tr>
@@ -611,13 +611,13 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const acts = el.querySelector('.acts');
     const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn link'; b.textContent = label; b.dataset.alarm = a.id; b.dataset.op = cls; wire(b, fn); acts.appendChild(b); };
     add(a.status === 'acked' ? 'Reopen' : 'Acknowledge', 'ack', async () => { await api('alarms/ack', { id: a.id }); return a.status === 'acked' ? 'Alarm reopened' : 'Alarm acknowledged'; });
-    add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared from KV`; });
+    add('Release', 'release', async () => { const r = await api('alarms/release', { id: a.id }); return `Alarm released · ${r.released_zones} zone tag${r.released_zones === 1 ? '' : 's'} cleared`; });
     if (a.run_id) add('Episodes', 'episodes', async () => { openEpisodes(); });
     return el;
   }
   function renderAlarms() {
     const box = $('alarms'), al = ST?.alarms || [];
-    box.innerHTML = al.length ? '' : `<div class="empty">${LIVE ? 'No open alarms. Alarms are raised by scenario runs and operator actions.' : 'Not connected: no alarm data.'}</div>`;
+    box.innerHTML = al.length ? '' : `<div class="empty">${LIVE ? 'No open alarms' : 'No data'}</div>`;
     // the latest run's alarms (and operator alarms raised since) stay in view; earlier runs collapse
     const latest = al.find(a => a.run_id)?.run_id, firstOfLatest = latest ? al.filter(a => a.run_id === latest).map(a => a.created_at).sort()[0] : null;
     const current = al.filter(a => !latest || a.run_id === latest || (!a.run_id && a.created_at >= firstOfLatest)), older = al.filter(a => !current.includes(a));
@@ -647,13 +647,12 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const key = !!HEALTH?.nebius_key;
     const rows = [
       ['nv', 'Nemotron Nano', 's1', 'SYSTEM 1', m.reflex || 'not connected', pill(key && m.reflex, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.nanoLat, .5))}</b>${n('nano')} calls`],
-      ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'handshakes · fading KV tags · no model call', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
+      ['', 'Peer exchange', 's15', 'SYSTEM 1.5', 'robots share decisions as they pass', pill(ST, 'Active', 'Offline'), `<b>${ST ? d.peer : DASH}</b>peer copies`],
       ['nv', 'Nemotron Ultra', 's2', 'SYSTEM 2', m.deliberator || 'not connected', pill(key && m.deliberator, 'Configured', 'Not set'), `<b>p50 ${fmtMs(quant(d.ultraLat, .5))}</b>${n('ultra')} calls`],
       [dedicated ? 'nv' : '', pl, 's2', 'PERCEPTION', (m.perception || 'not connected') + (dedicated ? ' · 4× H200' : ''), pill(lastCosmos, 'Responded', 'No response yet'), `<b>${dedicated ? '$0.37 / min' : /per hour/.test(m.perception_billing || '') ? 'per hour' : 'per token'}</b>${lastCosmos ? 'last ' + hhmmss(lastCosmos.called_at) : 'no call yet'}`],
-      ['', 'Fleet memory', 'ops', 'CLOUDFLARE', 'D1 precedents + calls · KV tags · R2 raw bodies', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'D1 · KV · R2 up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>live precedents`],
-      NS ? ['nb', 'AI Cloud fine-tunes', 'job', 'NIGHT SHIFT', 'LoRA on Nano · spot H200 via SkyPilot', `<span class="pill ok">${NS.distill.fine_tune.status === 'done' ? 'Adapters trained' : 'Training'}</span>`, `<b>${fmtInt(NS.distill.events)}</b>teacher events`]
-        : ['nb', 'Serverless Jobs', 'job', 'NIGHT SHIFT', 'Dream · Gate · Consolidate runner', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
-      ['nb', 'Managed MLflow', 'ops', 'LINEAGE', 'adapter lineage and promotion', '<span class="pill idle">Not built yet</span>', '<b>—</b>'],
+      ['', 'Fleet memory', 'ops', 'MEMORY', 'decisions stored by map cell', pill(HEALTH?.d1 && HEALTH?.kv && HEALTH?.r2, 'Up', 'Offline'), `<b>${ST ? (ST.precedents?.n ?? 0) : DASH}</b>stored decisions`],
+      ['nv', 'Nemotron Super', 'job', 'NIGHT SHIFT', m.scenario_generator || 'not connected', pill(key && m.scenario_generator, 'Configured', 'Not set'), `<b>${NS ? fmtInt(NS.distill.episodes) : DASH}</b>incident episodes`],
+      ['nb', 'Nano fine-tune', 'job', 'NIGHT SHIFT', 'LoRA adapter trained on Ultra\'s decisions', NS ? `<span class="pill ok">${NS.distill.fine_tune.status === 'done' ? 'Trained' : 'Training'}</span>` : '<span class="pill idle">No data yet</span>', `<b>${NS ? fmtInt(NS.distill.events) : DASH}</b>teacher events`],
     ];
     $('cams-model').textContent = m.perception ? `${pl} · ${m.perception_billing || ''}` : 'not connected';
     $('perc-billing').textContent = m.perception ? `${pl}: ${m.perception_billing || 'billing not set'}. Switch models with node tools/use_perception.cjs.` : '';
@@ -679,7 +678,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
         cap = `<span class="act ${esc(res.recommended_action)}">${esc(res.recommended_action)}</span><span>${esc(res.scene || '')}</span>${hz ? `<div class="hz">${hz}</div>` : ''}` +
           `<span class="meta">${esc(shortModel(hit.model))} · ${fmtMs(hit.latency_ms)} · conf ${res.confidence ?? DASH} · ${hhmmss(hit.called_at)}</span>`;
       } else if (hit) cap = `<span class="await">${esc(shortModel(hit.model))} replied but the reply was not valid JSON; raw response stored in R2.</span><span class="meta">${hhmmss(hit.called_at)}</span>`;
-      else cap = `<span class="await">No perception result yet.</span><span class="meta">${LIVE ? 'Run scenario sends this frame to the perception model' : 'not connected'}</span>`;
+      else cap = `<span class="await">No perception result yet.</span>`;
       return `<figure class="cam"><div class="shot"><img src="${SC.dir}frames/${nm}.jpg" alt="${robot} forward camera, ${where}" loading="lazy"><span class="tagl">${robot} · ${where}</span><span class="rec">● CAM</span></div><figcaption>${cap}</figcaption></figure>`;
     }).join('');
   }
@@ -689,7 +688,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   const fmtInt = n => Number(n).toLocaleString('en-US');
   const ratio = p => p && p[1] ? p[0] / p[1] : null;
   const pc0 = r => r == null ? DASH : Math.round(100 * r) + '%';
-  const tunedLabel = d => d.test_tuned ? `tuned Nano · ${esc(d.fine_tune.run)}` : d.fine_tune.status === 'training' ? `tuned Nano · ${esc(d.fine_tune.run)} training` : 'tuned Nano · no data yet';
+  const tunedLabel = d => d.test_tuned ? 'tuned Nano' : d.fine_tune.status === 'training' ? 'tuned Nano · training' : 'tuned Nano · no data yet';
   // 03 in the loop band: before and after, straight from the published result file
   function learnStation() {
     const head = `<div class="st-h"><span class="idx">03</span><h2>Learn overnight</h2><button class="more" type="button">Night Shift results ↓</button></div>`;
@@ -698,7 +697,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     return `<div class="st night">${head}
       <div class="ba"><div><span class="v num">${pc0(before)}</span><span class="cap">today's Nano</span></div><span class="arr" aria-hidden="true">→</span>
         <div class="after${after == null ? ' pending' : ''}"><span class="v num${after == null ? ' nil' : ''}">${pc0(after)}</span><span class="cap">${tunedLabel(d)}</span></div>
-        <span class="claim">agreement with Ultra on ${d.test_events} events from ${d.test_hazard_types.length} hazard types Nano never trained on</span></div>
+        <span class="claim">agreement with Ultra on hazards Nano never trained on</span></div>
       <div class="trig"><span>Person in the way, recall:</span>${Object.entries(t.viewpoints).map(([k, v]) => `<span>${vp[k] || esc(k)} <b>${Math.round(100 * v.baseline_recall)} → ${Math.round(100 * v.tuned_recall)}%</b></span>`).join('')}</div></div>`;
   }
   // one measured share: percent, the counts behind it, and a meter
@@ -710,15 +709,15 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const d = NS.distill, t = NS.trigger, tuned = d.test_tuned, kinds = [['first', 'First sighting of a hazard'], ['variant', 'Something changed since the stored decision'], ['repeat', 'Repeat sighting, with fleet memory'], ['routine', 'Routine'], ['person', 'Any event with a person present'], ['all', 'All events']];
     const vp = { robot: 'Robot', human: 'Person', vehicle: 'Vehicle' }, of = p => p && p[1] ? `${p[0]} of ${p[1]}` : '';
     el.innerHTML =
-      `<div><h3>Does Nano decide like Ultra?</h3><p>Agreement with Ultra on ${d.test_events} events from ${d.test_hazard_types.length} hazard types Nano never trained on. ${fmtInt(d.events)} events written by Nemotron Super and decided by Ultra for $${d.teacher_cost_usd.toFixed(2)}.</p>
+      `<div><h3>Does Nano decide like Ultra?</h3><p>Agreement with Ultra on ${d.test_events} events from hazard types Nano never trained on.</p>
         <table class="proof"><thead><tr><th class="c1">Event</th><th>Before<small>today's Nano</small></th><th>After<small>${tunedLabel(d)}</small></th>${tuned ? '<th class="chg">Change</th>' : ''}</tr></thead><tbody>${kinds.map(([k, label]) => {
           const a = ratio(d.test_served_nano[k]), b = ratio(tuned?.[k]);
           return `<tr${k === 'all' ? ' class="total"' : ''}><td class="k">${label}</td>${cell(a, '', of(d.test_served_nano[k]))}${cell(b, b == null ? 'none' : 'tuned' + (a != null && b < a ? ' down' : ''), of(tuned?.[k]))}${tuned ? change(a, b) : ''}</tr>`; }).join('')}</tbody></table>
-        <p class="after">${tuned ? '' : d.fine_tune.status === 'training' ? `Fine-tune ${esc(d.fine_tune.run)} is training; the After column fills in when its evaluation is published. ` : ''}Today's Nano reports confidence above the escalation threshold on ${Math.round(100 * d.served_nano_confident_share)}% of events, right or wrong.</p></div>` +
-      `<div><h3>Is a person in the way?</h3><p>The safety trigger. Recall at the same false-alarm rate as constant-velocity extrapolation, on held-out recordings. Nano reads the people nearby and the planned path.</p>
-        <table class="proof"><thead><tr><th class="c1">Viewpoint</th><th>Before<small>constant velocity</small></th><th>After<small>tuned Nano · ${esc(t.run)}</small></th><th class="chg">Change</th></tr></thead><tbody>${Object.entries(t.viewpoints).map(([k, v]) =>
+        <p class="after">Today's Nano reports confidence above the escalation threshold on ${Math.round(100 * d.served_nano_confident_share)}% of events, right or wrong.</p></div>` +
+      `<div><h3>Is a person in the way?</h3><p>Nano reads the people nearby and the planned path.</p>
+        <table class="proof"><thead><tr><th class="c1">Viewpoint</th><th>Before<small>constant velocity</small></th><th>After<small>tuned Nano</small></th><th class="chg">Change</th></tr></thead><tbody>${Object.entries(t.viewpoints).map(([k, v]) =>
           `<tr><td class="k">${vp[k] || esc(k)}<span class="sub">${v.positives} positives · ${(100 * v.false_alarm_rate).toFixed(1)}% false alarms</span></td>${cell(v.baseline_recall, '')}${cell(v.tuned_recall, 'tuned' + (v.tuned_recall < v.baseline_recall ? ' down' : ''))}${change(v.baseline_recall, v.tuned_recall)}</tr>`).join('')}</tbody></table>
-        <p class="after">${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON. One ${t.minutes}-minute training run on ${esc(NS.compute)}. Results as of ${esc(NS.updated)}; not yet served in the live pipeline.</p></div>`;
+        <p class="after">Recall at the baseline's false-alarm rate, on held-out recordings. ${t.valid_json[0]} of ${t.valid_json[1]} answers were valid JSON.</p></div>`;
   }
   fetch('/config/night_shift.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => { if (d && d.distill && d.trigger) { NS = d; renderKpis(); renderNight(); renderSvc(); } }).catch(() => {});
 
@@ -729,13 +728,13 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     $('ns-night').textContent = rep ? `· last run ${rep.night}` : ST ? '· no run yet' : '';
     const stage = (h, svc, big, note, off) => `<li class="stage${off ? ' off' : ''}"><h3><span class="idx">${h[0]}</span>${h.slice(2)}</h3><span class="big">${big}</span><span class="note">${note}</span><span class="note">${svc}</span></li>`;
     $('stages').innerHTML =
-      stage('1 Replay', 'Token Factory · Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
-        rep ? `decisions re-judged · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}${nano.length ? ` · ${done} of ${nano.length} replayed` : ''}` : 'no replay yet: Run Night Shift now') +
-      stage('2 Dream', 'Serverless Jobs', DASH, 'not built yet', true) +
-      stage('3 Gate', 'Serverless Jobs', DASH, 'not built yet', true) +
-      (NS ? stage('4 Consolidate', 'AI Cloud · spot H200 · LoRA on Nano', fmtInt(NS.distill.events),
-        `teacher events decided by Ultra · ${NS.distill.fine_tune.status === 'done' ? 'Nano fine-tuned' : 'fine-tune running'} (${esc(NS.distill.fine_tune.run)})`)
-        : stage('4 Consolidate', 'H200 job · MLflow', DASH, 'no fine-tune results published', true));
+      stage('1 Replay', 'Ultra re-judges Nano', rep ? String(met.rejudged ?? 0) : DASH,
+        rep ? `decisions re-judged · ${met.disagree ?? 0} disagreement${met.disagree === 1 ? '' : 's'} · ${esc(rep.status)}${nano.length ? ` · ${done} of ${nano.length} replayed` : ''}` : 'no replay yet') +
+      stage('2 Dream', 'possible futures of each frame', DASH, 'planned', true) +
+      stage('3 Gate', 'promote only if better', DASH, 'planned', true) +
+      (NS ? stage('4 Consolidate', 'Nano fine-tuned on Ultra', fmtInt(NS.distill.events),
+        `events decided by Ultra${NS.distill.fine_tune.status === 'done' ? '' : ' · fine-tune running'}`)
+        : stage('4 Consolidate', 'Nano fine-tuned on Ultra', DASH, 'no data yet', true));
     renderLearned();
     const tau = $('tau');
     if (ST && document.activeElement !== tau && !tau.dataset.dirty) { tau.value = ST.tau; $('tau-v').textContent = Number(ST.tau).toFixed(2); }
@@ -765,9 +764,9 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   // ---- fleet memory stats ----
   function renderStats() {
     const v = x => ST ? String(x) : DASH;
-    const st = [[v(ST?.precedents?.n ?? 0), 'live precedents (Ultra + peer copies)'], [v(ST?.precedents?.peer_total ?? 0), 'peer copies made by handshakes'],
-      [v((ST?.tags || []).length), 'active KV tags (fade on TTL)'], [v((ST?.perception || []).length), 'stored perception responses'],
-      [v(ST?.memory?.hits ?? 0), 'Ultra calls avoided by reuse'], [v(ST?.memory?.overrides ?? 0), 'reuse declined: situation differed → Ultra']];
+    const st = [[v(ST?.precedents?.n ?? 0), 'stored decisions'], [v(ST?.precedents?.peer_total ?? 0), 'copies shared between robots'],
+      [v((ST?.tags || []).length), 'active hazard tags'], [v((ST?.perception || []).length), 'stored perception responses'],
+      [v(ST?.memory?.hits ?? 0), 'Ultra calls avoided by reuse'], [v(ST?.memory?.overrides ?? 0), 'reuse declined, sent to Ultra']];
     $('stats').innerHTML = st.map(([a, b]) => `<div class="stat"><div class="v">${a}</div><div class="k">${b}</div></div>`).join('');
   }
 
@@ -792,14 +791,14 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const calls = (ST?.calls || []).slice(0, 12);
     $('log').innerHTML = calls.length ? calls.map(c => `<tr><td class="mono">${hhmmss(c.ts)}</td><td><span class="tier ${TIER[c.tier][0]}">${TIER[c.tier][1]}</span></td><td class="mono">${esc(shortModel(c.model))}</td><td>${esc(c.robot || DASH)}</td><td>${esc(c.event || DASH)}</td>` +
       `<td class="num">${fmtMs(c.latency_ms)}</td><td class="num">${c.prompt_tokens != null ? ((c.prompt_tokens || 0) + (c.completion_tokens || 0)).toLocaleString('en-US') : DASH}</td><td>${resultOf(c)}</td></tr>`).join('')
-      : `<tr><td colspan="8" class="empty">${LIVE ? 'No model calls yet for this scene. Click Run scenario.' : 'Not connected: no call data.'}</td></tr>`;
+      : `<tr><td colspan="8" class="empty">${LIVE ? 'No calls yet' : 'No data'}</td></tr>`;
   }
 
   // until a run starts in this session, show the latest stored run for this scene (real calls from D1)
   function renderLastRun() {
     if (RAN || BUSY) return;
     const calls = (ST?.calls || []).filter(c => c.run_id && (c.tier === 'nano' || c.tier === 'ultra')), run = calls[0]?.run_id;
-    if (!run) { $('runlist').innerHTML = `<div class="empty">${LIVE ? 'No runs yet for this scene. Click Run scenario.' : 'Not connected.'}</div>`; return; }
+    if (!run) { $('runlist').innerHTML = `<div class="empty">${LIVE ? 'No runs yet' : 'No data'}</div>`; return; }
     const hits = new Set((ST.actions || []).filter(a => a.type === 'memory_hit' && a.run_id === run).map(a => parse(a.payload_json)?.cell + '|' + a.created_at.slice(0, 16)));
     const byEv = new Map(); for (const c of calls.filter(c => c.run_id === run).reverse()) { const k = c.robot + '|' + c.event; const e = byEv.get(k) || { ...c, tiers: [] }; e.tiers.push(c.tier); if (c.valid) e.final = c; byEv.set(k, e); }
     const rows = [...byEv.values()];
@@ -874,7 +873,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     $('ep-scene').textContent = SC.site; $('ep-body').innerHTML = ''; $('ep-note').textContent = 'Loading…';
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
     const { episodes } = await api('episodes?scene=' + SCENE);
-    $('ep-note').textContent = episodes.length ? `${episodes.length} most recent Nano and Ultra decisions from D1. Replay verdicts appear after Run Night Shift now.` : 'No episodes yet. Click Run scenario.';
+    $('ep-note').textContent = episodes.length ? `${episodes.length} most recent decisions` : 'No episodes yet';
     $('ep-body').innerHTML = episodes.map(e => { const d = parse(e.decision_json), v = parse(e.replay_json);
       return `<tr><td class="mono">${hhmmss(e.ts)}</td><td><span class="tier ${TIER[e.tier][0]}">${TIER[e.tier][1]}</span></td><td>${esc(e.robot || DASH)}</td><td>${esc(e.event || DASH)}</td><td class="num">${fmtMs(e.latency_ms)}</td><td>${e.valid ? 'valid' : '<span class="bad">reject</span>'}</td>` +
         `<td class="wrapc">${d ? esc(d.actions.map(a => a.type).join(', ')) + ' · ' + esc(d.rationale || '') : DASH}</td><td class="wrapc">${v ? (v.agree === true ? 'agrees' : v.agree === false ? '<span class="bad">disagrees</span>' : 'unparsed') + ' · ' + esc(v.reason || '') + (v.better_action ? ' · better: ' + esc(v.better_action) : '') : e.tier === 'nano' && e.valid ? 'not replayed yet' : DASH}</td></tr>`; }).join('');
@@ -908,9 +907,9 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const al = ST?.alarms || []; for (const a of al) await api('alarms/release', { id: a.id });
     return al.length ? `Released ${al.length} alarm${al.length === 1 ? '' : 's'} and cleared zone tags` : 'No alarms to release';
   });
-  wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused (KV flag): scenario steps make no model calls until you resume'; });
-  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined: KV tag with a 10 min TTL`, halt: b => `${b.robot} halted: KV tag with a 1 h TTL`,
-    broadcast_hazard: () => 'Hazard broadcast written as a KV tag (10 min TTL)', rollback_nano: () => 'Rollback flag written to KV. No LoRA adapter is deployed yet, so Nano itself is unchanged.' };
+  wire($('act-pause'), async () => { const p = ST?.paused; await api('actions', { scene: SCENE, type: p ? 'resume_fleet' : 'pause_fleet' }); return p ? 'Fleet resumed' : 'Fleet paused'; });
+  const ACT_MSG = { quarantine_zone: () => `Zone ${SC.zoneName} quarantined for 10 min`, halt: b => `${b.robot} halted`,
+    broadcast_hazard: () => 'Hazard broadcast to the fleet', rollback_nano: () => 'Rollback requested' };
   document.querySelectorAll('[data-action]').forEach(b => wire(b, async () => {
     const type = b.dataset.action, body = { scene: SCENE, type };
     if (type === 'quarantine_zone') body.zone = SC.zoneName;
@@ -922,7 +921,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   }));
   const tau = $('tau');
   tau.addEventListener('input', () => { tau.dataset.dirty = '1'; $('tau-v').textContent = Number(tau.value).toFixed(2); });
-  wire($('tau-save'), async () => { await api('actions', { scene: SCENE, type: 'set_tau', tau: Number(tau.value) }); delete tau.dataset.dirty; return `τ = ${Number(tau.value).toFixed(2)} saved to KV; the next run uses it`; });
+  wire($('tau-save'), async () => { await api('actions', { scene: SCENE, type: 'set_tau', tau: Number(tau.value) }); delete tau.dataset.dirty; return `τ = ${Number(tau.value).toFixed(2)} saved for the next run`; });
 
   // ---- live floor (simulated motion; zones and halts from KV tags) ----
   const cv = $('floor'), cx = cv.getContext('2d');
@@ -1113,7 +1112,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     // experimental: robotaxis on real SoMa streets (OpenStreetMap); motion simulated, camera frames synthetic (Cosmos)
     sanfrancisco: { dir: 'assets/scenes/sanfrancisco/', perception: 'assets/perception/sanfrancisco/index.json', site: 'SoMa, San Francisco · robotaxis (experimental)',
       roads: 'assets/scenes/sanfrancisco/roads.json', zoneName: 'fremont-mission-howard', zoneText: 'Fremont St (Mission–Howard)', haltRobot: 'AV07',
-      floorSub: 'Real streets (OpenStreetMap) · simulated robotaxis · closures and halts from live KV tags',
+      floorSub: 'Simulation · streets from OpenStreetMap',
       lanes: [], labels: [], zone: null, person: null, halted: null,
       cams: [['cam-av14-truck', 'AV14', 'Fremont St · Mission–Howard'], ['cam-av03-person', 'AV03', '1st & Mission crosswalk'], ['cam-av12-firetruck', 'AV12', 'Fremont St · later'], ['cam-av07-clear', 'AV07', 'Mission St at 2nd']] },
   };
@@ -1124,7 +1123,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     $('q-btn').textContent = SC.zoneText ? `Close ${SC.zoneText}` : `Quarantine zone ${SC.zoneName}`;
     const hb = $('halt-btn'); hb.dataset.robot = SC.haltRobot || 'R07'; hb.textContent = `Halt robot ${hb.dataset.robot}`;
     $('h-floor').textContent = SC.roads ? 'Live map' : 'Live floor';
-    if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulated motion · quarantine zones and halts from live KV tags';
+    if ($('floor-sub')) $('floor-sub').textContent = SC.floorSub || 'Simulation';
     document.querySelectorAll('.scene-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scene === name)));
     if (!BUSY) { RAN = false; renderLastRun(); }
     lanes = SC.lanes; ZONE = SC.zone; SPILL = { x: 700 }; PERSON = SC.person;
@@ -1143,11 +1142,11 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
   function setMode() {
     const m = $('mode'), b = $('banner');
     if (LIVE) {
-      m.className = 'mode live'; m.textContent = 'Live · D1 · KV · R2'; m.title = 'Connected to the NemoFleet API; every number comes from stored real calls';
+      m.className = 'mode live'; m.textContent = 'Live'; m.title = 'Connected to the NemoFleet API';
       b.hidden = HEALTH.nebius_key; b.textContent = 'Model calls are disabled: NEBIUS_API_KEY is not set on the Pages project.';
     } else {
       m.className = 'mode'; m.textContent = 'Offline preview'; m.title = 'The NemoFleet API is not reachable from this page';
-      b.hidden = false; b.innerHTML = `Offline preview: this copy of the console is not connected to the NemoFleet API, so it shows no data. Open <a href="${LIVE_URL}">${LIVE_URL}</a> to run scenarios with real model calls.`;
+      b.hidden = false; b.innerHTML = `Offline preview. <a href="${LIVE_URL}">Open the live console</a>.`;
     }
   }
   let initial = location.hash.slice(1);
