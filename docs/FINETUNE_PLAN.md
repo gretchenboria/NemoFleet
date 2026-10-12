@@ -173,3 +173,15 @@ Recall at the baseline's false-alarm rate, val and test pooled (95% interval ove
 ## 12. Simulated data ready to mix in
 
 `adapt_smartspaces.py` turns NVIDIA's Omniverse-generated PhysicalAI-SmartSpaces scenes (CC BY 4.0) into the same track format: 19 scenes, 54,736 planned-path samples, 14,613 of them robot ego (NovaCarter and Transporter robots among 3 to 120 people). Every track is hinted train-only, so val and test stay real. Half its samples are positive against about 30% in the real robot-ego data, so its share of training should be capped. Not yet trained on.
+
+## 13. Run `sim-1`: simulated robot-ego data mixed in (2026-10-12)
+
+Run 2's training set plus 3,200 SmartSpaces robot-ego samples at a 30% positive rate (19,280 samples); val and test unchanged. About 80 min and $1.05.
+
+| Viewpoint | Baseline | Run 2 | Run 3 (+ simulation) | Run 3 minus run 2 (95% interval) |
+|---|---|---|---|---|
+| Robot ego | 74.1% | 80.1% | 81.5% | -2.9 to +5.7 |
+| Human ego | 53.9% | 68.5% | 65.2% | -5.6 to -1.2 |
+| Vehicle ego | 87.8% | 90.0% | 90.8% | -2.3 to +3.8 |
+
+The simulated data gives no reliable gain on robot ego and costs about 3 points on human ego. Run 2 (`plan-1`) remains the adapter we report. The simulated people follow scripted routes, which may be why they add little to real motion.
