@@ -10,6 +10,7 @@ fs.mkdirSync(path.join(DIST, 'docs'), { recursive: true });
 fs.cpSync(path.join(__dirname, 'assets'), path.join(DIST, 'assets'), { recursive: true });
 
 const PDFS = [
+  ['NemoFleet-NVIDIA-Stack-Architecture.pdf', 'NVIDIA STACK', 'NVIDIA Physical AI Stack (16:9 Landscape)', 'Single-page 16:9 widescreen architecture across Nemotron 3 (Nano 30B, Super 120B, Ultra 550B), CUDA-X (CV-CUDA, nvImageCodec, TensorRT), Cosmos, and Nebius H200.'],
   ['NemoFleet-Architecture-Today-vs-Next.pdf', 'TODAY · NEXT', 'Architecture: today and next', 'What runs end to end today, the future state, a component-by-component comparison and the whole tech stack, with live/planned status.'],
   ['NemoFleet-Architecture.pdf', 'ARCHITECTURE', 'System architecture', 'System map, two sites and the live API, peer layer, warm core, Night Shift, escalation sequence, responsibilities, red-team pipeline, code map.'],
   ['NemoFleet-Nebius-Plan.pdf', 'PLAN', 'Implementation plan', 'Agreed by three review agents: decisions, schedule, cut lines and vote record.'],
@@ -24,7 +25,8 @@ const FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="3" fill="#12171C"/>' +
   '<text x="16" y="19" font-family="Arial" font-weight="700" font-size="14" fill="#E5E9ED" text-anchor="middle">NF</text>' +
   '<rect x="6" y="23" width="20" height="1.5" fill="#D9622B"/><rect x="6" y="26" width="20" height="1.5" fill="#3A6EA5"/></svg>');
-const NAV = [['index.html', 'Overview'], ['console.html', 'Console'], ['video.html', 'Video'], ['docs.html', 'Docs']];
+const GH_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" style="vertical-align:-2px;margin-right:5px"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>';
+const NAV = [['index.html', 'Console'], ['overview.html', 'Overview'], ['video.html', 'Video'], ['docs.html', 'Docs']];
 
 function layout(file, title, desc, body, extra = '') {
   const nav = NAV.map(([href, label]) => `<li><a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a></li>`).join('');
@@ -40,7 +42,7 @@ function layout(file, title, desc, body, extra = '') {
 <nav class="nav" aria-label="Main"><div class="wrap">
   <a class="wordmark" href="index.html" aria-label="NemoFleet home"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
   <ul>${nav}</ul>
-  <a class="gh" href="https://github.com/gretchenboria/NemoFleet">GitHub ↗</a>
+  <a class="gh" href="https://github.com/gretchenboria/NemoFleet" target="_blank" rel="noopener">${GH_ICON}GitHub ↗</a>
 </div></nav>
 <main>${body}</main>
 <footer class="foot"><div class="overlay-img" aria-hidden="true"></div><div class="wrap">
@@ -55,7 +57,7 @@ ${extra}
 const write = (f, html) => fs.writeFileSync(path.join(DIST, f), html);
 
 // overview
-write('index.html', layout('index.html', 'NemoFleet', 'One hazard, one Ultra call, and the whole fleet knows: Nemotron Ultra decides once on Nebius Token Factory, and fleet memory lets every robot reuse the decision through Nemotron Nano.',
+write('overview.html', layout('overview.html', 'NemoFleet Overview', 'One hazard, one Ultra call, and the whole fleet knows: Nemotron Ultra decides once on Nebius Token Factory, and fleet memory lets every robot reuse the decision through Nemotron Nano.',
   fs.readFileSync(path.join(SRC, 'index.body.html'), 'utf8'), '<script src="assets/anim.js" defer></script>'));
 
 // video
@@ -79,10 +81,11 @@ write('docs.html', layout('docs.html', 'NemoFleet Docs', 'Architecture, implemen
     <div class="docs">${PDFS.map(([f, tag, t, d]) => `<a class="doc" href="docs/${f}"><span class="tag">${tag}</span><span><b>${t}</b><span class="small">${d}</span></span><span class="mono small">PDF ↗</span></a>`).join('')}</div>
   </div></section>`));
 
-// console (the dashboard prototype, with a link back to the site)
-let consoleBody = fs.readFileSync(path.join(SRC, 'console.body.html'), 'utf8')
-  .replace('<div class="wrap">', '<div class="wrap"><a href="index.html" style="font-family:var(--f-mono);font-size:13px;color:var(--muted);text-decoration:none">← NemoFleet overview</a>');
-write('console.html', `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="icon" href="${FAVICON}"><style>body{margin:0}</style></head><body>\n${consoleBody}\n</body></html>\n`);
+// console (serves as both the root landing page index.html and console.html)
+const consoleBody = fs.readFileSync(path.join(SRC, 'console.body.html'), 'utf8');
+const consoleHtml = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="NemoFleet Ops Console: live robot fleet command, spatial memory map, and NVIDIA Nemotron + CUDA-X telemetry."><link rel="icon" href="${FAVICON}"><style>body{margin:0}</style></head><body>\n${consoleBody}\n</body></html>\n`;
+write('index.html', consoleHtml);
+write('console.html', consoleHtml);
 
 // data for the console API (functions/api): scenarios and the model registry, read via env.ASSETS
 fs.mkdirSync(path.join(DIST, 'scenarios'), { recursive: true });

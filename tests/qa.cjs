@@ -49,7 +49,7 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
 try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
 catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
 check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
-for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py', 'tools/ego_mix/cuda_x_pipeline.py', 'tools/ego_mix/serve.py', 'tools/ego_mix/fetch_magni_full.py', 'tools/night_shift/publish.py']) {
+for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'docs/build_nvidia_stack_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py', 'tools/ego_mix/cuda_x_pipeline.py', 'tools/ego_mix/serve.py', 'tools/ego_mix/fetch_magni_full.py', 'tools/night_shift/publish.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
@@ -80,7 +80,7 @@ check('models.yaml names the Token Factory base URL and Cosmos endpoint', /base_
 let built = true;
 try { execFileSync('node', [path.join(ROOT, 'site', 'build.cjs')], { cwd: ROOT, stdio: 'pipe' }); } catch (e) { built = false; check('site builds', false, String(e.stderr).slice(0, 300)); }
 if (built) check('site builds', true);
-const pages = ['index.html', 'console.html', 'video.html', 'docs.html'];
+const pages = ['index.html', 'overview.html', 'console.html', 'video.html', 'docs.html'];
 pages.forEach(p => check(`page exists: ${p}`, fs.existsSync(path.join(DIST, p))));
 for (const f of fs.readdirSync(path.join(DIST, 'docs'))) {
   const b = fs.readFileSync(path.join(DIST, 'docs', f));
@@ -154,7 +154,7 @@ const server = http.createServer((req, res) => {
     errors = [];
     await page.setViewport({ width: 1440, height: 900 });
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: motion }]);
-    await page.goto(base + 'index.html', { waitUntil: 'load' });
+    await page.goto(base + 'overview.html', { waitUntil: 'load' });
     await new Promise(r => setTimeout(r, 1800));
     const drawn = await page.evaluate(() => ['anim-antennation', 'anim-countercurrent'].map(id => {
       const c = document.getElementById(id), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, seen = new Set();
@@ -176,9 +176,9 @@ const server = http.createServer((req, res) => {
   // console interactions
   for (const sc of ['warehouse', 'datacenter', 'sanfrancisco']) {
     errors = [];
-    await page.goto(base + 'console.html#' + sc, { waitUntil: 'domcontentloaded' }); await new Promise(r => setTimeout(r, 900));
-    const st = await page.evaluate(() => ({ pressed: document.querySelector('.scene-switch [aria-pressed="true"]')?.dataset.scene, imgs: [...document.querySelectorAll('#cams img')].map(i => i.complete && i.naturalWidth > 0), alarm: document.querySelector('.alarm .t')?.textContent }));
-    check(`console #${sc}: scene selected, 4 camera frames load, no errors`, st.pressed === sc && st.imgs.length === 4 && st.imgs.every(Boolean) && !errors.length, JSON.stringify(st) + errors.join(';'));
+    await page.goto(base + 'index.html#' + sc, { waitUntil: 'domcontentloaded' }); await new Promise(r => setTimeout(r, 900));
+    const st = await page.evaluate(() => ({ pressed: document.querySelector('.scene-switch [aria-pressed="true"]')?.dataset.scene, imgs: [...document.querySelectorAll('#cams img')].map(i => i.complete && i.naturalWidth > 0), alarm: document.querySelector('.alarm .t')?.textContent, gh: document.querySelector('#act-github svg') && document.getElementById('act-github')?.href }));
+    check(`console #${sc}: scene selected, 4 camera frames load, GitHub logo link present, no errors`, st.pressed === sc && st.imgs.length === 4 && st.imgs.every(Boolean) && /github\.com\/gretchenboria\/NemoFleet/.test(st.gh || '') && !errors.length, JSON.stringify(st) + errors.join(';'));
   }
   await page.goto(base + 'console.html#warehouse', { waitUntil: 'load' });
   await page.click('#scene-datacenter');
