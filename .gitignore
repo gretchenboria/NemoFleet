@@ -8,6 +8,12 @@
 !docs/NemoFleet-Nebius-Plan.pdf
 !docs/NemoFleet-Nebius-Feedback.pdf
 !docs/NemoFleet-Demo-Use-Case.pdf
+!docs/NemoFleet-NVIDIA-Stack-Architecture.pdf
+
+# Internal handoff / agent prompt notes
+CLAUDE.md
+HANDOFF.md
+PROJECT_BRIEFING.md
 
 # Third-party reference images
 *.jpeg

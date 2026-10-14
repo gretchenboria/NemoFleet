@@ -66,7 +66,7 @@ const chapters = [['0:00', 0, 'A fleet that learns from itself'], ['0:09', 9, 'T
   ['2:46', 166, 'Day 2: an unseen variant'], ['3:03', 183, 'Two sites: warehouse and data center'], ['3:22', 202, 'How we prove it']];
 write('video.html', layout('video.html', 'NemoFleet Explainer', 'A 3-minute narrated explainer of NemoFleet: architecture, peer exchange, safety and Night Shift on Nebius.',
   `<section class="band" style="border-top:0"><div class="wrap">
-    <div class="sec-head"><span class="eyebrow">Explainer · 3:43</span><h2>How NemoFleet works</h2><p class="lead">Narrated with Gemini 3.8 Flash TTS. Animations are illustrative; result numbers come only from recorded runs.</p></div>
+    <div class="sec-head"><span class="eyebrow">Explainer · 3:43</span><h2>How NemoFleet works</h2><p class="lead">Animations are illustrative; result numbers come only from recorded runs.</p></div>
     <video class="video" id="vid" controls preload="metadata" poster="assets/img/video-poster.jpg" src="assets/nemofleet-explainer.mp4"></video>
     <div class="tbl"><table><thead><tr><th>Time</th><th>Chapter</th></tr></thead><tbody>
       ${chapters.map(([ts, s, t]) => `<tr><td class="mono"><a href="#t${s}" data-t="${s}">${ts}</a></td><td>${t}</td></tr>`).join('')}
