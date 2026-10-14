@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import torch
 from peft import PeftModel
 
+import cuda_x_pipeline
 import train
 
 TOKEN, PORT, ADAPTER = os.environ.get("SERVE_TOKEN", ""), int(os.environ.get("PORT", "8000")), os.environ.get("ADAPTER_DIR", "")
@@ -81,7 +82,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        self.reply(200, {"status": "ok", "model": train.MODEL, "adapters": sorted(ADAPTERS)})
+        self.reply(200, {"status": "ok", "model": train.MODEL, "adapters": sorted(ADAPTERS), "cuda_x": cuda_x_pipeline.runtime_info()})
 
     def do_POST(self):
         if TOKEN and self.headers.get("authorization") != f"Bearer {TOKEN}":
@@ -89,6 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("content-length", "0"))))
             t0 = time.time()
+            if body.get("task") == "vision":  # {"task": "vision", "scene": "datacenter", "frame": "cam-r14-leak"} -> CV-CUDA + TensorRT ROI score
+                with LOCK:
+                    res = cuda_x_pipeline.analyze_payload(body)
+                return self.reply(200, res)
             if body.get("task") == "in_way":  # {"task": "in_way", "messages": [system, user]} -> score only
                 with LOCK:
                     score = in_way(body["messages"])

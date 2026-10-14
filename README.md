@@ -148,6 +148,7 @@ flowchart TB
     end
     subgraph AC["Nebius AI Cloud"]
         FT["LoRA fine-tunes of Nano<br/>spot H200, SkyPilot"]
+        CX["CUDA-X vision gate<br/>CV-CUDA + TensorRT on H200"]
         GE["Perception endpoint<br/>vLLM on H200"]
         CJ["Cosmos-Predict job<br/>synthetic camera frames"]
     end
@@ -157,12 +158,19 @@ flowchart TB
     end
     API --> U
     API --> N
+    API --> CX
     API --> GE
     API --> MEM
     SU --> U
     U --> FT
     FT -. "adapter" .-> N
 ```
+
+### NVIDIA CUDA-X (`CV-CUDA` + `TensorRT`) Vision Gate (`tools/ego_mix/cuda_x_pipeline.py`)
+
+Alongside the two LoRA adapters (`decide-1` and `plan-1`), the H200 serving endpoint (`tools/ego_mix/serve.py`) exposes a fast GPU vision pre-gate (`task: "vision"`):
+1. **CV-CUDA (`cvcuda` + `nvimgcodec`) Zero-Copy Preprocessing**: Decodes robot camera JPEG frames directly on GPU memory, runs `cvcuda.customcrop` on the forward floor corridor (`x: 18%..82%, y: 45%..92%`), applies `cvcuda.gaussian` (`3×3, σ=0.8`) and `cvcuda.normalize`, and hands the tensor zero-copy via DLPack (`torch.from_dlpack`) to PyTorch CUDA.
+2. **TensorRT (`torch_tensorrt` / `tensorrt`) Corridor Anomaly Head**: Compiles `CorridorAnomalyHead` (`torch_tensorrt.compile` with FP16/BF16 precision) to score horizontal and vertical spatial gradient energy (`gx + gy`) in the robot's path in `< 2 ms`, separating clear aisles (`3/3` across warehouse, data center, and San Francisco) from spills, crash carts, forklifts, and pedestrians (`9/9`).
 
 ## Experimental: robotaxis in San Francisco
 

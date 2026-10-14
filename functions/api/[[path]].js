@@ -177,6 +177,16 @@ async function inWayTuned(t, thr, tracks) {
     return { in_way: j.score > cut, score: j.score, probability: j.probability ?? null, threshold: cut, latency_ms: j.latency_ms ?? (Date.now() - t0) };
   } catch (e) { return { in_way: false, score: null, threshold: cut, error: e.message, latency_ms: Date.now() - t0 }; }
 }
+async function visionTuned(t, scene, frame) {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(`${t.base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${t.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ task: 'vision', scene, frame }), signal: AbortSignal.timeout(10000) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || typeof j.floor_anomaly_score !== 'number') throw new Error(`HTTP ${r.status}`);
+    return { floor_anomaly_score: j.floor_anomaly_score, clear_corridor: !!j.clear_corridor, backend: j.backend || 'cvcuda+tensorrt', cvcuda_ms: j.cvcuda_ms ?? null, tensorrt_ms: j.tensorrt_ms ?? null, latency_ms: j.latency_ms ?? (Date.now() - t0) };
+  } catch (e) { return { floor_anomaly_score: null, clear_corridor: null, error: e.message, latency_ms: Date.now() - t0 }; }
+}
 async function tauFor(env, scene, sc) { const t = Number(await env.TAGS.get(`${scene}:tau`)); return t >= 0.3 && t <= 0.9 ? t : sc.tau; }
 async function applyZones(env, scene, decision, by, run_id) {
   for (const a of decision.actions) if (a.type === 'quarantine_zone') for (const c of a.cells || []) await env.TAGS.put(`${scene}:zone:${c}`, JSON.stringify({ by, run_id, at: now() }), { expirationTtl: Math.max(60, a.ttl_s || 600) });
@@ -233,11 +243,14 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
   let seen = null, perception_error = null;
   const pref = {}, at = { event_index: i };
   if (ev.frame) seen = await perceive(env, req, m, scene, run_id, ev.robot, ev.frame, pref).catch(e => { perception_error = e.message; return null; });
-  const in_way = ev.tracks && ad?.serving ? await inWayTuned({ base: m.reflex_tuned.base_url.replace(/\/+$/, ''), key: env[m.reflex_tuned.api_key_env] }, (await nightShift(env, req)).trigger?.threshold, ev.tracks) : null;
+  const tEndpoint = ad?.serving ? { base: m.reflex_tuned.base_url.replace(/\/+$/, ''), key: env[m.reflex_tuned.api_key_env] } : null;
+  const cuda_x = ev.frame && tEndpoint ? await visionTuned(tEndpoint, scene, ev.frame) : null;
+  const in_way = ev.tracks && tEndpoint ? await inWayTuned(tEndpoint, (await nightShift(env, req)).trigger?.threshold, ev.tracks) : null;
   const hay = `${ev.robot} ${ev.where} ${ev.cell || ''} ${ev.kind} ${ev.text} ${JSON.stringify(seen?.hazards || [])}`.toLowerCase();
   const customRule = activeRules.find(r => r.when_kind === 'custom' && r.match_text && hay.includes(r.match_text.toLowerCase()));
   const safety = ev.kind === 'safety' || !!(seen && seen.person_present && ev.kind !== 'variant') || !!in_way?.in_way;
   let ctx = `Site: ${sc.site}. Robot ${ev.robot} (${ev.device || 'robot'}) at ${ev.where}. ${ev.text}` + (seen ? `\nPerception (${m.perception_label || 'camera model'}): ${JSON.stringify(seen)}` : perception_error ? '\nPerception unavailable for this frame; camera content is unknown.' : '') +
+    (cuda_x?.floor_anomaly_score != null ? `\nCUDA-X vision gate (${cuda_x.backend}): ${cuda_x.clear_corridor ? 'corridor clear' : 'floor anomaly detected'} (score ${cuda_x.floor_anomaly_score}).` : '') +
     (in_way?.score != null ? `\nPerson-in-the-way trigger (plan-1): ${in_way.in_way ? 'person in the way' : 'clear'} (score ${in_way.score}, threshold ${in_way.threshold}).` : '');
   // Fleet memory: a non-safety Ultra decision for this map cell is reused by Nano instead of calling Ultra again.
   // Safety precedents (person present) are never reused: those always go to Ultra (ARCHITECTURE.md invariant).
@@ -276,7 +289,7 @@ async function runEvent(env, req, scene, run_id, i, ev, sc) {
   else if (safety && byKind('safety')) await alarm(env, scene, byKind('safety').sev, `${seen?.person_present || in_way?.in_way ? 'Person' : 'Safety event'} near ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')} · ${out.decision.rationale || ''}` : 'no valid decision after retry → safe stop', run_id, link);
   else if (seen && seen.recommended_action !== 'proceed' && (seen.hazards || []).length && byKind('hazard')) await alarm(env, scene, byKind('hazard').sev, `${String(seen.hazards[0].type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())} seen by ${ev.robot} · ${ev.where}`, seen.scene || '', run_id, link);
   else if (novel && byKind('unknown_hazard')) await alarm(env, scene, byKind('unknown_hazard').sev, `Unknown hazard reported by ${ev.robot} · ${ev.where}`, out.decision ? `Ultra: ${out.decision.actions.map(a => a.type).join(', ')}` : 'no valid decision → safe stop', run_id, link);
-  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? (g?.by === 'probability' ? 'low_probability' : 'low_confidence') : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, in_way, tuned, rule: customRule?.id || null, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
+  return J({ t: ev.t, robot: ev.robot, tau, tier, gate: safety ? 'safety' : novel ? 'novel' : tier === 'ultra' ? (g?.by === 'probability' ? 'low_probability' : 'low_confidence') : memory ? 'fleet_memory' : 'settled', memory, perception: seen, perception_error, perception_model: m.perception_label, cuda_x, in_way, tuned, rule: customRule?.id || null, decision: out.decision, errors: out.errors, model: out.model, latency_ms: out.latency_ms });
 }
 
 async function incident(env, id) {

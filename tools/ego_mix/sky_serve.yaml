@@ -22,8 +22,9 @@ run: |
   set -e
   export PATH="$HOME/.local/bin:$PATH"; command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
   W=$HOME/work; mkdir -p $W; uv venv $W/venv --python 3.12 -q --allow-existing
-  uv pip install -q --python $W/venv/bin/python torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128
+  uv pip install -q --python $W/venv/bin/python torch==2.9.1 torchvision --index-url https://download.pytorch.org/whl/cu128
   uv pip install -q --python $W/venv/bin/python transformers==5.19.0 peft==0.21.2 accelerate safetensors huggingface_hub hf_xet
+  uv pip install -q --python $W/venv/bin/python cvcuda-cu12 nvidia-nvimgcodec-cu12 torch-tensorrt tensorrt --extra-index-url https://pypi.nvidia.com || true
   HF_XET_HIGH_PERFORMANCE=1 $W/venv/bin/python -c "
   import os; from huggingface_hub import snapshot_download
   snapshot_download(os.environ['MODEL'], local_dir='$W/model', allow_patterns=['*.json', '*.safetensors', '*.jinja'])

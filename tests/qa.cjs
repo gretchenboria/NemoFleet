@@ -49,7 +49,7 @@ for (const f of ['site/assets/anim.js', 'site/build.cjs', 'docs/build_doc_pdfs.c
 try { new vm.Script(fs.readFileSync(path.join(ROOT, 'functions/api/[[path]].js'), 'utf8').replace(/^export /m, ''), { filename: 'api' }); check('JS parses: functions/api/[[path]].js', true); }
 catch (e) { check('JS parses: functions/api/[[path]].js', false, e.message); }
 check('wrangler.jsonc binds MEMORY (D1), TAGS (KV), RUNS (R2) and publishes site/dist', (() => { const w = fs.readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'); return /"MEMORY"/.test(w) && /"TAGS"/.test(w) && /"RUNS"/.test(w) && /"site\/dist"/.test(w); })());
-for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py', 'tools/ego_mix/serve.py', 'tools/ego_mix/fetch_magni_full.py', 'tools/night_shift/publish.py']) {
+for (const f of ['docs/build_architecture_pdf.py', 'docs/build_countercurrent_pdf.py', 'tools/ego_mix/adapt_bag.py', 'tools/ego_mix/adapt_magni.py', 'tools/ego_mix/baseline.py', 'tools/ego_mix/adapt_waymo.py', 'tools/ego_mix/train.py', 'tools/ego_mix/score.py', 'tools/ego_mix/headroom.py', 'tools/ego_mix/adapt_smartspaces.py', 'tools/ego_mix/cuda_x_pipeline.py', 'tools/ego_mix/serve.py', 'tools/ego_mix/fetch_magni_full.py', 'tools/night_shift/publish.py']) {
   try { execFileSync('python3', ['-c', `import ast,sys; ast.parse(open(sys.argv[1]).read())`, path.join(ROOT, f)]); check(`Python parses: ${f}`, true); }
   catch (e) { check(`Python parses: ${f}`, false, String(e.stderr || e.message).slice(0, 200)); }
 }
@@ -246,13 +246,16 @@ const server = http.createServer((req, res) => {
       check('API autonomy: a measured target is stored per scene and returned in state; an unmeasured one is rejected; stated confidence and tau stay in force', au0?.target_error === null && auSet.ok && stA.autonomy.target_error === lvl.target_error && stA.autonomy.level.min_probability === lvl.min_probability && stA.autonomy.in_force === 'stated_confidence' &&
         stA.tau === stA.tau_default && /must be one of/.test(auBad.error || '') && (await get('state?scene=warehouse')).autonomy.target_error === null && stA.actions.some(a => a.type === 'set_autonomy' && a.source === 'operator'), JSON.stringify([au0, stA.autonomy, auBad]));
       // adapter registry: promote or hold; the tuned endpoint and the Token Factory are a local stub (no paid calls)
-      const MJ = path.join(DIST, 'config', 'models.json'), mjOrig = fs.readFileSync(MJ, 'utf8'), mj = JSON.parse(mjOrig), mjNone = JSON.stringify({ ...mj, reflex_tuned: { ...mj.reflex_tuned, base_url: '' } }), seenBy = { tuned: 0, inway: 0, responses: [] };
+      const MJ = path.join(DIST, 'config', 'models.json'), mjOrig = fs.readFileSync(MJ, 'utf8'), mj = JSON.parse(mjOrig), mjNone = JSON.stringify({ ...mj, reflex_tuned: { ...mj.reflex_tuned, base_url: '' } }), seenBy = { tuned: 0, inway: 0, vision: 0, responses: [] };
       const stubDecision = { actions: [{ type: 'proceed', robot: 'R09' }], confidence: 0.95, rationale: 'stub' };
       const stub = require('http').createServer((rq, rs) => { let b = ''; rq.on('data', c => b += c); rq.on('end', () => {
         const send = (code, o) => { rs.writeHead(code, { 'content-type': 'application/json' }); rs.end(JSON.stringify(o)); };
         if (rq.url === '/v1/chat/completions') {
+          const jb = JSON.parse(b);
+          if (jb.model === mj.perception) return send(200, { choices: [{ message: { content: JSON.stringify({ scene: 'Clear aisle.', hazards: [], person_present: false, path_clear: true, recommended_action: 'proceed', confidence: 0.95 }) } }], usage: { prompt_tokens: 10, completion_tokens: 5 } });
           if (rq.headers.authorization !== 'Bearer qa-stub-token' || /QA-FAIL/.test(b)) { seenBy.tuned++; return send(500, { error: 'stub failure' }); }
-          if (JSON.parse(b).task === 'in_way') { seenBy.inway++; return send(200, { object: 'in_way', score: /QA-INWAY-POS/.test(b) ? 1.5 : -3.5, probability: /QA-INWAY-POS/.test(b) ? 0.82 : 0.03, latency_ms: 4 }); }
+          if (jb.task === 'vision') { seenBy.vision++; const clr = /-clear$/.test(jb.frame || ''); return send(200, { object: 'cuda_x.vision', backend: 'cvcuda+tensorrt', floor_anomaly_score: clr ? 0.845 : 1.543, clear_corridor: clr, cvcuda_ms: 0.38, tensorrt_ms: 1.42, latency_ms: 1.8 }); }
+          if (jb.task === 'in_way') { seenBy.inway++; return send(200, { object: 'in_way', score: /QA-INWAY-POS/.test(b) ? 1.5 : -3.5, probability: /QA-INWAY-POS/.test(b) ? 0.82 : 0.03, latency_ms: 4 }); }
           seenBy.tuned++;
           return send(200, { choices: [{ message: { content: JSON.stringify(stubDecision, null, 2) } }], actions_probability: /QA-LOWP/.test(b) ? 0.01 : 0.999, latency_ms: 5, usage: { prompt_tokens: 10, completion_tokens: 5 } }); }
         if (rq.url === '/v1/responses') { seenBy.responses.push(JSON.parse(b).model); return send(200, { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(stubDecision) }] }], usage: { input_tokens: 1, output_tokens: 1 } }); }
@@ -280,6 +283,8 @@ const server = http.createServer((req, res) => {
         const iwNeg = (await postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'routine', text: 'QA-HIGH aisle clear.', tracks: 'EGO robot | QA-INWAY-NEG', run_id: 'qa-run' }))[1];
         const iwPos = (await postEv({ scene: 'datacenter', robot: 'R09', where: 'cold aisle 3', kind: 'routine', text: 'QA-HIGH aisle clear.', tracks: 'EGO robot | QA-INWAY-POS', run_id: 'qa-run' }))[1];
         check('pipeline: person-in-the-way trigger scores tracks against the calibrated threshold and escalates to Ultra when a person is in the way', iwNeg.in_way?.in_way === false && iwNeg.tier === 'nano' && iwPos.in_way?.in_way === true && iwPos.tier === 'ultra' && iwPos.gate === 'safety' && seenBy.inway === 2, JSON.stringify([iwNeg.in_way, iwPos.in_way, iwPos.tier]));
+        const cxClr = (await postEv({ scene: 'datacenter', robot: 'R07', where: 'cold aisle 3', kind: 'routine', text: 'QA-HIGH aisle clear.', frame: 'cam-r07-clear', run_id: 'qa-run' }))[1];
+        check('pipeline: CUDA-X (CV-CUDA + TensorRT) vision gate scores camera frame ROI and returns cvcuda_ms + tensorrt_ms telemetry', cxClr.cuda_x?.backend === 'cvcuda+tensorrt' && cxClr.cuda_x?.clear_corridor === true && cxClr.cuda_x?.cvcuda_ms === 0.38 && cxClr.cuda_x?.tensorrt_ms === 1.42 && seenBy.vision === 1, JSON.stringify(cxClr.cuda_x));
         const hold = await post('actions', { scene: 'datacenter', type: 'hold_adapter' }), stE = await get('state?scene=datacenter');
         check('API adapter: Hold stops serving and stated confidence is back in force', hold.ok && !stE.adapter.promoted && !stE.adapter.serving && stE.autonomy.in_force === 'stated_confidence' && stE.actions.some(a => a.type === 'hold_adapter'), JSON.stringify(stE.adapter));
       } finally { fs.writeFileSync(MJ, mjNone); stub.close(); await new Promise(r => setTimeout(r, 1500)); }

@@ -877,7 +877,7 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
       r.lastElementChild.appendChild(b);
     }
     if (tr?.viewpoints) {
-      const th = tr.threshold ? `<span class="sub">Calibrated score ≥ ${tr.threshold.score}: test recall ${pct1(tr.threshold.test_recall)} at ${pct1(tr.threshold.test_false_alarm_rate)} false alarms</span>` : '';
+      const th = tr.threshold ? `<span class="sub">Calibrated score ≥ ${tr.threshold.score}: test recall ${pct1(tr.threshold.test_recall)} at ${pct1(tr.threshold.test_false_alarm_rate)} false alarms · CUDA-X (CV-CUDA + TensorRT) corridor gate</span>` : '';
       row('Person in the way', tr.run, 'Recall ' + Object.entries(tr.viewpoints).map(([k, v]) => `${esc(k)} ${pct1(v.baseline_recall)} → ${pct1(v.tuned_recall)}`).join(' · ') + th, adState(a)).dataset.adapter = 'person';
     }
   }
@@ -887,7 +887,8 @@ dialog.ep .db { padding: 8px 16px 16px; overflow-x: auto; }
     const rep = (ST.night_shift || []).find(r => r.stage === 'replay'), met = rep ? parse(rep.metrics_json) : null, at = rep && (rep.finished_at || rep.started_at);
     const parts = [rep ? `<span title="Latest Night Shift replay where Ultra audited Nano's decisions"><b>Replay</b> ${esc(new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}${met ? ` · ${fmtInt(met.disagree ?? 0)} of ${fmtInt(met.rejudged ?? 0)} disagree` : ''}</span>` : '<span><b>Replay</b> none yet</span>'];
     if (NS?.distill?.test_tuned) parts.push(`<span title="Status of the fine-tuned Nano decision adapter for this site"><b>${esc(ST.adapter?.label || 'Decisions')}</b> ${esc(adState(ST.adapter).toLowerCase())}</span>`);
-    if (NS?.trigger?.viewpoints) parts.push(`<span title="Status of the ego-trajectory pedestrian collision adapter"><b>Person in the way</b> ${esc(adState(ST.adapter).toLowerCase())}</span>`);
+    if (NS?.trigger?.viewpoints) parts.push(`<span title="Status of the ego-trajectory pedestrian collision adapter + CUDA-X (CV-CUDA · TensorRT) corridor gate"><b>Person in the way</b> ${esc(adState(ST.adapter).toLowerCase())}</span>`);
+    parts.push(`<span title="NVIDIA CUDA-X CV-CUDA zero-copy corridor ROI crop + TensorRT anomaly pre-gate on H200"><b>CUDA-X</b> CV-CUDA · TensorRT</span>`);
     box.innerHTML = parts.join('');
   }
 

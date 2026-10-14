@@ -111,7 +111,10 @@ def main():
             assert abs(nat[emb][s]["positive_rate"] - nat[emb]["train"]["positive_rate"]) < 0.05, nat
     assert all(m["seq"].startswith("waymo-tr") for m in meta["train"] if m["embodiment"] == "vehicle")
     assert man["warnings"] == [] and man["shareable"] is False, man  # Waymo makes the set non-commercial
-    print("ego_mix selftest ok:", {s: v["n"] for s, v in man["splits"].items()})
+    import cuda_x_pipeline
+    cx = cuda_x_pipeline.selftest_all_frames()
+    assert len(cx) == 12 and sum(1 for r in cx if r["clear"]) == 3, cx
+    print("ego_mix selftest ok:", {s: v["n"] for s, v in man["splits"].items()}, f"cuda_x_frames={len(cx)}")
 
 
 if __name__ == "__main__":

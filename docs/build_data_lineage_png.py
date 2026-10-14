@@ -298,13 +298,14 @@ def build(out_path: Path):
 
     card(
         ax, 133.8, 43.5, 21.9, 29.7,
-        "Dual-LoRA Server",
+        "Dual-LoRA + CUDA-X",
         [
             "tools/ego_mix/serve.py",
             "sky_serve.yaml (1× H200)",
             "Base: Nemotron 3 Nano",
             "      30B-A3B-BF16",
-            "",
+            "• CUDA-X Vision Pre-Gate:",
+            "  CV-CUDA + TensorRT ROI",
             "• Adapter 1: decide",
             "  (decide-1/adapter)",
             "  + actions_probability",
@@ -313,7 +314,7 @@ def build(out_path: Path):
             "  + true/false logit gap",
             "• Fallback: Token Factory",
         ],
-        stripe=NV, badge_kind="live", title_size=9.2, line_size=7.4,
+        stripe=NV, badge_kind="live", title_size=9.2, line_size=7.2,
     )
 
     card(
