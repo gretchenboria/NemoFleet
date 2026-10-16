@@ -53,6 +53,8 @@ p { margin: 0; max-width: 68ch; }
 .wordmark b { font-weight: 600; } .wordmark span { font-weight: 400; }
 .wordmark i { display: block; height: 1.5px; background: linear-gradient(90deg, var(--cold), var(--heat)); }
 .wordmark i + i { background: linear-gradient(90deg, var(--heat), var(--cold)); }
+.wordmark { grid-template-columns: 30px max-content; justify-content: start; justify-self: start; column-gap: 9px; }
+.wordmark .logo { grid-row: 1 / span 3; width: 30px; height: 30px; align-self: center; }
 .lanes { height: 7px; position: relative; }
 .lanes::before, .lanes::after { content: ""; position: absolute; left: 0; right: 0; height: 1.5px; }
 .lanes::before { top: 0; background: linear-gradient(90deg, var(--cold), var(--heat)); }

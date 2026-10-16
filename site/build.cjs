@@ -37,13 +37,13 @@ function layout(file, title, desc, body, extra = '') {
 <link rel="stylesheet" href="assets/site.css"></head>
 <body>
 <nav class="nav" aria-label="Main"><div class="wrap">
-  <a class="wordmark" href="index.html" aria-label="NemoFleet home"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
+  <a class="wordmark" href="index.html" aria-label="NemoFleet home"><img class="logo" src="assets/img/logo-mark.png" alt="" width="30" height="30"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
   <ul>${nav}</ul>
   <a class="gh" href="https://github.com/gretchenboria/NemoFleet" target="_blank" rel="noopener">${GH_ICON}GitHub ↗</a>
 </div></nav>
 <main>${body}</main>
 <footer class="foot"><div class="overlay-img" aria-hidden="true"></div><div class="wrap">
-  <a class="wordmark" href="index.html"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
+  <a class="wordmark" href="index.html"><img class="logo" src="assets/img/logo-mark.png" alt="" width="30" height="30"><span><b>Nemo</b><span>Fleet</span></span><i></i><i></i></a>
   <p class="small">Built for the Nebius × NVIDIA Global AI Hackathon, Physical AI track. NVIDIA Nemotron on Nebius Token Factory. Every number in the console comes from a real model call.</p>
   <p class="small mono">The edge lives it once. Nebius lives it hundreds of times.</p>
 </div></footer>
