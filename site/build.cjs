@@ -21,8 +21,7 @@ const PDFS = [
 PDFS.forEach(([f]) => fs.copyFileSync(path.join(ROOT, 'docs', f), path.join(DIST, 'docs', f)));
 fs.copyFileSync(path.join(ROOT, 'docs', 'NemoFleet-Peer-Learning-Explainer.mp4'), path.join(DIST, 'assets', 'nemofleet-explainer.mp4'));
 
-const FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#0D110E"/><g transform="translate(6 6) scale(.88)"><defs><linearGradient id="fv" gradientUnits="userSpaceOnUse" x1="50" y1="95" x2="50" y2="6"><stop offset="0" stop-color="#C4303A"/><stop offset=".2" stop-color="#D9622B"/><stop offset=".38" stop-color="#76B900"/><stop offset=".52" stop-color="#0E8579"/><stop offset=".68" stop-color="#3A6EA5"/><stop offset="1" stop-color="#2F6FD1"/></linearGradient></defs><g transform="translate(-2 30) scale(0.62) rotate(-12 50 50)"><path d="M46 93 C40 80 25 63 14 37 Q9 27 13.5 24 Q19 22 21.5 31 Q32 58 45.5 22 Q47 8 50 7.5 Q53 8 54.5 22 Q68 58 78.5 31 Q81 22 86.5 24 Q91 27 86 37 C75 63 60 80 54 93 Q50 97 46 93 Z" fill="url(#fv)"/></g><g transform="translate(40 2) scale(0.62) rotate(12 50 50)"><path d="M46 93 C40 80 25 63 14 37 Q9 27 13.5 24 Q19 22 21.5 31 Q32 58 45.5 22 Q47 8 50 7.5 Q53 8 54.5 22 Q68 58 78.5 31 Q81 22 86.5 24 Q91 27 86 37 C75 63 60 80 54 93 Q50 97 46 93 Z" fill="url(#fv)"/></g></g></svg>');
+const FAVICON = 'assets/img/favicon-64.png';
 const GH_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" style="vertical-align:-2px;margin-right:5px"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>';
 const NAV = [['index.html', 'Console'], ['overview.html', 'Overview'], ['video.html', 'Video'], ['docs.html', 'Docs']];
 
@@ -32,7 +31,7 @@ function layout(file, title, desc, body, extra = '') {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${title}</title><meta name="description" content="${desc}">
 <meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="assets/img/video-poster.jpg">
-<link rel="icon" href="${FAVICON}">
+<link rel="icon" type="image/png" href="${FAVICON}"><link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="assets/site.css"></head>
@@ -81,7 +80,7 @@ write('docs.html', layout('docs.html', 'NemoFleet Docs', 'Architecture, implemen
 
 // console (serves as both the root landing page index.html and console.html)
 const consoleBody = fs.readFileSync(path.join(SRC, 'console.body.html'), 'utf8');
-const consoleHtml = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="NemoFleet Ops Console: live robot fleet command, spatial memory map, and NVIDIA Nemotron + CUDA-X telemetry."><link rel="icon" href="${FAVICON}"><style>body{margin:0}</style></head><body>\n${consoleBody}\n</body></html>\n`;
+const consoleHtml = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="NemoFleet Ops Console: live robot fleet command, spatial memory map, and NVIDIA Nemotron + CUDA-X telemetry."><link rel="icon" type="image/png" href="${FAVICON}"><link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png"><style>body{margin:0}</style></head><body>\n${consoleBody}\n</body></html>\n`;
 write('index.html', consoleHtml);
 write('console.html', consoleHtml);
 
